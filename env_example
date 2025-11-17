@@ -1,0 +1,67 @@
+# Resume Tailor Crew - Environment Configuration Template
+# Copy this file to .env and fill in your actual values
+# NEVER commit .env file with real secrets to version control
+
+# ============================================================================
+# LLM Provider Configuration
+# ============================================================================
+
+# OpenAI Configuration (if using OpenAI models)
+OPENAI_API_KEY=sk-your-openai-api-key-here
+OPENAI_MODEL=gpt-4
+
+# Anthropic Configuration (if using Claude models)
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+ANTHROPIC_MODEL=claude-opus
+
+# Google/Gemini Configuration (if using Gemini models)
+GOOGLE_API_KEY=your-google-api-key-here
+GEMINI_MODEL=gemini-2.0-flash-exp
+
+# Alternative LLM Provider (Ollama for local models)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama2
+
+# ============================================================================
+# Application Configuration
+# ============================================================================
+
+# Environment: development, staging, production
+ENVIRONMENT=development
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+
+# Resume Tailoring Configuration
+MAX_RESUME_ITERATIONS=3
+QUALITY_THRESHOLD=0.8
+ATS_KEYWORD_DENSITY_THRESHOLD=0.05
+
+# ============================================================================
+# Optional: External Services
+# ============================================================================
+
+# Web Search (if using SerperDevTool for research)
+SERPER_API_KEY=your-serper-api-key-here
+
+# Database (if implementing persistent storage)
+DATABASE_URL=postgresql://user:password@localhost:5432/resume_tailor
+
+# Cache Configuration (Redis)
+REDIS_URL=redis://localhost:6379/0
+CACHE_TTL_SECONDS=3600
+
+# ============================================================================
+# Development / Testing
+# ============================================================================
+
+# Unit test flag
+TEST_MODE=false
+
+# Mock LLM responses (for testing without API calls)
+USE_MOCK_LLM=false
+
+# Verbose logging for debugging
+DEBUG=false
+

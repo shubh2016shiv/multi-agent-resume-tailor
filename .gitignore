@@ -42,3 +42,8 @@ output/
 results/
 temp/
 tmp/
+
+# Obsolete files/directories (matches at any depth)
+**/*_OBSELETE/
+**/*_OBSELETE.py
+**/*_OBSELETE

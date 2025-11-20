@@ -1,0 +1,271 @@
+# ==============================================================================
+# TASK CONFIGURATION
+# ------------------------------------------------------------------------------
+# This file defines the 8 sequential tasks for the Resume Tailor Crew.
+# Each task has a clear description of what the assigned agent should do and
+# a definition of the "expected_output" which serves as its goal.
+#
+# WHY YAML?
+# - Clarity: Task definitions are centralized and easy to read.
+# - Maintainability: You can change task descriptions or expected outputs
+#   without modifying the core Python logic.
+# - Context Management: The `context` key explicitly defines the data flow
+#   and dependencies between tasks.
+# ==============================================================================
+
+# ============================================================================
+# PHASE 1: DATA EXTRACTION & ANALYSIS (Parallel Tasks)
+# ----------------------------------------------------------------------------
+# These initial tasks can run in parallel as they have no dependencies on
+# each other. They focus on parsing and structuring the input documents.
+# ============================================================================
+
+analyze_job_description_task:
+  # A detailed description of the agent's objective for this task.
+  # It provides step-by-step instructions for the LLM.
+  description: >
+    Analyze the provided job description file to extract and structure all relevant information.
+    Your task is to:
+    1. Read and parse the job description file from the path provided in inputs.
+    2. Extract the job title, company name, and identify the seniority level.
+    3. Identify all requirements and qualifications, categorizing each as:
+       - Must-have (e.g., required, mandatory, essential)
+       - Should-have (e.g., preferred, desired)
+       - Nice-to-have (e.g., bonus, plus)
+    4. Extract specific skills mentioned, paying close attention to technical skills,
+       required years of experience, and necessary certifications.
+    5. Identify key responsibilities and what success looks like in the role.
+    6. Extract company culture indicators from the language and tone used.
+    7. Compile a comprehensive list of ATS keywords that are critical for the resume.
+    Use the `job_analyzer` tool to parse the file, but enhance the analysis with your
+    expertise in reading between the lines to identify implicit requirements.
+    Output a structured `JobDescription` model with your complete analysis.
+  
+  # Defines the success criteria for the task. The agent will work until its
+  # output matches this description of a completed task.
+  expected_output: >
+    A comprehensive JSON object representing a `JobDescription`. This object must include:
+    - Job title and company name.
+    - The detected seniority level.
+    - A categorized list of requirements (at least 20 items with importance levels).
+    - A list of must-have keywords for ATS optimization.
+    - A breakdown of key responsibilities.
+    - Insights into the company culture.
+    The output must be a valid JSON that conforms to the `JobDescription` model structure.
+  
+  # Specifies which agent is responsible for this task.
+  agent: job_description_analyst
+  
+  # Defines where the output of this task will be saved.
+  output_file: analysis/job_analysis.json
+
+extract_resume_content_task:
+  description: >
+    Extract and structure the candidate's resume information using LLM-based extraction.
+    Your task is to:
+    1. Use the `resume_extractor` tool to load and convert the resume file into clean Markdown.
+    2. Analyze the Markdown content and extract all information into a structured `Resume` model, including:
+       - Personal information (name, email, phone, location).
+       - The professional summary or objective.
+       - All work experience entries with job titles, companies, dates, descriptions,
+         quantifiable achievements, and skills used in each role.
+       - The education section with degrees, institutions, and graduation years.
+       - The skills section, categorized into technical, soft, and domain-specific skills.
+    3. Identify patterns of career growth and areas of deep expertise.
+    4. Calculate the total years of professional experience.
+    5. Ensure the accuracy and completeness of all extracted data.
+    The `resume_extractor` tool handles PDF, DOCX, and text files. You will parse the
+    clean Markdown it returns to populate the `Resume` model accurately.
+    Output a structured `Resume` model with the complete career history.
+  expected_output: >
+    A comprehensive JSON object representing a `Resume`. This object must include:
+    - Complete personal information.
+    - The professional summary.
+    - All work experiences (at least 3 entries) with detailed achievements.
+    - A full education history.
+    - A categorized list of skills (at least 20 skills).
+    - A calculation of the total years of experience.
+    The output must be a valid JSON that conforms to the `Resume` model structure.
+  agent: resume_content_extractor
+  output_file: analysis/resume_extraction.json
+
+# ============================================================================
+# PHASE 2: STRATEGIC ANALYSIS
+# ----------------------------------------------------------------------------
+# This task depends on the outputs of Phase 1 to create the tailoring strategy.
+# ============================================================================
+
+create_alignment_strategy_task:
+  description: >
+    Create a comprehensive strategy for aligning the resume with the job requirements.
+    Your task is to:
+    1. Compare the extracted job requirements against the candidate's experience and skills.
+    2. Identify all skill matches, categorizing them as direct, transferable, or implicit.
+    3. Calculate a match percentage for each requirement.
+    4. Identify all skill gaps, assessing whether they are deal-breakers or addressable.
+    5. Create strategic recommendations on which experiences to emphasize, how to reframe
+       achievements, which skills to prioritize, and which keywords must be incorporated.
+    6. Develop content guidance for each section of the resume (summary, experience, skills).
+    7. Set a target keyword density and identify high-priority keywords for ATS optimization.
+    Be analytical but also creative in identifying matches. Many apparent gaps are simply
+    differences in terminology. Remain honest about true gaps and suggest how to address them
+    without fabrication. Output a complete `AlignmentStrategy` that will guide all subsequent
+    content generation agents.
+  expected_output: >
+    A detailed JSON object representing an `AlignmentStrategy`. This object must include:
+    - An overall fit percentage (0-100).
+    - A list of matched skills with quality scores.
+    - A list of skill gaps with suggestions for addressing each.
+    - A focus statement for the professional summary.
+    - A prioritized list of experiences to highlight.
+    - A skills prioritization strategy.
+    - A list of high-priority keywords (at least 15).
+    - Recommendations for reframing achievements and changing emphasis.
+    The output must contain specific, actionable guidance that content writers can follow directly
+    and conform to the `AlignmentStrategy` model structure.
+  
+  # This task depends on the completion of the two tasks above.
+  # The output of these tasks will be available in this task's context.
+  context:
+    - analyze_job_description_task
+    - extract_resume_content_task
+  agent: gap_alignment_strategist
+  output_file: analysis/alignment_strategy.json
+
+# ============================================================================
+# PHASE 3: CONTENT GENERATION
+# ----------------------------------------------------------------------------
+# These tasks generate the new, tailored content based on the strategy.
+# ============================================================================
+
+write_professional_summary_task:
+  description: >
+    Write a compelling professional summary tailored to the target job.
+    Your task is to:
+    1. Review the alignment strategy to understand the key points to emphasize.
+    2. Craft a 3-4 sentence summary that opens with years of experience and primary expertise.
+    3. Incorporate 2-3 high-priority keywords naturally.
+    4. Highlight 1-2 of the most impressive and relevant achievements.
+    5. Match the tone and formality of the job posting.
+    6. Ensure the summary is between 75-150 words, uses active voice, and avoids cliches.
+    This is often the only section recruiters read carefully, so make every word count.
+    Output the polished professional summary as clean text.
+  expected_output: >
+    A professional summary of 75-150 words that is concise, compelling, and tailored.
+    It must start with years of experience, naturally incorporate job-relevant keywords,
+    highlight impressive achievements, and match the job's tone. The final output should
+    be only the summary text, with no extra commentary.
+  context:
+    - create_alignment_strategy_task
+  agent: professional_summary_writer
+  output_file: content/professional_summary.txt
+
+optimize_experience_section_task:
+  description: >
+    Rewrite and optimize all experience entries to align with the target job.
+    Your task is to:
+    1. Review each experience entry from the original resume.
+    2. For each entry, reorder bullets by relevance to the target job.
+    3. Rewrite descriptions to incorporate job-relevant keywords naturally.
+    4. Reframe achievements to emphasize the most relevant aspects.
+    5. Quantify achievements wherever possible, using a Challenge-Action-Result (CAR) format.
+    6. Ensure each bullet starts with a strong action verb (e.g., "Led", "Architected", "Increased").
+    Never fabricate job duties or inflate scope. Your role is to present the actual experience
+    in its most compelling and relevant light. Output the complete rewritten experience section.
+  expected_output: >
+    A complete experience section as a JSON array of experience objects. Each object should contain:
+    - The original job title, company, and dates.
+    - 3-6 optimized achievement bullets that start with strong action verbs, include
+      quantifiable metrics, incorporate keywords, and emphasize impact over activities.
+    The entire section must demonstrate a clear fit for the target role.
+  context:
+    - create_alignment_strategy_task
+    - extract_resume_content_task
+  agent: experience_section_optimizer
+  output_file: content/optimized_experience.json
+
+optimize_skills_section_task:
+  description: >
+    Reorder and optimize the skills section for maximum ATS matching and relevance.
+    Your task is to:
+    1. Review all skills from the original resume and the job description.
+    2. Reorder skills strategically: must-have skills first, then should-have, then nice-to-have.
+    3. Use the exact terminology from the job posting where accurate.
+    4. Group skills logically (e.g., Technical Skills, Programming Languages, Tools & Platforms).
+    5. Ensure every skill listed is verifiable from the experience section.
+    Never add skills the candidate doesn't possess. Your output directly impacts the ATS matching score.
+  expected_output: >
+    An optimized skills section as a JSON object with categorized skill lists. For example:
+    {
+      "technical_skills": ["Prioritized", "List", "Of", "Technical", "Skills"],
+      "programming_languages": ["Languages", "In", "Priority", "Order"],
+      "tools_platforms": ["Tools", "And", "Platforms"]
+    }
+    Each category must list skills in order of relevance to the job posting and use exact
+    terminology where applicable.
+  context:
+    - create_alignment_strategy_task
+    - extract_resume_content_task
+  agent: skills_section_strategist
+  output_file: content/optimized_skills.json
+
+# ============================================================================
+# PHASE 4: QUALITY ASSURANCE
+# ----------------------------------------------------------------------------
+# These final tasks validate the generated resume against all requirements.
+# ============================================================================
+
+ats_optimization_task:
+  description: >
+    Validate and optimize the complete assembled resume for ATS compatibility.
+    Your task is to:
+    1. Assemble all content components (summary, experience, skills, education).
+    2. Verify that all must-have keywords from the job posting appear at least once.
+    3. Check that keyword density is optimal (2-5% overall) and not stuffed.
+    4. Validate formatting for ATS parsing (no tables, columns, or complex layouts).
+    5. Ensure standard section headers are used (e.g., "Experience", "Skills", "Education").
+    6. Use the `document_formatter` tool to generate the final Markdown and JSON outputs.
+    Your goal is to ensure this resume passes automated screening to reach a human reviewer.
+  expected_output: >
+    An ATS validation report as a JSON object containing:
+    - `ats_compatible`: a boolean indicating success.
+    - `keyword_match_score`: percentage of must-have keywords present.
+    - `formatting_issues`: a list of any detected issues.
+    - `recommendations`: specific fixes needed if not compatible.
+    - `file_paths`: paths to the generated markdown and json files.
+    If `ats_compatible` is false, provide actionable fixes.
+  context:
+    - write_professional_summary_task
+    - optimize_experience_section_task
+    - optimize_skills_section_task
+    - extract_resume_content_task
+  agent: ats_optimization_specialist
+  output_file: validation/ats_report.json
+
+quality_assurance_task:
+  description: >
+    Conduct the final comprehensive quality review of the tailored resume.
+    Your task is to:
+    1. Review the complete resume for accuracy, ensuring no exaggerations or false claims.
+    2. Check for internal consistency between the summary, experience, and skills sections.
+    3. Validate writing quality for grammar, spelling, and professional tone.
+    4. Verify strategic alignment, ensuring all critical job requirements are addressed.
+    5. Confirm the truthfulness of all claims against the original resume.
+    You are the final gatekeeper. Be thorough, critical, and fair.
+  expected_output: >
+    A comprehensive quality assurance report as a JSON object containing:
+    - `approved`: a boolean indicating the final decision.
+    - `overall_quality_score`: a 0-100 rating.
+    - Detailed checks for accuracy, consistency, writing quality, and strategic alignment.
+    - `final_recommendation`: "APPROVED FOR SUBMISSION" or "REQUIRES CORRECTIONS".
+    - `corrections_needed`: a specific, prioritized list of corrections if not approved.
+    This is the final validation before the resume is considered complete.
+  context:
+    - ats_optimization_task
+    - write_professional_summary_task
+    - optimize_experience_section_task
+    - optimize_skills_section_task
+    - extract_resume_content_task
+    - create_alignment_strategy_task
+  agent: quality_assurance_reviewer
+  output_file: validation/final_qa_report.json

@@ -1,0 +1,132 @@
+# ==============================================================================
+# RUNTIME SETTINGS
+# ------------------------------------------------------------------------------
+# This file contains global runtime configurations for the application.
+# It allows for easy tuning of system behavior without changing the code.
+#
+# WHY YAML for settings?
+# - Environment Separation: You can have different settings for `development`,
+#   `staging`, and `production`.
+# - Tunability: Easily adjust parameters like LLM temperature, retry limits,
+#   or quality thresholds.
+# - Centralization: All key settings are in one place.
+#
+# HIERARCHY:
+# 1. Default values will be set in the Pydantic models in `src/core/config.py`.
+# 2. These values are overridden by this `settings.yaml` file.
+# 3. These values are further overridden by environment variables (e.g., from a .env file).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Application Settings
+# ------------------------------------------------------------------------------
+# General settings that control the application's environment and behavior.
+# ------------------------------------------------------------------------------
+application:
+  # The environment the application is running in.
+  # Affects logging levels, debugging features, and other behaviors.
+  # Options: "development", "staging", "production"
+  environment: "development"
+
+  # Enable or disable debug mode. When true, logging is more verbose.
+  debug: true
+
+  # Enable or disable feature flags for experimental functionality.
+  feature_flags:
+    enable_cache: true
+    enable_web_search: false
+    enable_human_in_the_loop: false
+
+# ------------------------------------------------------------------------------
+# LLM (Large Language Model) Configuration
+# ------------------------------------------------------------------------------
+# Default settings for all LLM interactions. These can be overridden on a
+# per-agent basis in `agents.yaml`.
+# ------------------------------------------------------------------------------
+llm:
+  # Default LLM provider.
+  # Options: "openai", "anthropic", "ollama", "google"
+  provider: "openai"
+
+  # Default model to use for agents that don't specify one.
+  # Examples: "gpt-4", "gpt-4-turbo-preview", "claude-3-opus-20240229"
+  model: "gpt-4"
+
+  # Default temperature for LLM responses.
+  # Lower values (e.g., 0.2) are more deterministic and factual.
+  # Higher values (e.g., 0.7) are more creative.
+  temperature: 0.3
+
+  # Default timeout in seconds for API requests to the LLM.
+  timeout: 120
+
+  # Default number of retries for failed LLM API calls.
+  max_retries: 3
+
+  # Specific settings for Google Gemini models.
+  google:
+    # Model to use for agents configured with the 'google' provider.
+    model: "gemini-pro"
+    # Note: API key should be set via environment variable (GEMINI_API_KEY).
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+# Controls how logging is handled across the application.
+# ------------------------------------------------------------------------------
+logging:
+  # Minimum level of logs to record.
+  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+  level: "INFO"
+
+  # Format for log output.
+  # "json" is recommended for production for easy parsing by log aggregators.
+  # "text" is better for human readability during development.
+  format: "text"
+
+  # Path to the log file. If set to null, logs will only go to the console.
+  log_file: "logs/resume_tailor.log"
+
+# ------------------------------------------------------------------------------
+# Resume Tailoring Workflow Configuration
+# ------------------------------------------------------------------------------
+# Parameters that control the logic of the resume tailoring process itself.
+# ------------------------------------------------------------------------------
+workflow:
+  # The maximum number of refinement iterations the orchestrator will perform
+  # if the quality threshold is not met.
+  max_iterations: 3
+
+  # The minimum quality score (out of 100) that a tailored resume must achieve
+  # to be considered successful. If this threshold is not met after
+  # `max_iterations`, the process will stop.
+  quality_threshold: 80.0
+
+  # Specific thresholds for the Quality Assurance agent's evaluation.
+  # These are expert-defined values that can be tuned.
+  quality_metrics:
+    # Minimum required keyword density for a resume to be considered ATS-friendly.
+    ats_keyword_density_threshold: 0.05
+
+    # Professional summary length constraints.
+    min_professional_summary_length: 100
+    max_professional_summary_length: 500
+
+    # Constraints on the number of bullet points per experience entry.
+    min_bullet_points_per_experience: 3
+    max_bullet_points_per_experience: 8
+
+# ------------------------------------------------------------------------------
+# External Services
+# ------------------------------------------------------------------------------
+# Configuration for any external services the application integrates with.
+# API keys for these services should always be set via environment variables.
+# ------------------------------------------------------------------------------
+services:
+  # URL for a Redis instance, used for caching or other features.
+  # Example: "redis://localhost:6379/0"
+  redis_url: null
+
+  # URL for a database connection.
+  # Example: "sqlite:///./resume_tailor.db"
+  database_url: null

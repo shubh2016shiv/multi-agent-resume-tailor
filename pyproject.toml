@@ -67,7 +67,10 @@ llm = [
 ]
 
 document-processing = [
-    "mineru>=0.1.0",
+    "docling>=1.0.0",        # Tier 1: Advanced PDF parsing (multi-column, tables)
+    "mineru>=0.1.0",         # Tier 2: Fallback PDF/DOCX processor
+    "PyPDF2>=3.0.0",         # Tier 3: Basic PDF text extraction
+    "python-docx>=1.0.0",    # Tier 3: Basic DOCX text extraction
 ]
 
 docs = [

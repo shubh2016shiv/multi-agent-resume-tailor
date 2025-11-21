@@ -217,7 +217,7 @@ skills_section_strategist:
     the job posting first, then should-haves, then additional relevant skills that strengthen
     candidacy. You are meticulous about terminology. You never add skills not evidenced in
     experience, but you ensure every verifiable skill is captured and prioritized appropriately.
-  llm: openai/gpt-4
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.4
   verbose: true
 

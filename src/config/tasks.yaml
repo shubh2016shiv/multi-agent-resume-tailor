@@ -390,17 +390,162 @@ optimize_skills_section_task:
     2. Reorder skills strategically: must-have skills first, then should-have, then nice-to-have.
     3. Use the exact terminology from the job posting where accurate.
     4. Group skills logically (e.g., Technical Skills, Programming Languages, Tools & Platforms).
-    5. Ensure every skill listed is verifiable from the experience section.
-    Never add skills the candidate doesn't possess. Your output directly impacts the ATS matching score.
+    5. Strategically add domain-inferred skills while maintaining complete truthfulness.
+    6. Remove outdated or irrelevant skills (e.g., COBOL, Visual Basic).
+
+    CRITICAL TRUTHFULNESS RULES - WHAT YOU CAN AND CANNOT ADD:
+
+    ALLOWED (Domain-Based Inference):
+    - If candidate worked on "Generative AI" and job requires "LangChain", "Claude", or "OpenAI":
+      ADD these as they're standard tools in the Generative AI domain.
+    - If candidate used "Python for ML" and job requires "scikit-learn":
+      ADD as it's fundamental to the ML ecosystem.
+    - If candidate worked with "AWS EC2" and job requires "AWS Lambda":
+      ADD as both are AWS services (cloud platform expertise transfer).
+
+    FORBIDDEN (Cannot Add):
+    - MLOps if candidate has no MLOps experience (too specific, not inferable).
+    - Kubernetes if candidate only worked on frontend development.
+    - Terraform if candidate has no Infrastructure as Code experience.
+    - Any skill that requires specific knowledge not evidenced in experience.
+
+    DOMAIN EXPERTISE EXAMPLES:
+    - Generative AI domain: LangChain, Claude, OpenAI, Hugging Face, Transformers
+    - ML/AI domain: scikit-learn, TensorFlow, PyTorch, pandas, NumPy
+    - Cloud platforms: AWS services, Azure services, GCP services
+    - Web frameworks: React ecosystem, Vue ecosystem, Angular ecosystem
+    Optimize the skills section to maximize ATS matching and relevance while maintaining 
+    complete truthfulness. Use AI intelligence to analyze the candidate's domain expertise 
+    and infer related skills that can be truthfully added.
+
+    YOUR WORKFLOW:
+    1. ANALYZE candidate's experience to understand their domain expertise
+    2. IDENTIFY missing required skills from job description
+    3. INFER related skills based on domain knowledge (use AI reasoning, not hardcoded rules)
+    4. VALIDATE each inference against actual experience evidence
+    5. PRIORITIZE skills: must-have → should-have → nice-to-have
+    6. CATEGORIZE skills using domain-appropriate categories
+    7. REMOVE outdated or irrelevant skills
+
+    TRUTHFULNESS FRAMEWORK (CRITICAL):
+    
+    ASK YOURSELF FOR EACH MISSING SKILL:
+    - Is this skill commonly used in the candidate's demonstrated domain?
+    - Can I find evidence in their experience supporting this inference?
+    - Would an expert in this field agree this inference is reasonable?
+    - Is there a logical connection between their experience and this skill?
+    
+    EXAMPLES OF VALID INFERENCES (Across Domains):
+    
+    SOFTWARE ENGINEERING:
+    ✓ Experience: "Built AI chatbots" + Job needs: "LangChain"
+      → ADD: "LangChain" (standard tool in AI chatbot domain)
+    ✓ Experience: "React development" + Job needs: "JSX, React Hooks"
+      → ADD: Both are core React ecosystem skills
+    
+    MARKETING:
+    ✓ Experience: "SEO campaigns" + Job needs: "Google Analytics"
+      → ADD: "Google Analytics" (fundamental SEO tool)
+    ✓ Experience: "Email marketing" + Job needs: "A/B testing"
+      → ADD: "A/B testing" (standard practice in email marketing)
+    
+    LEGAL:
+    ✓ Experience: "Contract negotiation" + Job needs: "Legal drafting"
+      → ADD: "Legal drafting" (integral to contract work)
+    ✓ Experience: "Litigation" + Job needs: "Discovery management"
+      → ADD: "Discovery management" (core litigation skill)
+    
+    HEALTHCARE:
+    ✓ Experience: "Patient care coordination" + Job needs: "EMR systems"
+      → ADD: "EMR systems" (standard in modern patient care)
+    ✓ Experience: "Clinical documentation" + Job needs: "ICD-10 coding"
+      → ADD: "ICD-10 coding" (fundamental documentation skill)
+    
+    EXAMPLES OF INVALID INFERENCES:
+    ✗ Experience: "Basic Python scripts" + Job needs: "MLOps"
+      → REJECT: MLOps requires specialized expertise, not inferable from basic Python
+    ✗ Experience: "Frontend development" + Job needs: "Kubernetes"
+      → REJECT: Kubernetes is infrastructure, unrelated to frontend work
+    ✗ Experience: "Marketing coordinator" + Job needs: "Data science"
+      → REJECT: Data science requires specialized training, not inferable from marketing
+    
+    VALIDATION REQUIREMENTS:
+    For EVERY skill you add:
+    1. Provide specific evidence from experience (quote actual text)
+    2. Explain the logical connection clearly
+    3. Rate your confidence (0-100%) and only add if ≥70%
+    4. Consider: Would a recruiter in this field accept this inference?
+    
+    SKILL PRIORITIZATION STRATEGY:
+    1. MUST-HAVE (from job): List first, use exact terminology
+    2. SHOULD-HAVE (from job): List second
+    3. DOMAIN STRENGTHS: Highlight candidate's core expertise
+    4. ADDITIONAL: Other relevant skills
+    5. LIMIT: Keep total to 15-25 skills for readability
+    
+    CATEGORIZATION GUIDELINES:
+    - Use domain-appropriate category names (not generic)
+    - Examples:
+      * Software: "Languages", "Frameworks", "Cloud Platforms", "DevOps Tools"
+      * Marketing: "Digital Marketing", "Analytics", "Content Creation", "Platforms"
+      * Legal: "Practice Areas", "Legal Research", "Documentation", "Systems"
+      * Healthcare: "Clinical Skills", "Systems", "Compliance", "Patient Care"
+    - Aim for 3-6 categories
+    - Group logically by how the industry thinks about skills
+
+    WHAT TO REMOVE:
+    - Truly outdated skills (e.g., "Windows XP", "Internet Explorer 6")
+    - Irrelevant skills for this role
+    - Duplicate/redundant skills (keep the most specific version)
+    - Skills not verifiable from experience
+    
+    ATS OPTIMIZATION:
+    - Use exact keywords from job posting where accurate
+    - Include variations (e.g., "ML" and "Machine Learning")
+    - Place highest-priority keywords in first category
+    - Ensure must-have skills are captured
+
   expected_output: >
-    An optimized skills section as a JSON object with categorized skill lists. For example:
+    A complete JSON object conforming to the OptimizedSkillsSection model:
     {
-      "technical_skills": ["Prioritized", "List", "Of", "Technical", "Skills"],
-      "programming_languages": ["Languages", "In", "Priority", "Order"],
-      "tools_platforms": ["Tools", "And", "Platforms"]
+      "optimized_skills": [
+        {
+          "skill_name": "Python",
+          "category": "Programming Languages",
+          "proficiency_level": "advanced",
+          "justification": "Core skill from 5 years experience",
+          "evidence": ["Built Python applications for data processing"]
+        }
+      ],
+      "skill_categories": {
+        "Programming Languages": ["Python", "JavaScript"],
+        "Cloud Platforms": ["AWS", "Docker"],
+        "AI & Machine Learning": ["LangChain", "scikit-learn"]
+      },
+      "added_skills": [
+        {
+          "skill_name": "LangChain",
+          "category": "AI Frameworks",
+          "proficiency_level": "intermediate",
+          "justification": "Inferred from Generative AI domain expertise. Candidate built AI chatbots and assistants, where LangChain is a standard framework.",
+          "evidence": ["Built AI chatbots", "Developed AI assistants"],
+          "confidence_score": 0.85
+        }
+      ],
+      "removed_skills": ["Visual Basic", "Internet Explorer"],
+      "optimization_notes": "Reordered skills to prioritize must-haves (Python, AWS). Added LangChain based on AI chatbot experience. Removed outdated skills. Categorized by industry standards.",
+      "ats_match_score": 87.5
     }
-    Each category must list skills in order of relevance to the job posting and use exact
-    terminology where applicable.
+
+    QUALITY CHECKLIST:
+    ✓ Must-have skills from job appear first
+    ✓ All added skills have evidence-based justifications
+    ✓ Categories are domain-appropriate (not generic)
+    ✓ Total skills: 15-25
+    ✓ ATS score calculated based on keyword matching
+    ✓ No fabricated skills (all verifiable from experience)
+    ✓ Removed skills have clear rationale
+
   context:
     - create_alignment_strategy_task
     - extract_resume_content_task

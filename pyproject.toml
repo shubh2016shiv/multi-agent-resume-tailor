@@ -43,6 +43,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0",
+    "structlog>=25.0.0",
     "tenacity>=8.2.0",
     "requests>=2.31.0",
 ]
@@ -84,8 +85,8 @@ Repository = "https://github.com/your-org/resume-tailor-crew"
 Documentation = "https://resume-tailor-crew.readthedocs.io"
 "Issue Tracker" = "https://github.com/your-org/resume-tailor-crew/issues"
 
-[tool.hatch.version]
-path = "src/resume_tailor_crew/__init__.py"
+[tool.hatch.build.targets.wheel]
+packages = ["src/agents", "src/config", "src/core", "src/data_models", "src/tools"]
 
 [tool.black]
 line-length = 100

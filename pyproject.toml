@@ -121,6 +121,7 @@ select = [
 ignore = [
     "E501",   # line too long (handled by ruff format)
     "C901",   # function is too complex
+    "B905",   # zip() without an explicit strict= parameter (Python 3.10+)
 ]
 
 [tool.ruff.format]

@@ -21,13 +21,12 @@ WHY THIS APPROACH?
   access in your IDE.
 """
 
-import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Literal, Type
+from typing import Any, Literal
 
 import yaml
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ==============================================================================
@@ -54,7 +53,7 @@ TASKS_YAML_PATH = SRC_ROOT / "config" / "tasks.yaml"
 # key part of the hierarchical loading strategy.
 
 
-def yaml_config_settings_source() -> Dict[str, Any]:
+def yaml_config_settings_source() -> dict[str, Any]:
     """
     A Pydantic settings source that loads variables from a YAML file.
     This function is designed to be used with Pydantic's `customise_sources`.
@@ -68,9 +67,9 @@ def yaml_config_settings_source() -> Dict[str, Any]:
         return {}  # Return empty dict if file doesn't exist
 
     try:
-        with open(SETTINGS_YAML_PATH, "r") as f:
+        with open(SETTINGS_YAML_PATH) as f:
             return yaml.safe_load(f)
-    except (yaml.YAMLError, IOError) as e:
+    except (OSError, yaml.YAMLError) as e:
         # In a real application, you'd want a logger here.
         print(f"Warning: Could not load {SETTINGS_YAML_PATH}. Error: {e}")
         return {}
@@ -195,7 +194,7 @@ class Settings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: Type[BaseSettings],
+        settings_cls: type[BaseSettings],
         init_settings,
         env_settings,
         dotenv_settings,
@@ -247,7 +246,7 @@ def get_agents_config() -> dict:
     """
     if not AGENTS_YAML_PATH.exists():
         raise FileNotFoundError(f"Agent configuration not found at: {AGENTS_YAML_PATH}")
-    with open(AGENTS_YAML_PATH, "r") as f:
+    with open(AGENTS_YAML_PATH) as f:
         return yaml.safe_load(f)
 
 
@@ -258,7 +257,7 @@ def get_tasks_config() -> dict:
     """
     if not TASKS_YAML_PATH.exists():
         raise FileNotFoundError(f"Task configuration not found at: {TASKS_YAML_PATH}")
-    with open(TASKS_YAML_PATH, "r") as f:
+    with open(TASKS_YAML_PATH) as f:
         return yaml.safe_load(f)
 
 

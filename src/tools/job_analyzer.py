@@ -29,6 +29,7 @@ except ImportError:
     # Fallback for when running this file directly for testing
     import sys
     from pathlib import Path
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from src.core.logger import get_logger
     from src.tools.document_converter import convert_document_to_markdown
@@ -57,7 +58,7 @@ def parse_job_description(file_path: str) -> str:
         str: A string containing the clean Markdown content extracted from the
              job description. If an error occurs, it returns a descriptive error
              message string.
-    
+
     Example:
         >>> job_markdown = parse_job_description("path/to/job_posting.docx")
         >>> if "ERROR:" not in job_markdown:
@@ -66,13 +67,15 @@ def parse_job_description(file_path: str) -> str:
         ...     print(f"Failed to parse job description: {job_markdown}")
     """
     logger.info(f"Starting job description parsing for file: {file_path}")
-    
+
     try:
         # Step 1: Use the document converter for robust file handling.
         markdown_content = convert_document_to_markdown(file_path)
-        
-        logger.info(f"Successfully converted job description to {len(markdown_content)} characters of Markdown.")
-        
+
+        logger.info(
+            f"Successfully converted job description to {len(markdown_content)} characters of Markdown."
+        )
+
         # Step 2: Return the clean Markdown for the agent's LLM to analyze.
         return markdown_content
 
@@ -80,19 +83,23 @@ def parse_job_description(file_path: str) -> str:
         error_message = f"ERROR: Job description file not found at path: {file_path}. {e}"
         logger.error(error_message)
         return error_message
-        
+
     except ValueError as e:
         error_message = f"ERROR: Unsupported file format for job description. {e}"
         logger.error(error_message)
         return error_message
-        
-    except IOError as e:
-        error_message = f"ERROR: Failed to read or process the job description file. It may be corrupted. {e}"
+
+    except OSError as e:
+        error_message = (
+            f"ERROR: Failed to read or process the job description file. It may be corrupted. {e}"
+        )
         logger.error(error_message)
         return error_message
-        
+
     except Exception as e:
         # Catch-all for any other unexpected errors.
-        error_message = f"ERROR: An unexpected error occurred while parsing the job description: {e}"
+        error_message = (
+            f"ERROR: An unexpected error occurred while parsing the job description: {e}"
+        )
         logger.error(error_message, exc_info=True)
         return error_message

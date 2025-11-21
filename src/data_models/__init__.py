@@ -20,34 +20,33 @@ This is a common practice in Python packages to improve the developer experience
 # from the `data_models` package.
 
 # From resume.py
-from .resume import (
-    Resume,
-    Experience,
-    Education,
-    Skill,
+# From evaluation.py
+from .evaluation import (
+    AccuracyMetrics,
+    ATSMetrics,
+    QualityReport,
+    RelevanceMetrics,
 )
 
 # From job.py
 from .job import (
     JobDescription,
-    JobRequirement,
     JobLevel,
+    JobRequirement,
     SkillImportance,
+)
+from .resume import (
+    Education,
+    Experience,
+    Resume,
+    Skill,
 )
 
 # From strategy.py
 from .strategy import (
     AlignmentStrategy,
-    SkillMatch,
     SkillGap,
-)
-
-# From evaluation.py
-from .evaluation import (
-    QualityReport,
-    AccuracyMetrics,
-    RelevanceMetrics,
-    ATSMetrics,
+    SkillMatch,
 )
 
 # The __all__ variable defines the public API of this package.
@@ -75,5 +74,3 @@ __all__ = [
     "RelevanceMetrics",
     "ATSMetrics",
 ]
-
-

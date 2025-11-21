@@ -34,12 +34,12 @@ jobs:
       - name: Code Quality Analysis
         run: |
           # Apply fixes and formatting with Ruff (replaces autoflake, pyupgrade, add-trailing-comma, black, isort)
-          ruff check --fix src/ examples/
+          uv run ruff check --fix src/ tests/
 
-          ruff format src/ examples/
+          uv run ruff format src/ tests/
 
           # Verify no remaining lint issues (replaces flake8 checks; use --output-format=github for annotations)
-          ruff check --output-format=github src/ examples/
+          uv run ruff check --output-format=github src/ tests/
 
       - name: Commit formatting changes
         if: github.event_name == 'pull_request'

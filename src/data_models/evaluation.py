@@ -17,6 +17,8 @@ WHY THESE MODELS?
   issues) provides a clear basis for the iterative refinement loop.
 """
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 # ==============================================================================
@@ -225,7 +227,7 @@ class QualityReport(BaseModel):
 
     # If the quality check failed, this field contains specific, actionable
     # feedback for the next iteration of the workflow.
-    feedback_for_improvement: str | None = Field(
+    feedback_for_improvement: Optional[str] = Field(
         None,
         description="If quality check failed, this provides specific, actionable feedback for the next iteration.",
         examples=[
@@ -260,3 +262,4 @@ class QualityReport(BaseModel):
                 "feedback_for_improvement": None,
             }
         }
+

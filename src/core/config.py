@@ -103,6 +103,89 @@ class LLMGoogleConfig(BaseModel):
     model: str = "gemini-pro"
 
 
+class LLMResilienceConfig(BaseModel):
+    """Resilience configuration for LLM API calls.
+    
+    This configuration controls retry logic, circuit breakers, rate limiting,
+    and timeout behavior for all LLM interactions. These settings help ensure
+    robust behavior when dealing with transient failures, API rate limits,
+    and service outages.
+    """
+
+    # Retry Configuration (using tenacity)
+    retry_max_attempts: int = 3
+    retry_initial_delay: float = 1.0  # seconds
+    retry_max_delay: float = 60.0  # seconds
+    retry_exponential_multiplier: float = 2.0
+
+    # Circuit Breaker Configuration (using pybreaker)
+    circuit_breaker_failure_threshold: int = 5  # failures before opening circuit
+    circuit_breaker_timeout: int = 60  # seconds before attempting half-open
+
+    # Rate Limiting Configuration (using ratelimit)
+    rate_limit_calls_per_minute: int = 60
+
+    # Timeout Configuration
+    timeout_seconds: int = 30
+
+
+class AgentDefaults(BaseModel):
+    """Default resilience settings for CrewAI agents.
+    
+    These are CrewAI's native resilience parameters that provide the first
+    layer of defense against failures. They work in conjunction with our
+    custom resiliency module (LLMResilienceConfig) to provide comprehensive
+    protection.
+    
+    Layer 1 (CrewAI Native - these settings):
+        - Quick retries at agent level
+        - Rate limiting to respect API quotas
+        - Execution timeouts to prevent runaway tasks
+        - Iteration limits to prevent infinite loops
+    
+    Layer 2 (Custom Module - LLMResilienceConfig):
+        - Circuit breaker for cascading failure prevention
+        - Exponential backoff with jitter
+        - Centralized observability and metrics
+    """
+
+    max_retry_limit: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum number of retries when agent encounters an error"
+    )
+    
+    max_rpm: int = Field(
+        default=60,
+        ge=1,
+        description="Maximum requests per minute to respect API rate limits"
+    )
+    
+    max_iter: int = Field(
+        default=15,
+        ge=1,
+        le=50,
+        description="Maximum iterations before forcing agent to provide best answer"
+    )
+    
+    max_execution_time: int = Field(
+        default=300,
+        ge=30,
+        description="Maximum execution time in seconds for a single task"
+    )
+    
+    respect_context_window: bool = Field(
+        default=True,
+        description="Auto-summarize context to prevent context limit errors"
+    )
+    
+    verbose: bool = Field(
+        default=True,
+        description="Enable detailed logging for debugging"
+    )
+
+
 class LLMConfig(BaseModel):
     """Default LLM settings for all agents."""
 
@@ -112,6 +195,8 @@ class LLMConfig(BaseModel):
     timeout: int = 120
     max_retries: int = 3
     google: LLMGoogleConfig = Field(default_factory=LLMGoogleConfig)
+    resilience: LLMResilienceConfig = Field(default_factory=LLMResilienceConfig)
+    agent_defaults: AgentDefaults = Field(default_factory=AgentDefaults)
 
 
 class LoggingConfig(BaseModel):

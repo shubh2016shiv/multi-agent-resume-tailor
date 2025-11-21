@@ -69,6 +69,27 @@ llm:
     model: "gemini-pro"
     # Note: API key should be set via environment variable (GEMINI_API_KEY).
 
+  # Resilience configuration for LLM API calls
+  resilience:
+    retry_max_attempts: 3
+    retry_initial_delay: 1.0
+    retry_max_delay: 60.0
+    retry_exponential_multiplier: 2.0
+    circuit_breaker_failure_threshold: 5
+    circuit_breaker_timeout: 60
+    rate_limit_calls_per_minute: 60
+    timeout_seconds: 30
+
+  # CrewAI Agent resilience defaults (Layer 1 defense)
+  # These are native CrewAI parameters applied to all agents
+  agent_defaults:
+    max_retry_limit: 3          # Retries when agent encounters error
+    max_rpm: 60                 # Max requests per minute (rate limiting)
+    max_iter: 15                # Max iterations before forcing best answer
+    max_execution_time: 300     # Max seconds per task (5 minutes)
+    respect_context_window: true # Auto-summarize to prevent context overflow
+    verbose: true               # Enable detailed logging
+
 # ------------------------------------------------------------------------------
 # Logging Configuration
 # ------------------------------------------------------------------------------

@@ -308,15 +308,74 @@ optimize_experience_section_task:
     CRITICAL: You MUST call evaluate_experience_bullets after generating bullets.
     CRITICAL: You MUST regenerate bullets if score < 85.
     CRITICAL: You MUST include iteration_history in your output.
+    
+    ════════════════════════════════════════════════════════════════════════════════
+    CRITICAL OUTPUT REQUIREMENT - FINAL BULLET POINTS DISPLAY
+    ════════════════════════════════════════════════════════════════════════════════
+    
+    AFTER your JSON output, you MUST ALWAYS add a human-readable section that clearly
+    displays the final optimized bullet points. This section MUST be titled exactly:
+    
+    === FINAL OPTIMIZED BULLET POINTS ===
+    
+    This section is REQUIRED and makes it easy for users to see the final results at a glance.
+    DO NOT skip this section. It must appear after your JSON output.
+    
+    Format for the FINAL BULLET POINTS section:
+    
+    === FINAL OPTIMIZED BULLET POINTS ===
+    
+    [Job Title] at [Company Name] ([Start Date] - [End Date or Present])
+    Final Quality Score: [Score]/100
+    
+    • [First optimized bullet point]
+    • [Second optimized bullet point]
+    • [Third optimized bullet point]
+    [Add more bullets as needed]
+    
+    [Repeat this format for EACH experience entry]
+    
+    Example:
+    
+    === FINAL OPTIMIZED BULLET POINTS ===
+    
+    Software Engineer at Test Company (Jan 2021 - Present)
+    Final Quality Score: 88/100
+    
+    • Architected microservices platform for 50M+ users using Kubernetes and Python, reducing infrastructure costs by 40%
+    • Led cross-functional team of 8 engineers using Agile methodologies, delivering $2M cost-saving automation initiative
+    • Engineered CI/CD pipeline using Docker and AWS, improving release frequency by 300%
+    
+    Senior Engineer at Tech Corp (Jan 2022 - Present)
+    Final Quality Score: 92/100
+    
+    • [Bullets for this entry...]
+    
+    ════════════════════════════════════════════════════════════════════════════════
+    REMEMBER: Your output must have BOTH:
+    1. JSON output (IterativeExperienceOptimization format)
+    2. === FINAL OPTIMIZED BULLET POINTS === section (human-readable)
+    ════════════════════════════════════════════════════════════════════════════════
 
     Never fabricate job duties or inflate scope. Your role is to present the actual experience
     in its most compelling and relevant light. Output the complete rewritten experience section.
   expected_output: >
-    A complete experience section as a JSON array of experience objects. Each object should contain:
-    - The original job title, company, and dates.
+    Your output MUST consist of TWO parts:
+    
+    PART 1: JSON output conforming to IterativeExperienceOptimization model containing:
+    - The original job title, company, and dates for each experience.
     - 3-6 optimized achievement bullets that start with strong action verbs, include
       quantifiable metrics, incorporate keywords, and emphasize impact over activities.
-    The entire section must demonstrate a clear fit for the target role.
+    - Complete iteration_history showing the improvement journey for each entry.
+    
+    PART 2: A human-readable section titled "=== FINAL OPTIMIZED BULLET POINTS ==="
+    that clearly displays the final optimized bullet points for each experience entry.
+    This section MUST appear after the JSON output and MUST show:
+    - Job title, company name, and date range for each experience
+    - Final quality score for each experience
+    - All final optimized bullet points in a clear, easy-to-read format
+    
+    The entire output must demonstrate a clear fit for the target role.
   context:
     - create_alignment_strategy_task
     - extract_resume_content_task

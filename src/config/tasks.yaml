@@ -141,20 +141,53 @@ create_alignment_strategy_task:
 write_professional_summary_task:
   description: >
     Write a compelling professional summary tailored to the target job.
-    Your task is to:
-    1. Review the alignment strategy to understand the key points to emphasize.
-    2. Craft a 3-4 sentence summary that opens with years of experience and primary expertise.
-    3. Incorporate 2-3 high-priority keywords naturally.
-    4. Highlight 1-2 of the most impressive and relevant achievements.
-    5. Match the tone and formality of the job posting.
-    6. Ensure the summary is between 75-150 words, uses active voice, and avoids cliches.
-    This is often the only section recruiters read carefully, so make every word count.
-    Output the polished professional summary as clean text.
+    Your task is to generate 4 distinct drafts using different strategic frameworks.
+    
+    IMPORTANT: You must output a valid JSON object directly. Do NOT attempt to use tools.
+    Perform all analysis and self-critique internally, then output the final structured result.
+    
+    Generate these 4 drafts:
+    
+    1. **Draft A (The Hook-Value-Future Framework)**:
+       - Sentence 1 (Hook): Lead with the most impressive fact/number.
+       - Sentences 2-3 (Value): Connect skills to outcomes ("Reduced X by Y%").
+       - Final Sentence (Future): Align with company mission/values.
+       
+    2. **Draft B (The Story Spine)**:
+       - Focus on the narrative arc: "Once upon a time... Until one day... And now..."
+       - Emphasize career evolution and the "why" behind the candidate's path.
+       
+    3. **Draft C (The Specialist/Keyword Camouflage)**:
+       - Maximize ATS keyword density but "camouflage" them within achievement contexts.
+       - Focus on deep technical specificity and hard skills.
+       
+    4. **Draft D (The Balanced Hybrid)**:
+       - The best balance of readability, impact, and ATS optimization.
+       
+    For each draft, internally perform:
+    - "Specificity Test": Ensure every claim is backed by a number, tech, or outcome.
+    - "Energy Audit": Ensure active voice and momentum.
+    - Self-critique: Note strengths/weaknesses and assign a confidence score (0-100).
+    
+    Then output the complete JSON structure with all 4 drafts and your recommendation.
   expected_output: >
-    A professional summary of 75-150 words that is concise, compelling, and tailored.
-    It must start with years of experience, naturally incorporate job-relevant keywords,
-    highlight impressive achievements, and match the job's tone. The final output should
-    be only the summary text, with no extra commentary.
+    A valid JSON object conforming to the ProfessionalSummary model structure:
+    {
+      "drafts": [
+        {
+          "version_name": "Hook-Value-Future",
+          "strategy_used": "Brief description of strategy",
+          "content": "The actual summary text (75-150 words)",
+          "critique": "Self-critique of this draft",
+          "score": 85
+        },
+        ... (3 more drafts)
+      ],
+      "recommended_version": "Hook-Value-Future",
+      "writing_notes": "Overall notes about trade-offs between versions"
+    }
+    
+    Each draft must be 75-150 words. Include all 4 drafts. Provide your recommendation.
   context:
     - create_alignment_strategy_task
   agent: professional_summary_writer
@@ -165,11 +198,117 @@ optimize_experience_section_task:
     Rewrite and optimize all experience entries to align with the target job.
     Your task is to:
     1. Review each experience entry from the original resume.
-    2. For each entry, reorder bullets by relevance to the target job.
+    2. For each entry, reorder bullets by relevance to the target job:
+       - Bullets with direct keyword matches go first
+       - High-impact achievements (revenue, scale, cost savings) prioritized
+       - Leadership/team accomplishments highlighted
+       - Generic duties moved to end or removed
     3. Rewrite descriptions to incorporate job-relevant keywords naturally.
     4. Reframe achievements to emphasize the most relevant aspects.
     5. Quantify achievements wherever possible, using a Challenge-Action-Result (CAR) format.
     6. Ensure each bullet starts with a strong action verb (e.g., "Led", "Architected", "Increased").
+    
+    Apply the "So What?" Test to every bullet:
+    - If a bullet describes WHAT you did without WHY it mattered, rewrite it.
+    - Transform: "Built microservices" → "Built microservices architecture that reduced deployment time from 2 hours to 15 minutes"
+    - Every bullet must answer: What business problem did this solve? Who benefited? What changed?
+    
+    Hierarchy of Impact (use highest level possible):
+    1. Revenue/Cost: "Generated $2M in savings" (BEST)
+    2. Efficiency: "Reduced processing time by 70%"
+    3. Scale: "Enabled platform to support 50M users"
+    4. Quality: "Decreased bug rate by 40%"
+    5. Capability: "Enabled real-time analytics previously impossible"
+
+    Bullet Structure Requirements:
+    1. Lead with strong action verb
+    2. Include context/scale early (team size, dataset size, user base)
+    3. Specify method/technology used
+    4. End with measurable impact
+    
+    Formula: "[Verb] [what] for [scale/context], [method], resulting in [impact]"
+    
+    Example: "Architected microservices platform for 50M+ users using Kubernetes and Python, 
+              reducing infrastructure costs by $2M annually and improving deployment speed by 300%"
+
+    ITERATIVE IMPROVEMENT PROCESS (MANDATORY):
+    You MUST use the evaluate_experience_bullets tool for iterative improvement.
+    DO NOT skip this process. Follow this exact workflow for EACH experience entry:
+    
+    FOR EACH experience entry (repeat this entire block per entry):
+      Set ITERATION_COUNT = 0
+      Set CONTINUE_IMPROVING = True
+      Set iteration_history = []
+      
+      WHILE CONTINUE_IMPROVING AND ITERATION_COUNT < 3:
+        ITERATION_COUNT = ITERATION_COUNT + 1
+        
+        # Step 1: Generate or Regenerate bullets
+        IF ITERATION_COUNT == 1:
+          bullets = [Generate 3-6 initial bullets based on original resume and strategy guidance]
+        ELSE:
+          bullets = [Regenerate 3-6 bullets addressing the specific critique from previous iteration]
+        
+        # Step 2: Evaluate using the tool (MANDATORY)
+        evaluation_result = evaluate_experience_bullets(
+          bullets_json=json.dumps(bullets),
+          keywords="comma,separated,keywords,from,strategy",
+          strategy_json=json.dumps(alignment_strategy)
+        )
+        
+        # Step 3: Parse evaluation result
+        Parse JSON from evaluation_result to get:
+          - average_score (int)
+          - per_bullet_scores (list)
+          - issues (list of specific problems)
+          - critique (actionable improvement instructions)
+          - meets_threshold (bool)
+        
+        # Step 4: Record this iteration
+        iteration_history.append({
+          "iteration": ITERATION_COUNT,
+          "content": "\n".join(bullets),
+          "quality_score": average_score,
+          "issues_found": issues,
+          "critique": critique
+        })
+        
+        # Step 5: Log progress
+        LOG: "Iteration {ITERATION_COUNT} for {company_name}: Score {average_score}/100"
+        
+        # Step 6: Decide whether to continue
+        IF meets_threshold:
+          CONTINUE_IMPROVING = False
+          LOG: "✓ Quality threshold met at iteration {ITERATION_COUNT}"
+        ELSE IF ITERATION_COUNT >= 3:
+          CONTINUE_IMPROVING = False
+          LOG: "⚠ Max iterations reached. Final score: {average_score}/100"
+        ELSE:
+          LOG: "↻ Regenerating bullets based on critique: {critique}"
+          # Loop will continue with regeneration
+      
+      # Step 7: Store final bullets and history for this entry
+      final_bullets = bullets
+      final_score = average_score
+    
+    OUTPUT FORMAT REQUIREMENTS:
+    You MUST output using the IterativeExperienceOptimization model:
+    {
+      "optimized_experiences": [Experience objects with final bullets],
+      "optimization_notes": "Summary of optimization decisions",
+      "keywords_integrated": ["list", "of", "keywords", "used"],
+      "relevance_scores": {"Company Name": relevance_score},
+      "iteration_history": {
+        "Company Name": [list of BulletDraft objects showing each iteration]
+      },
+      "iterations_used": total_number_of_iterations_across_all_entries,
+      "final_quality_score": average_final_score_across_all_entries
+    }
+    
+    CRITICAL: You MUST call evaluate_experience_bullets after generating bullets.
+    CRITICAL: You MUST regenerate bullets if score < 85.
+    CRITICAL: You MUST include iteration_history in your output.
+
     Never fabricate job duties or inflate scope. Your role is to present the actual experience
     in its most compelling and relevant light. Output the complete rewritten experience section.
   expected_output: >

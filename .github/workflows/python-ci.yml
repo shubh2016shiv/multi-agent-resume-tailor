@@ -1,0 +1,53 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Code Quality & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
+
+      - name: Code Quality Analysis
+        run: |
+          # Apply fixes and formatting with Ruff (replaces autoflake, pyupgrade, add-trailing-comma, black, isort)
+          ruff check --fix src/ examples/
+
+          ruff format src/ examples/
+
+          # Verify no remaining lint issues (replaces flake8 checks; use --output-format=github for annotations)
+          ruff check --output-format=github src/ examples/
+
+      - name: Commit formatting changes
+        if: github.event_name == 'pull_request'
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add .
+            git commit -m "style: auto-format and lint with Ruff"
+            git push
+          fi

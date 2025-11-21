@@ -136,14 +136,14 @@ _iteration_tracker = {
     "call_count": 0,
     "iteration_history": {},
     "tool_call_log": [],  # Log of all tool calls with inputs/outputs
-    "max_calls_per_session": 50  # Safety limit to prevent excessive API calls
+    "max_calls_per_session": 50,  # Safety limit to prevent excessive API calls
 }
 
 
 def reset_iteration_tracker():
     """
     Reset the iteration tracker for a new optimization session.
-    
+
     Call this before starting a new experience optimization to ensure
     clean tracking and observability.
     """
@@ -153,7 +153,7 @@ def reset_iteration_tracker():
         "call_count": 0,
         "iteration_history": {},
         "tool_call_log": [],
-        "max_calls_per_session": 50
+        "max_calls_per_session": 50,
     }
     logger.info("[ITERATION TRACKER] Reset iteration tracker for new session")
 
@@ -161,7 +161,7 @@ def reset_iteration_tracker():
 def get_iteration_tracker_state() -> dict:
     """
     Get current state of iteration tracker for debugging/observability.
-    
+
     Returns:
         Dictionary with current iteration state including:
         - call_count: Total number of tool calls
@@ -174,7 +174,7 @@ def get_iteration_tracker_state() -> dict:
 def log_iteration_tracker_summary():
     """
     Log a comprehensive summary of all tool calls for observability.
-    
+
     This function provides complete visibility into:
     - How many times the tool was called
     - What bullets were input in each call
@@ -183,58 +183,66 @@ def log_iteration_tracker_summary():
     - Whether iterations are improving
     """
     global _iteration_tracker
-    
-    logger.info("\n" + "="*80)
+
+    logger.info("\n" + "=" * 80)
     logger.info("ITERATION TRACKER SUMMARY - Complete Observability")
-    logger.info("="*80)
-    
+    logger.info("=" * 80)
+
     call_count = _iteration_tracker["call_count"]
     tool_calls = _iteration_tracker["tool_call_log"]
-    
+
     logger.info(f"Total Tool Calls: {call_count}")
     logger.info(f"Tracked Tool Calls: {len(tool_calls)}")
-    
+
     if not tool_calls:
-        logger.warning("[OBSERVABILITY] No tool calls tracked yet. Agent may not be calling the tool.")
-        logger.info("="*80 + "\n")
+        logger.warning(
+            "[OBSERVABILITY] No tool calls tracked yet. Agent may not be calling the tool."
+        )
+        logger.info("=" * 80 + "\n")
         return
-    
+
     logger.info("\nDetailed Tool Call History:")
-    logger.info("-"*80)
-    
+    logger.info("-" * 80)
+
     for i, call_record in enumerate(tool_calls, 1):
         logger.info(f"\nTool Call #{call_record.get('call_id', i)}:")
         logger.info(f"  Input Bullets ({call_record.get('bullet_count', 0)} bullets):")
-        for j, bullet in enumerate(call_record.get('input_bullets', [])[:3], 1):  # Show first 3
+        for j, bullet in enumerate(call_record.get("input_bullets", [])[:3], 1):  # Show first 3
             logger.info(f"    {j}. {bullet[:80]}{'...' if len(bullet) > 80 else ''}")
-        
-        if 'output_score' in call_record:
+
+        if "output_score" in call_record:
             logger.info(f"  Output Score: {call_record['output_score']}/100")
             logger.info(f"  Meets Threshold: {call_record.get('output_meets_threshold', False)}")
             logger.info(f"  Issues Found: {call_record.get('output_issues_count', 0)}")
-            if call_record.get('output_critique_preview'):
-                logger.info(f"  Critique Preview: {call_record['output_critique_preview'][:150]}...")
-        
+            if call_record.get("output_critique_preview"):
+                logger.info(
+                    f"  Critique Preview: {call_record['output_critique_preview'][:150]}..."
+                )
+
         # Check if bullets improved from previous call
         if i > 1:
-            prev_score = tool_calls[i-2].get('output_score', 0)
-            curr_score = call_record.get('output_score', 0)
+            prev_score = tool_calls[i - 2].get("output_score", 0)
+            curr_score = call_record.get("output_score", 0)
             if curr_score > prev_score:
-                logger.info(f"  [IMPROVEMENT] Score improved: {prev_score} -> {curr_score} (+{curr_score - prev_score})")
+                logger.info(
+                    f"  [IMPROVEMENT] Score improved: {prev_score} -> {curr_score} (+{curr_score - prev_score})"
+                )
             elif curr_score < prev_score:
-                logger.warning(f"  [DEGRADATION] Score decreased: {prev_score} -> {curr_score} ({curr_score - prev_score})")
+                logger.warning(
+                    f"  [DEGRADATION] Score decreased: {prev_score} -> {curr_score} ({curr_score - prev_score})"
+                )
             else:
                 logger.info(f"  [NO CHANGE] Score unchanged: {prev_score}")
-    
-    logger.info("\n" + "="*80)
+
+    logger.info("\n" + "=" * 80)
     logger.info("END ITERATION TRACKER SUMMARY")
-    logger.info("="*80 + "\n")
+    logger.info("=" * 80 + "\n")
 
 
 def validate_iteration_progress() -> dict:
     """
     Validate that iteration is actually happening and progressing.
-    
+
     Returns:
         Dictionary with validation results:
         - is_iterating: bool - Whether tool is being called multiple times
@@ -244,19 +252,19 @@ def validate_iteration_progress() -> dict:
         - recommendations: list[str] - Recommendations for improvement
     """
     global _iteration_tracker
-    
+
     tool_calls = _iteration_tracker["tool_call_log"]
     call_count = _iteration_tracker["call_count"]
-    
+
     validation = {
         "is_iterating": len(tool_calls) > 1,
         "tool_call_count": call_count,
         "tracked_calls": len(tool_calls),
         "has_improvement": False,
         "meets_expectations": False,
-        "recommendations": []
+        "recommendations": [],
     }
-    
+
     if len(tool_calls) < 2:
         validation["recommendations"].append(
             f"Only {len(tool_calls)} tool call(s) tracked. Expected at least 2-3 for iterative improvement."
@@ -266,7 +274,7 @@ def validate_iteration_progress() -> dict:
         )
     else:
         # Check for score improvement
-        scores = [call.get('output_score', 0) for call in tool_calls if 'output_score' in call]
+        scores = [call.get("output_score", 0) for call in tool_calls if "output_score" in call]
         if len(scores) >= 2:
             if scores[-1] > scores[0]:
                 validation["has_improvement"] = True
@@ -274,28 +282,25 @@ def validate_iteration_progress() -> dict:
                 validation["recommendations"].append(
                     f"Scores not improving: {scores[0]} -> {scores[-1]}"
                 )
-        
+
         # Check if threshold was met
         if tool_calls:
             last_call = tool_calls[-1]
-            if last_call.get('output_meets_threshold', False):
+            if last_call.get("output_meets_threshold", False):
                 validation["meets_expectations"] = True
             elif len(tool_calls) >= MAX_IMPROVEMENT_ITERATIONS:
                 validation["recommendations"].append(
                     f"Max iterations ({MAX_IMPROVEMENT_ITERATIONS}) reached but threshold not met."
                 )
-    
+
     if validation["is_iterating"] and validation["has_improvement"]:
         validation["meets_expectations"] = True
-    
+
     return validation
 
+
 @tool("Evaluate Experience Bullets")
-def evaluate_experience_bullets(
-    bullets_json: str,
-    keywords: str,
-    strategy_json: str
-) -> str:
+def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json: str) -> str:
     """
     STAGE 2A: Self-Evaluation Tool - Agent's Quality Assessment Interface
 
@@ -364,11 +369,11 @@ def evaluate_experience_bullets(
         )
     """
     global _iteration_tracker
-    
+
     # Track tool calls for observability
     _iteration_tracker["call_count"] += 1
     call_id = _iteration_tracker["call_count"]
-    
+
     # SAFETY: Prevent excessive API calls that could cause "too many requests" errors
     max_calls = _iteration_tracker.get("max_calls_per_session", 50)
     if call_id > max_calls:
@@ -377,32 +382,34 @@ def evaluate_experience_bullets(
             f"This may indicate an infinite loop or excessive retries. "
             f"Check agent's iteration logic."
         )
-        logger.error("="*80)
+        logger.error("=" * 80)
         logger.error(f"[SAFETY LIMIT] {error_msg}")
-        logger.error("="*80)
-        return json.dumps({
-            "error": error_msg,
-            "error_type": "CallLimitExceeded",
-            "average_score": 0,
-            "per_bullet_scores": [],
-            "issues": [error_msg],
-            "critique": "Tool call limit exceeded. Stop iterating and use current best bullets.",
-            "meets_threshold": False,
-            "call_id": call_id
-        })
-    
+        logger.error("=" * 80)
+        return json.dumps(
+            {
+                "error": error_msg,
+                "error_type": "CallLimitExceeded",
+                "average_score": 0,
+                "per_bullet_scores": [],
+                "issues": [error_msg],
+                "critique": "Tool call limit exceeded. Stop iterating and use current best bullets.",
+                "meets_threshold": False,
+                "call_id": call_id,
+            }
+        )
+
     try:
         # [SUB-STAGE 2A.1] Parse Input
         # WHAT: Deserialize JSON inputs into Python objects
         # WHY: Tool receives strings from agent; need structured data
         # NOTE: CrewAI sometimes passes lists directly instead of JSON strings,
         #       so we handle both cases for robustness
-        
+
         # OBSERVABILITY: Log input bullets for this iteration
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"[ITERATION OBSERVABILITY] Tool Call #{call_id}")
-        logger.info("="*80)
-        
+        logger.info("=" * 80)
+
         # Parse JSON string to list
         # Expected format: '["bullet1", "bullet2", ...]'
         if not isinstance(bullets_json, str):
@@ -411,59 +418,69 @@ def evaluate_experience_bullets(
                 f"Use json.dumps(your_list) to convert your list to a JSON string before calling this tool."
             )
             logger.error(f"[TOOL ERROR] {error_msg}")
-            return json.dumps({
-                "error": error_msg,
-                "error_type": "InvalidInputType",
-                "average_score": 0,
-                "per_bullet_scores": [],
-                "issues": [error_msg],
-                "critique": "Convert your Python list to JSON string using json.dumps(bullets) before calling this tool.",
-                "meets_threshold": False,
-                "call_id": call_id,
-                "help": "Example: evaluate_experience_bullets(bullets_json=json.dumps(my_bullets_list), ...)"
-            })
-        
+            return json.dumps(
+                {
+                    "error": error_msg,
+                    "error_type": "InvalidInputType",
+                    "average_score": 0,
+                    "per_bullet_scores": [],
+                    "issues": [error_msg],
+                    "critique": "Convert your Python list to JSON string using json.dumps(bullets) before calling this tool.",
+                    "meets_threshold": False,
+                    "call_id": call_id,
+                    "help": "Example: evaluate_experience_bullets(bullets_json=json.dumps(my_bullets_list), ...)",
+                }
+            )
+
         try:
             # JSON string - parse it (expected path)
             bullets = json.loads(bullets_json)
-            logger.info(f"[ITERATION INPUT] Parsed bullets from JSON string (length: {len(bullets)})")
+            logger.info(
+                f"[ITERATION INPUT] Parsed bullets from JSON string (length: {len(bullets)})"
+            )
         except json.JSONDecodeError as e:
             logger.error(f"[TOOL ERROR] Invalid JSON in bullets_json: {e}")
-            logger.error(f"[TOOL ERROR] Received bullets_json (first 200 chars): {bullets_json[:200]}")
-            return json.dumps({
-                "error": f"Invalid JSON format: {str(e)}",
-                "error_type": "JSONDecodeError",
-                "average_score": 0,
-                "per_bullet_scores": [],
-                "issues": [f"JSON parsing failed: {str(e)}"],
-                "critique": "Ensure bullets_json is a valid JSON array string like '[\"bullet1\", \"bullet2\"]'",
-                "meets_threshold": False,
-                "call_id": call_id
-            })
-        
-        keywords_list = [k.strip() for k in keywords.split(',')] if keywords else []
-        
+            logger.error(
+                f"[TOOL ERROR] Received bullets_json (first 200 chars): {bullets_json[:200]}"
+            )
+            return json.dumps(
+                {
+                    "error": f"Invalid JSON format: {str(e)}",
+                    "error_type": "JSONDecodeError",
+                    "average_score": 0,
+                    "per_bullet_scores": [],
+                    "issues": [f"JSON parsing failed: {str(e)}"],
+                    "critique": 'Ensure bullets_json is a valid JSON array string like \'["bullet1", "bullet2"]\'',
+                    "meets_threshold": False,
+                    "call_id": call_id,
+                }
+            )
+
+        keywords_list = [k.strip() for k in keywords.split(",")] if keywords else []
+
         try:
             strategy = AlignmentStrategy(**json.loads(strategy_json))
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"[TOOL ERROR] Invalid strategy_json: {e}")
-            logger.error(f"[TOOL ERROR] Received strategy_json (first 200 chars): {strategy_json[:200]}")
+            logger.error(
+                f"[TOOL ERROR] Received strategy_json (first 200 chars): {strategy_json[:200]}"
+            )
             raise
-        
+
         # OBSERVABILITY: Log what bullets are being evaluated
         logger.info(f"[ITERATION INPUT] Evaluating {len(bullets)} bullets:")
         for i, bullet in enumerate(bullets, 1):
             logger.info(f"  Bullet {i}: {bullet[:100]}{'...' if len(bullet) > 100 else ''}")
         logger.info(f"[ITERATION INPUT] Keywords: {keywords_list}")
         logger.info(f"[ITERATION INPUT] Strategy keywords: {strategy.keywords_to_integrate[:5]}")
-        
+
         # Track this tool call for observability
         tool_call_record = {
             "call_id": call_id,
             "timestamp": str(date.today()),  # Simple timestamp
             "input_bullets": bullets.copy(),
             "input_keywords": keywords_list.copy(),
-            "bullet_count": len(bullets)
+            "bullet_count": len(bullets),
         }
         _iteration_tracker["tool_call_log"].append(tool_call_record)
 
@@ -482,10 +499,12 @@ def evaluate_experience_bullets(
             evaluations.append(eval_result)
 
         # OBSERVABILITY: Log per-bullet scores
-        logger.info(f"[ITERATION SCORES] Per-bullet quality scores:")
-        for i, (bullet, eval_result) in enumerate(zip(bullets, evaluations, strict=True), 1):
-            logger.info(f"  Bullet {i}: {eval_result['score']}/100 - Issues: {len(eval_result['issues'])}")
-            if eval_result['issues']:
+        logger.info("[ITERATION SCORES] Per-bullet quality scores:")
+        for i, (_bullet, eval_result) in enumerate(zip(bullets, evaluations, strict=True), 1):
+            logger.info(
+                f"  Bullet {i}: {eval_result['score']}/100 - Issues: {len(eval_result['issues'])}"
+            )
+            if eval_result["issues"]:
                 logger.info(f"    -> {eval_result['issues'][:2]}")  # Show first 2 issues
 
         # ---------------------------------------------------------------------
@@ -506,13 +525,13 @@ def evaluate_experience_bullets(
         for i, eval_result in enumerate(evaluations):
             if eval_result["score"] < QUALITY_THRESHOLD:
                 critique = generate_bullet_critique(bullets[i], eval_result, strategy)
-                critique_parts.append(f"Bullet {i+1}: {critique}")
+                critique_parts.append(f"Bullet {i + 1}: {critique}")
 
         # Collect all issues for transparency
         issues = []
         for i, eval_result in enumerate(evaluations):
             if eval_result["issues"]:
-                issues.append(f"Bullet {i+1}: {'; '.join(eval_result['issues'])}")
+                issues.append(f"Bullet {i + 1}: {'; '.join(eval_result['issues'])}")
 
         # ---------------------------------------------------------------------
         # [SUB-STAGE 2A.5] Check Threshold
@@ -524,8 +543,10 @@ def evaluate_experience_bullets(
             "average_score": int(avg_score),
             "per_bullet_scores": [e["score"] for e in evaluations],
             "issues": issues,
-            "critique": " | ".join(critique_parts) if critique_parts else "All bullets meet quality standards",
-            "meets_threshold": avg_score >= QUALITY_THRESHOLD  # DECISION POINT
+            "critique": " | ".join(critique_parts)
+            if critique_parts
+            else "All bullets meet quality standards",
+            "meets_threshold": avg_score >= QUALITY_THRESHOLD,  # DECISION POINT
         }
 
         # OBSERVABILITY: Log comprehensive evaluation results
@@ -533,33 +554,43 @@ def evaluate_experience_bullets(
         logger.info(f"[ITERATION RESULT] Quality Threshold: {QUALITY_THRESHOLD}/100")
         logger.info(f"[ITERATION RESULT] Meets Threshold: {result['meets_threshold']}")
         logger.info(f"[ITERATION RESULT] Total Issues Found: {len(issues)}")
-        
-        if result['critique'] and result['critique'] != "All bullets meet quality standards":
-            logger.info(f"[ITERATION CRITIQUE] Improvement Suggestions:")
+
+        if result["critique"] and result["critique"] != "All bullets meet quality standards":
+            logger.info("[ITERATION CRITIQUE] Improvement Suggestions:")
             # Split critique by bullet and log each
-            critique_lines = result['critique'].split(' | ')
+            critique_lines = result["critique"].split(" | ")
             for critique_line in critique_lines[:5]:  # Show first 5 critique items
-                logger.info(f"  -> {critique_line[:150]}{'...' if len(critique_line) > 150 else ''}")
-        
+                logger.info(
+                    f"  -> {critique_line[:150]}{'...' if len(critique_line) > 150 else ''}"
+                )
+
         # OBSERVABILITY: Decision guidance for agent
-        if result['meets_threshold']:
-            logger.info(f"[ITERATION DECISION] STOP ITERATING - Quality threshold met!")
-            logger.info(f"[ITERATION DECISION] Final bullets are ready. Include in output.")
+        if result["meets_threshold"]:
+            logger.info("[ITERATION DECISION] STOP ITERATING - Quality threshold met!")
+            logger.info("[ITERATION DECISION] Final bullets are ready. Include in output.")
         else:
-            logger.info(f"[ITERATION DECISION] CONTINUE ITERATING - Score {int(avg_score)} < {QUALITY_THRESHOLD}")
-            logger.info(f"[ITERATION DECISION] Agent should regenerate bullets addressing the critique above.")
-            logger.info(f"[ITERATION DECISION] Then call this tool again with improved bullets.")
-        
+            logger.info(
+                f"[ITERATION DECISION] CONTINUE ITERATING - Score {int(avg_score)} < {QUALITY_THRESHOLD}"
+            )
+            logger.info(
+                "[ITERATION DECISION] Agent should regenerate bullets addressing the critique above."
+            )
+            logger.info("[ITERATION DECISION] Then call this tool again with improved bullets.")
+
         # Update tool call record with results
         if _iteration_tracker["tool_call_log"]:
-            _iteration_tracker["tool_call_log"][-1].update({
-                "output_score": int(avg_score),
-                "output_meets_threshold": result['meets_threshold'],
-                "output_issues_count": len(issues),
-                "output_critique_preview": result['critique'][:200] if result['critique'] else ""
-            })
-        
-        logger.info("="*80)
+            _iteration_tracker["tool_call_log"][-1].update(
+                {
+                    "output_score": int(avg_score),
+                    "output_meets_threshold": result["meets_threshold"],
+                    "output_issues_count": len(issues),
+                    "output_critique_preview": result["critique"][:200]
+                    if result["critique"]
+                    else "",
+                }
+            )
+
+        logger.info("=" * 80)
 
         # ---------------------------------------------------------------------
         # [SUB-STAGE 2A.6] Return JSON
@@ -570,69 +601,78 @@ def evaluate_experience_bullets(
 
     except json.JSONDecodeError as e:
         # OBSERVABILITY: Log JSON parsing errors with context
-        logger.error("="*80)
+        logger.error("=" * 80)
         logger.error(f"[TOOL ERROR] JSON Parse Error in Tool Call #{call_id}")
         logger.error(f"[TOOL ERROR] Error: {e}")
         logger.error(f"[TOOL ERROR] bullets_json type: {type(bullets_json)}")
-        logger.error(f"[TOOL ERROR] bullets_json length: {len(bullets_json) if isinstance(bullets_json, str) else 'N/A'}")
+        logger.error(
+            f"[TOOL ERROR] bullets_json length: {len(bullets_json) if isinstance(bullets_json, str) else 'N/A'}"
+        )
         logger.error(f"[TOOL ERROR] bullets_json preview: {str(bullets_json)[:300]}")
-        logger.error("="*80)
-        
+        logger.error("=" * 80)
+
         # Return clear error message to prevent retry loops
-        return json.dumps({
-            "error": f"Invalid JSON format in bullets_json: {str(e)}",
-            "error_type": "JSONDecodeError",
-            "average_score": 0,
-            "per_bullet_scores": [],
-            "issues": [f"JSON parsing failed: {str(e)}"],
-            "critique": "Fix JSON format: bullets_json must be a JSON array string like '[\"bullet1\", \"bullet2\"]'",
-            "meets_threshold": False,
-            "call_id": call_id
-        })
-    
+        return json.dumps(
+            {
+                "error": f"Invalid JSON format in bullets_json: {str(e)}",
+                "error_type": "JSONDecodeError",
+                "average_score": 0,
+                "per_bullet_scores": [],
+                "issues": [f"JSON parsing failed: {str(e)}"],
+                "critique": 'Fix JSON format: bullets_json must be a JSON array string like \'["bullet1", "bullet2"]\'',
+                "meets_threshold": False,
+                "call_id": call_id,
+            }
+        )
+
     except ValidationError as e:
         # OBSERVABILITY: Log validation errors
-        logger.error("="*80)
+        logger.error("=" * 80)
         logger.error(f"[TOOL ERROR] Validation Error in Tool Call #{call_id}")
         logger.error(f"[TOOL ERROR] Error: {e}")
         logger.error(f"[TOOL ERROR] Validation errors: {e.errors()}")
-        logger.error("="*80)
-        
-        return json.dumps({
-            "error": f"Strategy validation failed: {str(e)}",
-            "error_type": "ValidationError",
-            "average_score": 0,
-            "per_bullet_scores": [],
-            "issues": [f"Strategy validation failed: {str(e)}"],
-            "critique": "Fix strategy_json: must include all required AlignmentStrategy fields",
-            "meets_threshold": False,
-            "call_id": call_id
-        })
-    
+        logger.error("=" * 80)
+
+        return json.dumps(
+            {
+                "error": f"Strategy validation failed: {str(e)}",
+                "error_type": "ValidationError",
+                "average_score": 0,
+                "per_bullet_scores": [],
+                "issues": [f"Strategy validation failed: {str(e)}"],
+                "critique": "Fix strategy_json: must include all required AlignmentStrategy fields",
+                "meets_threshold": False,
+                "call_id": call_id,
+            }
+        )
+
     except Exception as e:
         # OBSERVABILITY: Log unexpected errors
-        logger.error("="*80)
+        logger.error("=" * 80)
         logger.error(f"[TOOL ERROR] Unexpected Error in Tool Call #{call_id}")
         logger.error(f"[TOOL ERROR] Error type: {type(e).__name__}")
         logger.error(f"[TOOL ERROR] Error message: {str(e)}")
-        logger.error("="*80)
+        logger.error("=" * 80)
         logger.error(f"Error in evaluate_experience_bullets: {e}", exc_info=True)
-        
-        return json.dumps({
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "average_score": 0,
-            "per_bullet_scores": [],
-            "issues": [f"Evaluation failed: {str(e)}"],
-            "critique": "Unable to evaluate bullets due to error. Check logs for details.",
-            "meets_threshold": False,
-            "call_id": call_id
-        })
+
+        return json.dumps(
+            {
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "average_score": 0,
+                "per_bullet_scores": [],
+                "issues": [f"Evaluation failed: {str(e)}"],
+                "critique": "Unable to evaluate bullets due to error. Check logs for details.",
+                "meets_threshold": False,
+                "call_id": call_id,
+            }
+        )
 
 
 # ==============================================================================
 # Output Model for Optimized Experience Section
 # ==============================================================================
+
 
 class OptimizedExperienceSection(BaseModel):
     """
@@ -678,14 +718,14 @@ class OptimizedExperienceSection(BaseModel):
                         "achievements": [
                             "Architected scalable microservices infrastructure using Python and AWS, reducing deployment time by 65%",
                             "Led cross-functional team of 8 engineers to deliver $2M cost-saving automation initiative",
-                            "Implemented CI/CD pipeline with Docker and Kubernetes, improving release frequency by 300%"
+                            "Implemented CI/CD pipeline with Docker and Kubernetes, improving release frequency by 300%",
                         ],
-                        "skills_used": ["Python", "AWS", "Docker", "Kubernetes"]
+                        "skills_used": ["Python", "AWS", "Docker", "Kubernetes"],
                     }
                 ],
                 "optimization_notes": "Emphasized cloud and Python experience per strategy guidance",
                 "keywords_integrated": ["Python", "AWS", "microservices", "Docker"],
-                "relevance_scores": {"Tech Corp": 95.0}
+                "relevance_scores": {"Tech Corp": 95.0},
             }
         }
     )
@@ -698,33 +738,22 @@ class BulletDraft(BaseModel):
     This model captures the state of bullets at each iteration,
     including quality metrics and identified issues.
     """
-    iteration: int = Field(
-        ...,
-        description="Iteration number (1-indexed)",
-        ge=1
-    )
+
+    iteration: int = Field(..., description="Iteration number (1-indexed)", ge=1)
 
     content: str = Field(
-        ...,
-        description="The bullet content at this iteration (all bullets joined)"
+        ..., description="The bullet content at this iteration (all bullets joined)"
     )
 
     quality_score: int = Field(
-        ...,
-        description="Average quality score across all bullets (0-100)",
-        ge=0,
-        le=100
+        ..., description="Average quality score across all bullets (0-100)", ge=0, le=100
     )
 
     issues_found: list[str] = Field(
-        default_factory=list,
-        description="List of issues identified in this iteration"
+        default_factory=list, description="List of issues identified in this iteration"
     )
 
-    critique: str = Field(
-        default="",
-        description="Self-critique and improvement suggestions"
-    )
+    critique: str = Field(default="", description="Self-critique and improvement suggestions")
 
 
 class IterativeExperienceOptimization(BaseModel):
@@ -734,6 +763,7 @@ class IterativeExperienceOptimization(BaseModel):
     This model extends OptimizedExperienceSection with iteration tracking,
     allowing us to see how bullets improved over multiple iterations.
     """
+
     optimized_experiences: list[Experience] = Field(
         ...,
         description="List of optimized experience entries from the resume",
@@ -758,26 +788,25 @@ class IterativeExperienceOptimization(BaseModel):
     # NEW: Iteration tracking
     iteration_history: dict[str, list[BulletDraft]] = Field(
         default_factory=dict,
-        description="Per-company iteration history: {company_name: [BulletDraft, ...]}"
+        description="Per-company iteration history: {company_name: [BulletDraft, ...]}",
     )
 
     iterations_used: int = Field(
-        default=0,
-        description="Total number of iterations performed",
-        ge=0
+        default=0, description="Total number of iterations performed", ge=0
     )
 
     final_quality_score: int = Field(
         default=0,
         description="Final average quality score across all bullets (0-100)",
         ge=0,
-        le=100
+        le=100,
     )
 
 
 # ==============================================================================
 # Agent Configuration Loading
 # ==============================================================================
+
 
 def _load_agent_config() -> dict:
     """
@@ -803,9 +832,7 @@ def _load_agent_config() -> dict:
         missing_fields = [f for f in required_fields if f not in config]
 
         if missing_fields:
-            logger.warning(
-                f"Agent config missing fields: {missing_fields}. Using defaults."
-            )
+            logger.warning(f"Agent config missing fields: {missing_fields}. Using defaults.")
             return _get_default_config()
 
         logger.debug("Successfully loaded agent configuration from YAML")
@@ -853,6 +880,7 @@ def _get_default_config() -> dict:
 # ==============================================================================
 # Agent Creation
 # ==============================================================================
+
 
 def create_experience_optimizer_agent() -> Agent:
     """
@@ -991,12 +1019,11 @@ def create_experience_optimizer_agent() -> Agent:
         # 4. Verify bullets change between iterations (not just same bullets)
         # 5. Run test_experience_optimizer_enhancements.py with real LLM
         # ===================================================================
-        
+
         agent = Agent(
             role=config["role"],
             goal=config["goal"],
             backstory=config["backstory"],
-            
             # AGENTIC TOOL: Self-evaluation capability for iterative improvement
             # This tool enables the agent to:
             # - Evaluate its own generated bullets objectively
@@ -1004,13 +1031,12 @@ def create_experience_optimizer_agent() -> Agent:
             # - Make autonomous decisions about when to regenerate
             # - Track quality improvements across iterations
             tools=[evaluate_experience_bullets],
-            
             llm=llm_model,
             temperature=temperature,
             verbose=verbose,
             allow_delegation=False,  # This agent works independently
             max_iter=15,  # Allows multiple tool invocations per experience entry
-                         # (3 iterations × ~5 tool calls per iteration = 15 max)
+            # (3 iterations × ~5 tool calls per iteration = 15 max)
         )
 
         logger.info(
@@ -1021,10 +1047,7 @@ def create_experience_optimizer_agent() -> Agent:
         return agent
 
     except Exception as e:
-        logger.error(
-            f"Failed to create Experience Section Optimizer agent: {e}",
-            exc_info=True
-        )
+        logger.error(f"Failed to create Experience Section Optimizer agent: {e}", exc_info=True)
         raise
 
 
@@ -1032,7 +1055,10 @@ def create_experience_optimizer_agent() -> Agent:
 # Output Validation
 # ==============================================================================
 
-def validate_experience_output(output_data: dict) -> IterativeExperienceOptimization | OptimizedExperienceSection | None:
+
+def validate_experience_output(
+    output_data: dict,
+) -> IterativeExperienceOptimization | OptimizedExperienceSection | None:
     """
     Validate that the agent's output conforms to experience section models.
 
@@ -1091,16 +1117,11 @@ def validate_experience_output(output_data: dict) -> IterativeExperienceOptimiza
         )
         # Log each validation error for easier debugging
         for error in e.errors():
-            logger.error(
-                f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}"
-            )
+            logger.error(f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}")
         return None
 
     except Exception as e:
-        logger.error(
-            f"Unexpected error during experience validation: {e}",
-            exc_info=True
-        )
+        logger.error(f"Unexpected error during experience validation: {e}", exc_info=True)
         return None
 
 
@@ -1111,32 +1132,95 @@ def validate_experience_output(output_data: dict) -> IterativeExperienceOptimiza
 # Strong action verbs for quality checks
 STRONG_ACTION_VERBS = {
     # Leadership & Management
-    "led", "directed", "managed", "supervised", "coordinated", "orchestrated",
-    "spearheaded", "championed", "mentored", "coached", "guided",
+    "led",
+    "directed",
+    "managed",
+    "supervised",
+    "coordinated",
+    "orchestrated",
+    "spearheaded",
+    "championed",
+    "mentored",
+    "coached",
+    "guided",
     # Achievement & Results
-    "achieved", "delivered", "accomplished", "exceeded", "surpassed", "attained",
-    "realized", "completed", "finalized",
+    "achieved",
+    "delivered",
+    "accomplished",
+    "exceeded",
+    "surpassed",
+    "attained",
+    "realized",
+    "completed",
+    "finalized",
     # Innovation & Creation
-    "created", "developed", "designed", "built", "engineered", "architected",
-    "established", "founded", "launched", "pioneered", "innovated", "invented",
+    "created",
+    "developed",
+    "designed",
+    "built",
+    "engineered",
+    "architected",
+    "established",
+    "founded",
+    "launched",
+    "pioneered",
+    "innovated",
+    "invented",
     # Improvement & Optimization
-    "improved", "enhanced", "optimized", "streamlined", "refined", "upgraded",
-    "modernized", "transformed", "revitalized", "restructured",
+    "improved",
+    "enhanced",
+    "optimized",
+    "streamlined",
+    "refined",
+    "upgraded",
+    "modernized",
+    "transformed",
+    "revitalized",
+    "restructured",
     # Growth & Expansion
-    "increased", "grew", "expanded", "scaled", "accelerated", "boosted",
-    "maximized", "amplified", "multiplied",
+    "increased",
+    "grew",
+    "expanded",
+    "scaled",
+    "accelerated",
+    "boosted",
+    "maximized",
+    "amplified",
+    "multiplied",
     # Reduction & Efficiency
-    "reduced", "decreased", "minimized", "eliminated", "consolidated",
-    "simplified", "automated",
+    "reduced",
+    "decreased",
+    "minimized",
+    "eliminated",
+    "consolidated",
+    "simplified",
+    "automated",
     # Strategy & Planning
-    "strategized", "planned", "formulated", "devised", "conceptualized",
-    "envisioned", "forecasted",
+    "strategized",
+    "planned",
+    "formulated",
+    "devised",
+    "conceptualized",
+    "envisioned",
+    "forecasted",
     # Analysis & Research
-    "analyzed", "evaluated", "assessed", "investigated", "researched",
-    "identified", "diagnosed", "audited",
+    "analyzed",
+    "evaluated",
+    "assessed",
+    "investigated",
+    "researched",
+    "identified",
+    "diagnosed",
+    "audited",
     # Communication & Collaboration
-    "presented", "communicated", "collaborated", "negotiated", "facilitated",
-    "liaised", "partnered", "consulted",
+    "presented",
+    "communicated",
+    "collaborated",
+    "negotiated",
+    "facilitated",
+    "liaised",
+    "partnered",
+    "consulted",
 }
 
 
@@ -1225,13 +1309,13 @@ def count_quantified_achievements(achievements: list[str]) -> dict:
 
     # Patterns that indicate quantification
     metric_patterns = [
-        r'\d+%',  # Percentages: 40%, 100%
-        r'\$\d+',  # Dollar amounts: $1M, $500K
-        r'\d+[KkMmBb]',  # Abbreviated numbers: 5M, 10K, 1B
-        r'\d+\+',  # Numbers with plus: 50+, 100+
-        r'\d+x',  # Multipliers: 2x, 10x
-        r'\d+\s*(?:users|customers|clients|projects|members|engineers)',  # Count with unit
-        r'(?:reduced|increased|improved|grew|decreased)\s+(?:by\s+)?\d+',  # Action + number
+        r"\d+%",  # Percentages: 40%, 100%
+        r"\$\d+",  # Dollar amounts: $1M, $500K
+        r"\d+[KkMmBb]",  # Abbreviated numbers: 5M, 10K, 1B
+        r"\d+\+",  # Numbers with plus: 50+, 100+
+        r"\d+x",  # Multipliers: 2x, 10x
+        r"\d+\s*(?:users|customers|clients|projects|members|engineers)",  # Count with unit
+        r"(?:reduced|increased|improved|grew|decreased)\s+(?:by\s+)?\d+",  # Action + number
     ]
 
     quantified_count = 0
@@ -1239,12 +1323,16 @@ def count_quantified_achievements(achievements: list[str]) -> dict:
 
     for achievement in achievements:
         # Check if any metric pattern matches
-        has_metric = any(re.search(pattern, achievement, re.IGNORECASE) for pattern in metric_patterns)
+        has_metric = any(
+            re.search(pattern, achievement, re.IGNORECASE) for pattern in metric_patterns
+        )
 
         if has_metric:
             quantified_count += 1
         else:
-            unquantified_bullets.append(achievement[:50] + "..." if len(achievement) > 50 else achievement)
+            unquantified_bullets.append(
+                achievement[:50] + "..." if len(achievement) > 50 else achievement
+            )
 
     unquantified_count = len(achievements) - quantified_count
     quantification_rate = quantified_count / len(achievements) if achievements else 0.0
@@ -1263,33 +1351,66 @@ def count_quantified_achievements(achievements: list[str]) -> dict:
 
 # Weak nouns that dilute impact
 WEAK_NOUNS = {
-    "work", "tasks", "duties", "responsibilities", "activities", "things", "stuff",
-    "assignments", "jobs", "roles", "functions"
+    "work",
+    "tasks",
+    "duties",
+    "responsibilities",
+    "activities",
+    "things",
+    "stuff",
+    "assignments",
+    "jobs",
+    "roles",
+    "functions",
 }
 
 # Power nouns that pair well with strong verbs
 POWER_NOUNS = {
-    "initiative", "transformation", "platform", "infrastructure", "framework",
-    "architecture", "strategy", "program", "system", "solution", "methodology",
-    "roadmap", "pipeline", "ecosystem", "paradigm", "capability"
+    "initiative",
+    "transformation",
+    "platform",
+    "infrastructure",
+    "framework",
+    "architecture",
+    "strategy",
+    "program",
+    "system",
+    "solution",
+    "methodology",
+    "roadmap",
+    "pipeline",
+    "ecosystem",
+    "paradigm",
+    "capability",
 }
 
 # Generic phrases that lack specificity
 GENERIC_PHRASES = {
-    "worked with", "responsible for", "helped with", "assisted in",
-    "participated in", "involved in", "contributed to", "supported",
-    "cross-functional teams", "various projects", "multiple stakeholders",
-    "day-to-day operations", "daily tasks"
+    "worked with",
+    "responsible for",
+    "helped with",
+    "assisted in",
+    "participated in",
+    "involved in",
+    "contributed to",
+    "supported",
+    "cross-functional teams",
+    "various projects",
+    "multiple stakeholders",
+    "day-to-day operations",
+    "daily tasks",
 }
 
 # Scope indicators patterns
 SCOPE_PATTERNS = [
-    r'team of \d+',
-    r'\d+[KMB]\+?\s+(?:users|customers|clients|members|engineers|developers)',
-    r'\d+[KMBT]B\s+(?:data|records|requests|traffic)',
-    r'\$\d+[KMB]',
-    r'\d+\s+(?:countries|regions|offices|locations|markets)',
-    r'global', 'nationwide', 'enterprise-wide'
+    r"team of \d+",
+    r"\d+[KMB]\+?\s+(?:users|customers|clients|members|engineers|developers)",
+    r"\d+[KMBT]B\s+(?:data|records|requests|traffic)",
+    r"\$\d+[KMB]",
+    r"\d+\s+(?:countries|regions|offices|locations|markets)",
+    r"global",
+    "nationwide",
+    "enterprise-wide",
 ]
 
 
@@ -1305,16 +1426,22 @@ def validate_bullet_structure(achievement: str) -> dict:
     import re
 
     # Check for metrics
-    has_metric = bool(re.search(r'\d+[%KMB$+x]|\d+\s*(?:users|customers|engineers|clients)', achievement))
+    has_metric = bool(
+        re.search(r"\d+[%KMB$+x]|\d+\s*(?:users|customers|engineers|clients)", achievement)
+    )
 
     # Check for method indicators
-    has_method = bool(re.search(r'(?:by|through|using|via|with|utilizing|leveraging)\s+\w+', achievement, re.IGNORECASE))
+    has_method = bool(
+        re.search(
+            r"(?:by|through|using|via|with|utilizing|leveraging)\s+\w+", achievement, re.IGNORECASE
+        )
+    )
 
     # Check for strong verb
     words = achievement.strip().split()
     has_strong_verb = False
     if words:
-        first_word = words[0].lower().rstrip('.,;:')
+        first_word = words[0].lower().rstrip(".,;:")
         has_strong_verb = first_word in STRONG_ACTION_VERBS
 
     return {
@@ -1322,7 +1449,7 @@ def validate_bullet_structure(achievement: str) -> dict:
         "has_metric": has_metric,
         "has_method": has_method,
         "has_strong_verb": has_strong_verb,
-        "improvement_needed": []
+        "improvement_needed": [],
     }
 
 
@@ -1335,11 +1462,11 @@ def assess_impact_level(achievement: str) -> dict:
     import re
 
     impact_patterns = {
-        "revenue_cost": r'(\$\d+[KMB]?|\d+%\s+(?:cost|revenue|profit|savings|budget))',
-        "efficiency": r'(?:reduced|decreased|improved|accelerated|optimized|streamlined).*\d+%',
-        "scale": r'\d+[KMB]\+?\s+(?:users|customers|requests|transactions|records)',
-        "quality": r'(?:decreased|reduced).*(?:bugs|errors|incidents|downtime).*\d+%',
-        "capability": r'enabled|unlocked|pioneered|introduced|launched'
+        "revenue_cost": r"(\$\d+[KMB]?|\d+%\s+(?:cost|revenue|profit|savings|budget))",
+        "efficiency": r"(?:reduced|decreased|improved|accelerated|optimized|streamlined).*\d+%",
+        "scale": r"\d+[KMB]\+?\s+(?:users|customers|requests|transactions|records)",
+        "quality": r"(?:decreased|reduced).*(?:bugs|errors|incidents|downtime).*\d+%",
+        "capability": r"enabled|unlocked|pioneered|introduced|launched",
     }
 
     tier = "activity"  # Default: just describes task
@@ -1351,7 +1478,7 @@ def assess_impact_level(achievement: str) -> dict:
     return {
         "tier": tier,
         "is_impact_focused": tier != "activity",
-        "recommendation": "Add measurable business outcome" if tier == "activity" else ""
+        "recommendation": "Add measurable business outcome" if tier == "activity" else "",
     }
 
 
@@ -1363,8 +1490,8 @@ def analyze_verb_noun_pairs(achievement: str) -> dict:
     if len(words) < 2:
         return {"has_power_pair": False}
 
-    verb = words[0].lower().rstrip('.,;:')
-    noun = words[1].lower().rstrip('.,;:')
+    verb = words[0].lower().rstrip(".,;:")
+    noun = words[1].lower().rstrip(".,;:")
 
     is_strong_verb = verb in STRONG_ACTION_VERBS
     is_weak_noun = noun in WEAK_NOUNS
@@ -1373,7 +1500,7 @@ def analyze_verb_noun_pairs(achievement: str) -> dict:
     return {
         "has_power_pair": is_strong_verb and is_power_noun,
         "has_weak_noun": is_weak_noun,
-        "recommendation": f"Replace '{noun}' with more specific noun" if is_weak_noun else ""
+        "recommendation": f"Replace '{noun}' with more specific noun" if is_weak_noun else "",
     }
 
 
@@ -1384,9 +1511,9 @@ def detect_passive_voice(achievements: list[str]) -> dict:
     import re
 
     passive_patterns = [
-        r'\b(?:was|were|been|being)\s+\w+ed\b',  # was managed, were implemented
-        r'\b(?:was|were)\s+responsible\s+for\b',
-        r'\b(?:was|were)\s+tasked\s+with\b',
+        r"\b(?:was|were|been|being)\s+\w+ed\b",  # was managed, were implemented
+        r"\b(?:was|were)\s+responsible\s+for\b",
+        r"\b(?:was|were)\s+tasked\s+with\b",
     ]
 
     passive_bullets = []
@@ -1399,7 +1526,7 @@ def detect_passive_voice(achievements: list[str]) -> dict:
     return {
         "passive_count": len(passive_bullets),
         "passive_bullets": passive_bullets,
-        "is_acceptable": len(passive_bullets) == 0
+        "is_acceptable": len(passive_bullets) == 0,
     }
 
 
@@ -1412,18 +1539,22 @@ def check_specificity(achievement: str) -> dict:
     issues = []
 
     # Check for generic phrases
-    generic_found = [phrase for phrase in GENERIC_PHRASES
-                    if phrase in achievement.lower()]
+    generic_found = [phrase for phrase in GENERIC_PHRASES if phrase in achievement.lower()]
     if generic_found:
         issues.append(f"Generic phrases: {generic_found}")
 
     # Check for specific technologies (simple heuristic: Capitalized words or known tech)
-    has_technology = bool(re.search(r'\b[A-Z][a-z]+(?:JS|SQL|DB|API)\b|Python|Java|AWS|Azure|GCP|React|Node|Docker|Kubernetes', achievement))
+    has_technology = bool(
+        re.search(
+            r"\b[A-Z][a-z]+(?:JS|SQL|DB|API)\b|Python|Java|AWS|Azure|GCP|React|Node|Docker|Kubernetes",
+            achievement,
+        )
+    )
     if not has_technology:
         issues.append("No specific technology mentioned")
 
     # Check for numbers
-    has_numbers = bool(re.search(r'\d', achievement))
+    has_numbers = bool(re.search(r"\d", achievement))
     if not has_numbers:
         issues.append("No quantifiable metrics")
 
@@ -1432,7 +1563,7 @@ def check_specificity(achievement: str) -> dict:
     return {
         "is_specific": is_specific,
         "specificity_score": 100 - (len(issues) * 33),
-        "issues": issues
+        "issues": issues,
     }
 
 
@@ -1444,38 +1575,39 @@ def detect_multi_accomplishment_bullets(achievements: list[str]) -> dict:
 
     for achievement in achievements:
         # Count "and" occurrences
-        and_count = achievement.lower().count(' and ')
+        and_count = achievement.lower().count(" and ")
 
         # Count strong verbs (if more than 1, might be multi-accomplishment)
-        verbs_found = sum(1 for verb in STRONG_ACTION_VERBS
-                         if f' {verb} ' in f' {achievement.lower()} ')
+        verbs_found = sum(
+            1 for verb in STRONG_ACTION_VERBS if f" {verb} " in f" {achievement.lower()} "
+        )
 
         if and_count >= 2 or verbs_found >= 2:
-            multi_bullets.append({
-                "bullet": achievement,
-                "and_count": and_count,
-                "verb_count": verbs_found,
-                "recommendation": "Split into separate bullets for clarity"
-            })
+            multi_bullets.append(
+                {
+                    "bullet": achievement,
+                    "and_count": and_count,
+                    "verb_count": verbs_found,
+                    "recommendation": "Split into separate bullets for clarity",
+                }
+            )
 
     return {
         "multi_bullet_count": len(multi_bullets),
         "flagged_bullets": multi_bullets,
-        "is_acceptable": len(multi_bullets) <= 1  # Allow one multi-bullet max
+        "is_acceptable": len(multi_bullets) <= 1,  # Allow one multi-bullet max
     }
 
 
 def has_scope_indicator(achievement: str) -> bool:
     """Check if bullet includes scale/scope context."""
     import re
-    return any(re.search(pattern, achievement, re.IGNORECASE)
-              for pattern in SCOPE_PATTERNS)
+
+    return any(re.search(pattern, achievement, re.IGNORECASE) for pattern in SCOPE_PATTERNS)
 
 
 def reorder_bullets_by_relevance(
-    achievements: list[str],
-    strategy: AlignmentStrategy,
-    required_keywords: list[str]
+    achievements: list[str], strategy: AlignmentStrategy, required_keywords: list[str]
 ) -> list[str]:
     """
     Reorder bullets within a single job entry by relevance to target role.
@@ -1492,21 +1624,24 @@ def reorder_bullets_by_relevance(
         score += min(keywords_in_bullet * 10, 40)
 
         # Impact magnitude (has big numbers?)
-        if re.search(r'(\$\d+[MB]|\d+%|\d+[MB]\+?\s+users)', achievement):
+        if re.search(r"(\$\d+[MB]|\d+%|\d+[MB]\+?\s+users)", achievement):
             score += 30
-        elif re.search(r'\d+', achievement):
+        elif re.search(r"\d+", achievement):
             score += 15
 
         # Leadership indicators
-        leadership_words = ['led', 'managed', 'directed', 'spearheaded', 'team of']
+        leadership_words = ["led", "managed", "directed", "spearheaded", "team of"]
         if any(word in achievement.lower() for word in leadership_words):
             score += 20
 
         # Technical depth (mentions specific technologies)
         # Using strategy.identified_matches if available
         if strategy.identified_matches:
-            tech_mentions = sum(1 for skill in strategy.identified_matches
-                              if skill.resume_skill.lower() in achievement.lower())
+            tech_mentions = sum(
+                1
+                for skill in strategy.identified_matches
+                if skill.resume_skill.lower() in achievement.lower()
+            )
             score += min(tech_mentions * 5, 10)
 
         scored_bullets.append((score, achievement))
@@ -1539,19 +1674,18 @@ def reorder_bullets_by_relevance(
 # 6. Power Pairs: Strong verb + Impactful noun combinations
 # ==============================================================================
 
+
 def evaluate_single_bullet(
-    bullet: str,
-    strategy: AlignmentStrategy,
-    required_keywords: list[str]
+    bullet: str, strategy: AlignmentStrategy, required_keywords: list[str]
 ) -> dict:
     """
     STAGE 3A: Single Bullet Evaluation - Comprehensive Quality Assessment
-    
+
     Evaluate a single bullet point against all quality criteria.
 
     This function consolidates all validation checks into a single
     comprehensive evaluation with scoring and issue tracking.
-    
+
     SCORING METHODOLOGY:
     - Start at 100 (perfect score)
     - Deduct points for each failed check:
@@ -1562,7 +1696,7 @@ def evaluate_single_bullet(
       • No scope indicator: -10 points
       • Weak noun pairing: -5 points
     - Minimum score: 0
-    
+
     EXECUTION SEQUENCE:
     [3A.1] Initialize scoring (score=100, issues=[])
     [3A.2] Check structure (XYZ/STAR formula)
@@ -1680,36 +1814,32 @@ def evaluate_single_bullet(
     # WHY: Structured output allows both human/agent interpretation
     return {
         "score": max(0, score),  # Floor at 0, no negative scores
-        "issues": issues,         # List of specific problems
-        "passed_checks": {        # Boolean status per dimension
+        "issues": issues,  # List of specific problems
+        "passed_checks": {  # Boolean status per dimension
             "structure": structure["is_valid"],
             "passive_voice": passive["is_acceptable"],
             "specificity": spec["is_specific"],
             "impact": impact["is_impact_focused"],
-            "scope": has_scope_indicator(bullet)
-        }
+            "scope": has_scope_indicator(bullet),
+        },
     }
 
 
-def generate_bullet_critique(
-    bullet: str,
-    evaluation: dict,
-    strategy: AlignmentStrategy
-) -> str:
+def generate_bullet_critique(bullet: str, evaluation: dict, strategy: AlignmentStrategy) -> str:
     """
     STAGE 3B: Critique Generation - Actionable Improvement Instructions
-    
+
     Generate actionable critique for improving a bullet point.
 
     This is a deterministic function (no LLM) that translates
     evaluation results into specific improvement instructions.
-    
+
     CRITIQUE PHILOSOPHY:
     - SPECIFIC: Not "improve this" but "add metrics to show impact"
     - ACTIONABLE: Each suggestion is implementable by agent
     - PRIORITIZED: Most critical issues mentioned first
     - CONCISE: Agent context window is limited
-    
+
     EXECUTION FLOW:
     [3B.1] Check if bullet already meets threshold (early return)
     [3B.2] Build critique for each failed check dimension
@@ -1758,9 +1888,7 @@ def generate_bullet_critique(
 
     # Specificity
     if not evaluation["passed_checks"]["specificity"]:
-        critique_parts.append(
-            "Add specific technologies/tools used and quantifiable metrics."
-        )
+        critique_parts.append("Add specific technologies/tools used and quantifiable metrics.")
 
     # Impact
     if not evaluation["passed_checks"]["impact"]:
@@ -1814,22 +1942,23 @@ def generate_bullet_critique(
 # [OK] Evaluation can be unit tested without LLM
 # ==============================================================================
 
+
 def optimize_bullets_iteratively(
     experience: Experience,
     strategy: AlignmentStrategy,
     required_keywords: list[str],
     max_iterations: int = MAX_IMPROVEMENT_ITERATIONS,
-    quality_threshold: int = QUALITY_THRESHOLD
+    quality_threshold: int = QUALITY_THRESHOLD,
 ) -> dict:
     """
     STAGE 4: Iterative Optimization Loop - Self-Improvement Framework
-    
+
     Iteratively improve experience bullets through self-critique.
 
     This is the CORE iterative improvement function. It provides the
     evaluation loop and critique generation framework. The actual
     bullet regeneration happens via the LLM agent.
-    
+
     EXECUTION SEQUENCE:
     [4.1] Initialize: Set current_bullets from experience
     [4.2] Iteration Loop (max MAX_IMPROVEMENT_ITERATIONS):
@@ -1841,7 +1970,7 @@ def optimize_bullets_iteratively(
           [4.2.6] Check Termination: If score >= threshold, stop
           [4.2.7] Log Progress: Track iteration state
     [4.3] Return Results: Final bullets + iteration history + metrics
-    
+
     IMPORTANT: Bullets DON'T change in this function!
     This function only evaluates and critiques. The LLM agent
     must regenerate bullets based on the critique returned.
@@ -1891,8 +2020,7 @@ def optimize_bullets_iteratively(
         # WHY: Need per-bullet feedback to identify weak spots
         # CALLS: evaluate_single_bullet() for each bullet (STAGE 3A)
         bullet_evaluations = [
-            evaluate_single_bullet(b, strategy, required_keywords)
-            for b in current_bullets
+            evaluate_single_bullet(b, strategy, required_keywords) for b in current_bullets
         ]
 
         # -----------------------------------------------------------------
@@ -1910,7 +2038,7 @@ def optimize_bullets_iteratively(
         all_issues = []
         for i, eval_result in enumerate(bullet_evaluations):
             if eval_result["issues"]:
-                all_issues.append(f"Bullet {i+1}: {'; '.join(eval_result['issues'])}")
+                all_issues.append(f"Bullet {i + 1}: {'; '.join(eval_result['issues'])}")
 
         # -----------------------------------------------------------------
         # [SUB-STAGE 4.2.4] Generate Critique
@@ -1920,10 +2048,12 @@ def optimize_bullets_iteratively(
         # CALLS: generate_bullet_critique() for low-scoring bullets (STAGE 3B)
         if avg_score < quality_threshold:
             critique_parts = []
-            for i, (bullet, eval_result) in enumerate(zip(current_bullets, bullet_evaluations, strict=True)):
+            for i, (bullet, eval_result) in enumerate(
+                zip(current_bullets, bullet_evaluations, strict=True)
+            ):
                 if eval_result["score"] < quality_threshold:
                     bullet_critique = generate_bullet_critique(bullet, eval_result, strategy)
-                    critique_parts.append(f"Bullet {i+1}: {bullet_critique}")
+                    critique_parts.append(f"Bullet {i + 1}: {bullet_critique}")
             overall_critique = " | ".join(critique_parts)
         else:
             overall_critique = "All bullets meet quality standards."
@@ -1934,13 +2064,15 @@ def optimize_bullets_iteratively(
         # WHAT: Save snapshot of bullets + score + critique to history
         # WHY: Enables debugging and progress tracking
         # CREATES: BulletDraft model instance for this iteration
-        iteration_history.append(BulletDraft(
-            iteration=iteration + 1,
-            content="\n".join(current_bullets),
-            quality_score=int(avg_score),
-            issues_found=all_issues,
-            critique=overall_critique
-        ))
+        iteration_history.append(
+            BulletDraft(
+                iteration=iteration + 1,
+                content="\n".join(current_bullets),
+                quality_score=int(avg_score),
+                issues_found=all_issues,
+                critique=overall_critique,
+            )
+        )
 
         # -----------------------------------------------------------------
         # [SUB-STAGE 4.2.7] Log Progress
@@ -1960,12 +2092,16 @@ def optimize_bullets_iteratively(
         # CONDITION 1: Quality threshold met -> STOP (success)
         # CONDITION 2: Max iterations reached -> STOP (via loop exit)
         if avg_score >= quality_threshold:
-            logger.info(f"[STAGE 4.2.6] Quality threshold met at iteration {iteration + 1} - STOPPING")
+            logger.info(
+                f"[STAGE 4.2.6] Quality threshold met at iteration {iteration + 1} - STOPPING"
+            )
             break
 
         # If not last iteration, log that we'll continue
         if iteration < max_iterations - 1:
-            logger.info(f"[STAGE 4.2.6] Below threshold - Continuing to iteration {iteration + 2}...")
+            logger.info(
+                f"[STAGE 4.2.6] Below threshold - Continuing to iteration {iteration + 2}..."
+            )
 
     # ---------------------------------------------------------------------
     # [SUB-STAGE 4.3] Return Results
@@ -1986,7 +2122,7 @@ def optimize_bullets_iteratively(
         "improved_bullets": current_bullets,  # Same as input (no regeneration here)
         "iteration_history": iteration_history,  # Full improvement journey
         "final_score": final_score,  # Final quality metric
-        "iterations_used": len(iteration_history)  # Count of iterations performed
+        "iterations_used": len(iteration_history),  # Count of iterations performed
     }
 
 
@@ -2042,9 +2178,7 @@ def check_keyword_integration(experience: Experience, required_keywords: list[st
 
 
 def calculate_relevance_score(
-    experience: Experience,
-    strategy: AlignmentStrategy,
-    required_keywords: list[str]
+    experience: Experience, strategy: AlignmentStrategy, required_keywords: list[str]
 ) -> float:
     """
     Calculate a relevance score for an experience entry.
@@ -2077,9 +2211,13 @@ def calculate_relevance_score(
     score += keyword_analysis["integration_rate"] * 40
 
     # Factor 2: Skill matches (30 points)
-    matched_skills = set(experience.skills_used) & {m.resume_skill for m in strategy.identified_matches}
+    matched_skills = set(experience.skills_used) & {
+        m.resume_skill for m in strategy.identified_matches
+    }
     if strategy.identified_matches:
-        skill_match_rate = len(matched_skills) / min(len(strategy.identified_matches), len(experience.skills_used) or 1)
+        skill_match_rate = len(matched_skills) / min(
+            len(strategy.identified_matches), len(experience.skills_used) or 1
+        )
         score += min(skill_match_rate, 1.0) * 30
 
     # Factor 3: Action verb strength (20 points)
@@ -2097,9 +2235,9 @@ def calculate_relevance_score(
 # Content Quality Checks
 # ==============================================================================
 
+
 def check_experience_quality(
-    section: OptimizedExperienceSection,
-    strategy: AlignmentStrategy
+    section: OptimizedExperienceSection, strategy: AlignmentStrategy
 ) -> dict:
     """
     Perform comprehensive quality checks on the optimized experience section.
@@ -2164,7 +2302,7 @@ def check_experience_quality(
         quant_analysis = count_quantified_achievements(exp.achievements)
         if quant_analysis["quantification_rate"] < 0.5:
             entry_warnings.append(
-                f"Low quantification rate ({quant_analysis['quantification_rate']*100:.0f}%). "
+                f"Low quantification rate ({quant_analysis['quantification_rate'] * 100:.0f}%). "
                 f"Add metrics to: {', '.join(quant_analysis['unquantified_bullets'][:2])}"
             )
             entry_score -= 15
@@ -2173,7 +2311,7 @@ def check_experience_quality(
         keyword_analysis = check_keyword_integration(exp, required_keywords)
         if keyword_analysis["integration_rate"] < 0.4 and required_keywords:
             entry_warnings.append(
-                f"Low keyword integration ({keyword_analysis['integration_rate']*100:.0f}%). "
+                f"Low keyword integration ({keyword_analysis['integration_rate'] * 100:.0f}%). "
                 f"Missing: {', '.join(keyword_analysis['keywords_missing'][:3])}"
             )
             entry_score -= 10
@@ -2191,14 +2329,16 @@ def check_experience_quality(
                 structure_issues += 1
 
         if structure_issues > 0:
-            entry_warnings.append(f"{structure_issues} bullets lack strong structure (Metric + Method + Verb)")
-            entry_score -= (5 * structure_issues)
+            entry_warnings.append(
+                f"{structure_issues} bullets lack strong structure (Metric + Method + Verb)"
+            )
+            entry_score -= 5 * structure_issues
 
         # NEW Check 7: Passive voice detection
         passive_check = detect_passive_voice(exp.achievements)
         if not passive_check["is_acceptable"]:
             entry_issues.append(f"Passive voice in {passive_check['passive_count']} bullets")
-            entry_score -= (10 * passive_check["passive_count"])
+            entry_score -= 10 * passive_check["passive_count"]
 
         # NEW Check 8: Specificity check
         generic_count = 0
@@ -2209,7 +2349,7 @@ def check_experience_quality(
 
         if generic_count > 0:
             entry_warnings.append(f"{generic_count} bullets are too generic")
-            entry_score -= (5 * generic_count)
+            entry_score -= 5 * generic_count
 
         # NEW Check 9: Impact level assessment
         low_impact_count = 0
@@ -2225,7 +2365,7 @@ def check_experience_quality(
         # NEW Check 10: Scope indicator check
         bullets_with_scope = sum(1 for a in exp.achievements if has_scope_indicator(a))
         scope_rate = bullets_with_scope / len(exp.achievements) if exp.achievements else 0
-        if scope_rate < 0.3: # At least 30% should have scope
+        if scope_rate < 0.3:  # At least 30% should have scope
             entry_warnings.append("Few bullets indicate scope/scale")
             entry_score -= 5
 
@@ -2238,24 +2378,28 @@ def check_experience_quality(
 
         if weak_pairs > 0:
             entry_warnings.append(f"{weak_pairs} bullets use weak nouns with verbs")
-            entry_score -= (2 * weak_pairs)
+            entry_score -= 2 * weak_pairs
 
         # NEW Check 12: Multi-accomplishment detection
         multi_check = detect_multi_accomplishment_bullets(exp.achievements)
         if not multi_check["is_acceptable"]:
-            entry_warnings.append(f"{multi_check['multi_bullet_count']} bullets cram multiple accomplishments")
+            entry_warnings.append(
+                f"{multi_check['multi_bullet_count']} bullets cram multiple accomplishments"
+            )
             entry_score -= 5
 
-        entry_analyses.append({
-            "company": exp.company_name,
-            "entry_score": max(0, entry_score),
-            "bullet_count": bullet_count,
-            "action_verb_strength": verb_analysis["strength_score"],
-            "quantification_rate": quant_analysis["quantification_rate"],
-            "keyword_integration": keyword_analysis["integration_rate"],
-            "issues": entry_issues,
-            "warnings": entry_warnings,
-        })
+        entry_analyses.append(
+            {
+                "company": exp.company_name,
+                "entry_score": max(0, entry_score),
+                "bullet_count": bullet_count,
+                "action_verb_strength": verb_analysis["strength_score"],
+                "quantification_rate": quant_analysis["quantification_rate"],
+                "keyword_integration": keyword_analysis["integration_rate"],
+                "issues": entry_issues,
+                "warnings": entry_warnings,
+            }
+        )
 
         # Add to overall issues/warnings
         if entry_issues:
@@ -2264,10 +2408,24 @@ def check_experience_quality(
             warnings.append(f"{exp.company_name}: {'; '.join(entry_warnings)}")
 
     # Overall section checks
-    avg_verb_strength = sum(e["action_verb_strength"] for e in entry_analyses) / len(entry_analyses) if entry_analyses else 0
-    avg_quant_rate = sum(e["quantification_rate"] for e in entry_analyses) / len(entry_analyses) if entry_analyses else 0
-    avg_keyword_rate = sum(e["keyword_integration"] for e in entry_analyses) / len(entry_analyses) if entry_analyses else 0
-    avg_entry_score = sum(e["entry_score"] for e in entry_analyses) / len(entry_analyses) if entry_analyses else 0
+    avg_verb_strength = (
+        sum(e["action_verb_strength"] for e in entry_analyses) / len(entry_analyses)
+        if entry_analyses
+        else 0
+    )
+    avg_quant_rate = (
+        sum(e["quantification_rate"] for e in entry_analyses) / len(entry_analyses)
+        if entry_analyses
+        else 0
+    )
+    avg_keyword_rate = (
+        sum(e["keyword_integration"] for e in entry_analyses) / len(entry_analyses)
+        if entry_analyses
+        else 0
+    )
+    avg_entry_score = (
+        sum(e["entry_score"] for e in entry_analyses) / len(entry_analyses) if entry_analyses else 0
+    )
 
     # Penalize overall score based on averages
     if avg_verb_strength < 70:
@@ -2321,9 +2479,7 @@ def check_experience_quality(
     if warnings:
         logger.info(f"Experience section quality warnings: {warnings}")
 
-    logger.info(
-        f"Experience section quality check: {quality} (score: {overall_score}/100)"
-    )
+    logger.info(f"Experience section quality check: {quality} (score: {overall_score}/100)")
 
     # Add iterative improvement status for backward compatibility tracking
     result["iterative_improvement_enabled"] = ENABLE_ITERATIVE_IMPROVEMENT
@@ -2334,6 +2490,7 @@ def check_experience_quality(
 # ==============================================================================
 # Iteration Progress Logging
 # ==============================================================================
+
 
 def log_iteration_progress(iteration_history: dict[str, list[BulletDraft]]) -> None:
     """
@@ -2363,9 +2520,9 @@ def log_iteration_progress(iteration_history: dict[str, list[BulletDraft]]) -> N
         logger.warning("No iteration history to log")
         return
 
-    logger.info("\n" + "="*70)
+    logger.info("\n" + "=" * 70)
     logger.info("ITERATIVE IMPROVEMENT SUMMARY")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
     total_iterations = 0
     total_entries = len(iteration_history)
@@ -2396,16 +2553,17 @@ def log_iteration_progress(iteration_history: dict[str, list[BulletDraft]]) -> N
             )
 
     # Overall summary
-    logger.info("\n" + "-"*70)
+    logger.info("\n" + "-" * 70)
     logger.info(f"Total entries processed: {total_entries}")
     logger.info(f"Total iterations performed: {total_iterations}")
     logger.info(f"Average iterations per entry: {total_iterations / total_entries:.1f}")
-    logger.info("="*70 + "\n")
+    logger.info("=" * 70 + "\n")
 
 
 # ==============================================================================
 # Utility Functions
 # ==============================================================================
+
 
 def get_agent_info() -> dict:
     """
@@ -2479,7 +2637,7 @@ if __name__ == "__main__":
     verb_analysis = analyze_action_verbs(test_achievements)
     print(f"  Strong verbs: {verb_analysis['strong_verb_count']}/{len(test_achievements)}")
     print(f"  Strength score: {verb_analysis['strength_score']}/100")
-    if verb_analysis['weak_bullets']:
+    if verb_analysis["weak_bullets"]:
         print(f"  Weak bullets: {verb_analysis['weak_bullets']}")
 
     # Test quantification analysis
@@ -2491,8 +2649,8 @@ if __name__ == "__main__":
     ]
     quant_analysis = count_quantified_achievements(test_achievements2)
     print(f"  Quantified: {quant_analysis['quantified_count']}/{len(test_achievements2)}")
-    print(f"  Rate: {quant_analysis['quantification_rate']*100:.0f}%")
-    if quant_analysis['unquantified_bullets']:
+    print(f"  Rate: {quant_analysis['quantification_rate'] * 100:.0f}%")
+    if quant_analysis["unquantified_bullets"]:
         print(f"  Needs metrics: {quant_analysis['unquantified_bullets']}")
 
     # Test quality check function with mock data
@@ -2509,14 +2667,14 @@ if __name__ == "__main__":
                     resume_skill="Python",
                     job_requirement="Python development",
                     match_score=95.0,
-                    justification="Direct match"
+                    justification="Direct match",
                 )
             ],
             identified_gaps=[
                 SkillGap(
                     missing_skill="Kubernetes",
                     importance="nice_to_have",
-                    suggestion="Mention if available"
+                    suggestion="Mention if available",
                 )
             ],
             keywords_to_integrate=["Python", "AWS", "Microservices", "Cloud", "Docker"],
@@ -2554,17 +2712,17 @@ if __name__ == "__main__":
         print(f"Overall Score: {quality_result['overall_score']}/100")
         print(f"Acceptable: {quality_result['is_acceptable']}")
         print("\nSection Metrics:")
-        for key, value in quality_result['section_metrics'].items():
+        for key, value in quality_result["section_metrics"].items():
             print(f"  {key}: {value}")
-        if quality_result['issues']:
+        if quality_result["issues"]:
             print(f"\nIssues: {quality_result['issues']}")
-        if quality_result['warnings']:
+        if quality_result["warnings"]:
             print(f"\nWarnings: {quality_result['warnings']}")
 
     except Exception as e:
         print(f"Quality check test failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
 
     print("\n" + "=" * 70)
-

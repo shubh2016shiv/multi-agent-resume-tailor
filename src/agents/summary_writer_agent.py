@@ -46,6 +46,7 @@ OUTPUT VALIDATION:
 """
 
 from crewai import Agent
+from crewai.tools import tool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 # Handle imports for both package usage and direct script execution
@@ -70,10 +71,12 @@ logger = get_logger(__name__)
 # Output Model for Professional Summary
 # ==============================================================================
 
+
 class SummaryDraft(BaseModel):
     """
     A single draft version of the professional summary.
     """
+
     version_name: str = Field(
         ...,
         description="Name of the version (e.g., 'Hook-Value-Future', 'Story Spine', 'ATS-Optimized')",
@@ -130,18 +133,18 @@ class ProfessionalSummary(BaseModel):
                         "strategy_used": "Classic 3-part structure: Hook -> Value -> Future",
                         "content": "Scaled infrastructure serving 50M+ users... (rest of summary)",
                         "critique": "Strong hook, but could use more specific metrics in the middle.",
-                        "score": 85
+                        "score": 85,
                     },
                     {
                         "version_name": "Story Spine",
                         "strategy_used": "Narrative arc focusing on career evolution",
                         "content": "Starting as a junior dev... (rest of summary)",
                         "critique": "Engaging story, but slightly long.",
-                        "score": 80
-                    }
+                        "score": 80,
+                    },
                 ],
                 "recommended_version": "Hook-Value-Future",
-                "writing_notes": "The Hook-Value-Future version aligns best with the senior level of this role."
+                "writing_notes": "The Hook-Value-Future version aligns best with the senior level of this role.",
             }
         }
     )
@@ -150,6 +153,7 @@ class ProfessionalSummary(BaseModel):
 # ==============================================================================
 # Agent Configuration Loading
 # ==============================================================================
+
 
 def _load_agent_config() -> dict:
     """
@@ -175,9 +179,7 @@ def _load_agent_config() -> dict:
         missing_fields = [f for f in required_fields if f not in config]
 
         if missing_fields:
-            logger.warning(
-                f"Agent config missing fields: {missing_fields}. Using defaults."
-            )
+            logger.warning(f"Agent config missing fields: {missing_fields}. Using defaults.")
             return _get_default_config()
 
         logger.debug("Successfully loaded agent configuration from YAML")
@@ -216,12 +218,10 @@ def _get_default_config() -> dict:
         "verbose": True,
     }
 
-
-from crewai.tools import tool
-
 # ==============================================================================
 # Tools
 # ==============================================================================
+
 
 class DraftEvaluationTool:
     @tool("Evaluate Draft Quality")
@@ -229,7 +229,7 @@ class DraftEvaluationTool:
         """
         Evaluate a professional summary draft against quality standards.
         Returns a detailed analysis of word count, keyword integration, and writing quality.
-        
+
         Args:
             draft_text: The summary text to evaluate.
             keywords: List of keywords that should be included.
@@ -239,62 +239,70 @@ class DraftEvaluationTool:
         try:
             # Simple word count check
             word_count = len(draft_text.split())
-            
+
             # Keyword check
             draft_lower = draft_text.lower()
-            found_keywords = [k for k in keywords if k.lower() in draft_lower]
+            # found_keywords = [k for k in keywords if k.lower() in draft_lower]  # Commented out: unused variable
             missing_keywords = [k for k in keywords if k.lower() not in draft_lower]
-            
+
             # Cliche check
-            cliches = ["results-driven", "team player", "hard worker", "detail-oriented", "go-getter"]
+            cliches = [
+                "results-driven",
+                "team player",
+                "hard worker",
+                "detail-oriented",
+                "go-getter",
+            ]
             found_cliches = [c for c in cliches if c in draft_lower]
-            
+
             # Scoring
             score = 100
             feedback = []
-            
+
             if word_count < 50:
                 score -= 20
                 feedback.append(f"Too short ({word_count} words). Aim for 75-150.")
             elif word_count > 150:
                 score -= 10
                 feedback.append(f"Too long ({word_count} words). Aim for 75-150.")
-                
+
             if missing_keywords:
                 penalty = min(30, len(missing_keywords) * 5)
                 score -= penalty
                 feedback.append(f"Missing keywords: {', '.join(missing_keywords)}")
-                
+
             if found_cliches:
                 score -= 15
                 feedback.append(f"Contains cliches: {', '.join(found_cliches)}")
-                
+
             return f"Score: {score}/100. Feedback: {'; '.join(feedback) if feedback else 'Excellent draft.'}"
-            
+
         except Exception as e:
             return f"Error evaluating draft: {str(e)}"
+
 
 # ==============================================================================
 # Agent Creation
 # ==============================================================================
 
+
 def create_summary_writer_agent() -> Agent:
     """
     Create and configure the Professional Summary Writer agent.
-    
+
     This is the main entry point for creating this agent. It handles all the
     complexity of configuration loading and agent initialization.
-    
+
     Returns:
         Configured CrewAI Agent instance ready to write professional summaries
-    
+
     Raises:
         Exception: If agent creation fails (logged and re-raised)
-    
+
     Example:
         >>> agent = create_summary_writer_agent()
         >>> # Agent is now ready to be used in a crew or task
-    
+
     Design Notes:
         - Uses configuration from agents.yaml (with fallback to defaults)
         - Uses DraftEvaluationTool for self-critique
@@ -339,16 +347,14 @@ def create_summary_writer_agent() -> Agent:
         return agent
 
     except Exception as e:
-        logger.error(
-            f"Failed to create Professional Summary Writer agent: {e}",
-            exc_info=True
-        )
+        logger.error(f"Failed to create Professional Summary Writer agent: {e}", exc_info=True)
         raise
 
 
 # ==============================================================================
 # Output Validation
 # ==============================================================================
+
 
 def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
     """
@@ -395,22 +401,18 @@ def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
         )
         # Log each validation error for easier debugging
         for error in e.errors():
-            logger.error(
-                f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}"
-            )
+            logger.error(f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}")
         return None
 
     except Exception as e:
-        logger.error(
-            f"Unexpected error during summary validation: {e}",
-            exc_info=True
-        )
+        logger.error(f"Unexpected error during summary validation: {e}", exc_info=True)
         return None
 
 
 # ==============================================================================
 # Content Quality Checks
 # ==============================================================================
+
 
 def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrategy) -> dict:
     """
@@ -437,18 +439,15 @@ def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrat
     Design Note:
         This helps catch low-quality or non-strategic summaries early.
     """
-    results = {
-        "overall_status": "complete",
-        "draft_evaluations": []
-    }
+    results = {"overall_status": "complete", "draft_evaluations": []}
 
     for draft in summary.drafts:
         draft_score = 100
         issues = []
         warnings = []
-        
+
         word_count = count_words(draft.content)
-        
+
         # Check word count (optimal: 50-120 words)
         if word_count < 40:
             issues.append(f"Summary too short ({word_count} words)")
@@ -456,12 +455,12 @@ def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrat
         elif word_count > 150:
             issues.append(f"Summary too long ({word_count} words)")
             draft_score -= 25
-            
+
         # Check keyword integration
         required_keywords = {k.lower() for k in strategy.keywords_to_integrate[:5]}
         draft_lower = draft.content.lower()
         missing_keywords = [k for k in required_keywords if k not in draft_lower]
-        
+
         if len(missing_keywords) > 3:
             issues.append(f"Missing critical keywords: {missing_keywords}")
             draft_score -= 25
@@ -486,14 +485,16 @@ def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrat
         else:
             quality = "poor"
 
-        results["draft_evaluations"].append({
-            "version": draft.version_name,
-            "quality": quality,
-            "score": max(0, draft_score),
-            "issues": issues,
-            "warnings": warnings,
-            "word_count": word_count
-        })
+        results["draft_evaluations"].append(
+            {
+                "version": draft.version_name,
+                "quality": quality,
+                "score": max(0, draft_score),
+                "issues": issues,
+                "warnings": warnings,
+                "word_count": word_count,
+            }
+        )
 
     logger.info(f"Completed quality check for {len(summary.drafts)} drafts")
     return results
@@ -543,7 +544,7 @@ def analyze_keyword_integration(summary_text: str, required_keywords: list[str])
 
     logger.info(
         f"Keyword integration: {results['total_integrated']}/{results['total_required']} "
-        f"({results['integration_rate']*100:.0f}%)"
+        f"({results['integration_rate'] * 100:.0f}%)"
     )
 
     return results
@@ -552,6 +553,7 @@ def analyze_keyword_integration(summary_text: str, required_keywords: list[str])
 # ==============================================================================
 # Utility Functions
 # ==============================================================================
+
 
 def get_agent_info() -> dict:
     """
@@ -636,11 +638,18 @@ if __name__ == "__main__":
             summary_of_strategy="Emphasize cloud and Python experience",
             identified_matches=[
                 SkillMatch(
-                    resume_skill="Python", job_requirement="Python", match_score=95.0, justification="Direct match"
+                    resume_skill="Python",
+                    job_requirement="Python",
+                    match_score=95.0,
+                    justification="Direct match",
                 )
             ],
             identified_gaps=[
-                SkillGap(missing_skill="Kubernetes", importance="nice_to_have", suggestion="Mention if available")
+                SkillGap(
+                    missing_skill="Kubernetes",
+                    importance="nice_to_have",
+                    suggestion="Mention if available",
+                )
             ],
             keywords_to_integrate=["Python", "AWS", "Microservices", "Cloud", "Docker"],
             professional_summary_guidance="Emphasize cloud architecture and cost optimization",
@@ -655,25 +664,25 @@ if __name__ == "__main__":
                     version_name="Hook-Value-Future",
                     strategy_used="Classic 3-part structure",
                     content="Senior Software Engineer with 8+ years of experience... (content)",
-                    score=90
+                    score=90,
                 )
             ],
             recommended_version="Hook-Value-Future",
-            writing_notes="Strongest alignment."
+            writing_notes="Strongest alignment.",
         )
 
         quality_result = check_summary_quality(mock_summary, mock_strategy)
         print(f"Overall Status: {quality_result.get('overall_status', 'N/A')}")
         print(f"Draft Evaluations: {len(quality_result.get('draft_evaluations', []))}")
-        
+
         for eval_result in quality_result.get("draft_evaluations", []):
             print(f"\n  {eval_result['version']}:")
             print(f"    Quality: {eval_result['quality']}")
             print(f"    Score: {eval_result['score']}/100")
             print(f"    Word Count: {eval_result['word_count']}")
-            if eval_result.get('issues'):
+            if eval_result.get("issues"):
                 print(f"    Issues: {eval_result['issues']}")
-            if eval_result.get('warnings'):
+            if eval_result.get("warnings"):
                 print(f"    Warnings: {eval_result['warnings']}")
 
         # Test keyword analysis on first draft
@@ -681,18 +690,17 @@ if __name__ == "__main__":
         if mock_summary.drafts:
             first_draft_content = mock_summary.drafts[0].content
             keyword_analysis = analyze_keyword_integration(
-                first_draft_content,
-                mock_strategy.keywords_to_integrate
+                first_draft_content, mock_strategy.keywords_to_integrate
             )
-            print(f"Integration rate: {keyword_analysis['integration_rate']*100:.0f}%")
+            print(f"Integration rate: {keyword_analysis['integration_rate'] * 100:.0f}%")
             print(f"Integrated: {keyword_analysis['integrated_keywords']}")
-            if keyword_analysis['missing_keywords']:
+            if keyword_analysis["missing_keywords"]:
                 print(f"Missing: {keyword_analysis['missing_keywords']}")
 
     except Exception as e:
         print(f"Quality check test failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
 
     print("\n" + "=" * 70)
-

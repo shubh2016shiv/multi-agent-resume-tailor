@@ -38,7 +38,6 @@ CRITICAL INSIGHTS PROVIDED:
 - Keyword Optimization Suggestions
 """
 
-
 from crewai import Agent
 from pydantic import ValidationError
 
@@ -68,6 +67,7 @@ logger = get_logger(__name__)
 # Agent Configuration Loading
 # ==============================================================================
 
+
 def _load_agent_config() -> dict:
     """
     Load the agent configuration from agents.yaml.
@@ -92,9 +92,7 @@ def _load_agent_config() -> dict:
         missing_fields = [f for f in required_fields if f not in config]
 
         if missing_fields:
-            logger.warning(
-                f"Agent config missing fields: {missing_fields}. Using defaults."
-            )
+            logger.warning(f"Agent config missing fields: {missing_fields}. Using defaults.")
             return _get_default_config()
 
         logger.debug("Successfully loaded agent configuration from YAML")
@@ -137,6 +135,7 @@ def _get_default_config() -> dict:
 # ==============================================================================
 # Agent Creation
 # ==============================================================================
+
 
 def create_gap_analysis_agent() -> Agent:
     """
@@ -193,16 +192,14 @@ def create_gap_analysis_agent() -> Agent:
         return agent
 
     except Exception as e:
-        logger.error(
-            f"Failed to create Gap Analysis Specialist agent: {e}",
-            exc_info=True
-        )
+        logger.error(f"Failed to create Gap Analysis Specialist agent: {e}", exc_info=True)
         raise
 
 
 # ==============================================================================
 # Output Validation
 # ==============================================================================
+
 
 def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
     """
@@ -250,22 +247,18 @@ def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
         )
         # Log each validation error for easier debugging
         for error in e.errors():
-            logger.error(
-                f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}"
-            )
+            logger.error(f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}")
         return None
 
     except Exception as e:
-        logger.error(
-            f"Unexpected error during analysis validation: {e}",
-            exc_info=True
-        )
+        logger.error(f"Unexpected error during analysis validation: {e}", exc_info=True)
         return None
 
 
 # ==============================================================================
 # Analysis Helper Functions
 # ==============================================================================
+
 
 def normalize_skill(skill: str) -> str:
     """
@@ -362,6 +355,7 @@ def extract_job_requirements(job: JobDescription) -> dict[str, str]:
 # Analysis Quality Checks
 # ==============================================================================
 
+
 def check_analysis_quality(strategy: AlignmentStrategy) -> dict:
     """
     Perform quality checks on the gap analysis report.
@@ -410,7 +404,10 @@ def check_analysis_quality(strategy: AlignmentStrategy) -> dict:
         score -= 25
 
     # Check for guidance fields
-    if not strategy.professional_summary_guidance or len(strategy.professional_summary_guidance) < 20:
+    if (
+        not strategy.professional_summary_guidance
+        or len(strategy.professional_summary_guidance) < 20
+    ):
         issues.append("Professional summary guidance is missing or too brief")
         score -= 15
 
@@ -455,9 +452,7 @@ def check_analysis_quality(strategy: AlignmentStrategy) -> dict:
     if warnings:
         logger.info(f"Analysis quality warnings: {warnings}")
 
-    logger.info(
-        f"Gap analysis quality check: {quality} (score: {score}/100)"
-    )
+    logger.info(f"Gap analysis quality check: {quality} (score: {score}/100)")
 
     return result
 
@@ -503,7 +498,7 @@ def calculate_coverage_stats(strategy: AlignmentStrategy) -> dict:
     logger.info(
         f"Coverage stats: {stats['total_matches']} matches, "
         f"{stats['total_gaps']} gaps, "
-        f"{stats['coverage_ratio']*100:.0f}% coverage"
+        f"{stats['coverage_ratio'] * 100:.0f}% coverage"
     )
 
     return stats
@@ -512,6 +507,7 @@ def calculate_coverage_stats(strategy: AlignmentStrategy) -> dict:
 # ==============================================================================
 # Utility Functions
 # ==============================================================================
+
 
 def get_agent_info() -> dict:
     """
@@ -595,35 +591,35 @@ if __name__ == "__main__":
                     resume_skill="Python Development",
                     job_requirement="5+ years of Python programming",
                     match_score=95.0,
-                    justification="Candidate has 5 years of Python experience across multiple projects"
+                    justification="Candidate has 5 years of Python experience across multiple projects",
                 ),
                 SkillMatch(
                     resume_skill="Docker",
                     job_requirement="Container orchestration experience",
                     match_score=85.0,
-                    justification="Extensive Docker usage in microservices architecture"
+                    justification="Extensive Docker usage in microservices architecture",
                 ),
             ],
             identified_gaps=[
                 SkillGap(
                     missing_skill="Kubernetes",
                     importance="must_have",
-                    suggestion="Review Docker experience for any orchestration work that can be reframed as Kubernetes-adjacent skills"
+                    suggestion="Review Docker experience for any orchestration work that can be reframed as Kubernetes-adjacent skills",
                 )
             ],
             keywords_to_integrate=["Python", "Docker", "Microservices", "AWS"],
             professional_summary_guidance="Emphasize cloud infrastructure experience and Python expertise",
             experience_guidance="Highlight Docker containerization projects at previous roles",
-            skills_guidance="List cloud technologies first, prioritize AWS and Docker"
+            skills_guidance="List cloud technologies first, prioritize AWS and Docker",
         )
 
         quality_result = check_analysis_quality(mock_strategy)
         print(f"Quality: {quality_result['quality']}")
         print(f"Score: {quality_result['score']}/100")
         print(f"Acceptable: {quality_result['is_acceptable']}")
-        if quality_result['issues']:
+        if quality_result["issues"]:
             print(f"Issues: {quality_result['issues']}")
-        if quality_result['warnings']:
+        if quality_result["warnings"]:
             print(f"Warnings: {quality_result['warnings']}")
 
         # Test coverage stats
@@ -636,4 +632,3 @@ if __name__ == "__main__":
         print(f"Quality check test failed: {str(e)}")
 
     print("\n" + "=" * 70)
-

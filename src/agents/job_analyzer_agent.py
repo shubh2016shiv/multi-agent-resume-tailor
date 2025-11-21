@@ -29,7 +29,6 @@ KEY ANALYSIS POINTS:
 - Red flags or unclear requirements
 """
 
-
 from crewai import Agent
 from pydantic import ValidationError
 
@@ -43,6 +42,7 @@ except ImportError:
     # Fallback for when running this file directly
     import sys
     from pathlib import Path
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from src.core.config import get_agents_config
     from src.core.logger import get_logger
@@ -55,6 +55,7 @@ logger = get_logger(__name__)
 # ==============================================================================
 # Agent Configuration Loading
 # ==============================================================================
+
 
 def _load_agent_config() -> dict:
     """
@@ -80,9 +81,7 @@ def _load_agent_config() -> dict:
         missing_fields = [f for f in required_fields if f not in config]
 
         if missing_fields:
-            logger.warning(
-                f"Agent config missing fields: {missing_fields}. Using defaults."
-            )
+            logger.warning(f"Agent config missing fields: {missing_fields}. Using defaults.")
             return _get_default_config()
 
         logger.debug("Successfully loaded agent configuration from YAML")
@@ -123,6 +122,7 @@ def _get_default_config() -> dict:
 # ==============================================================================
 # Agent Creation
 # ==============================================================================
+
 
 def create_job_analyzer_agent() -> Agent:
     """
@@ -180,16 +180,14 @@ def create_job_analyzer_agent() -> Agent:
         return agent
 
     except Exception as e:
-        logger.error(
-            f"Failed to create Job Description Analyst agent: {e}",
-            exc_info=True
-        )
+        logger.error(f"Failed to create Job Description Analyst agent: {e}", exc_info=True)
         raise
 
 
 # ==============================================================================
 # Output Validation
 # ==============================================================================
+
 
 def validate_job_output(output_data: dict) -> JobDescription | None:
     """
@@ -238,22 +236,18 @@ def validate_job_output(output_data: dict) -> JobDescription | None:
         )
         # Log each validation error for easier debugging
         for error in e.errors():
-            logger.error(
-                f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}"
-            )
+            logger.error(f"  Field: {error['loc']}, Type: {error['type']}, Message: {error['msg']}")
         return None
 
     except Exception as e:
-        logger.error(
-            f"Unexpected error during job description validation: {e}",
-            exc_info=True
-        )
+        logger.error(f"Unexpected error during job description validation: {e}", exc_info=True)
         return None
 
 
 # ==============================================================================
 # Analysis Quality Checks
 # ==============================================================================
+
 
 def check_analysis_quality(job: JobDescription) -> dict:
     """
@@ -341,9 +335,7 @@ def check_analysis_quality(job: JobDescription) -> dict:
     if warnings:
         logger.info(f"Job analysis quality warnings: {warnings}")
 
-    logger.info(
-        f"Job analysis quality check: {quality} (score: {score}/100)"
-    )
+    logger.info(f"Job analysis quality check: {quality} (score: {score}/100)")
 
     return result
 
@@ -351,6 +343,7 @@ def check_analysis_quality(job: JobDescription) -> dict:
 # ==============================================================================
 # Utility Functions
 # ==============================================================================
+
 
 def get_agent_info() -> dict:
     """
@@ -414,15 +407,18 @@ if __name__ == "__main__":
     print("\n--- Testing Quality Check Function ---")
     try:
         from src.data_models.job import JobDescription, JobLevel, JobRequirement, SkillImportance
+
         mock_job = JobDescription(
             job_title="Software Engineer",
             company_name="Test Company",
             summary="Join our team to build scalable cloud solutions.",
             full_text="Test description " * 20,  # Make it long enough
             requirements=[
-                JobRequirement(requirement="Python", importance=SkillImportance.MUST_HAVE, years_required=3),
+                JobRequirement(
+                    requirement="Python", importance=SkillImportance.MUST_HAVE, years_required=3
+                ),
                 JobRequirement(requirement="FastAPI", importance=SkillImportance.SHOULD_HAVE),
-                JobRequirement(requirement="Docker", importance=SkillImportance.NICE_TO_HAVE)
+                JobRequirement(requirement="Docker", importance=SkillImportance.NICE_TO_HAVE),
             ],
             ats_keywords=["Python", "FastAPI", "Docker", "Cloud"],
             job_level=JobLevel.MID,
@@ -431,12 +427,11 @@ if __name__ == "__main__":
         print(f"Quality: {quality_result['quality']}")
         print(f"Score: {quality_result['score']}/100")
         print(f"Acceptable: {quality_result['is_acceptable']}")
-        if quality_result['issues']:
+        if quality_result["issues"]:
             print(f"Issues: {quality_result['issues']}")
-        if quality_result['warnings']:
+        if quality_result["warnings"]:
             print(f"Warnings: {quality_result['warnings']}")
     except Exception as e:
         print(f"Quality check test failed: {str(e)}")
 
     print("\n" + "=" * 70)
-

@@ -51,7 +51,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 # Handle imports for both package usage and direct script execution
 try:
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.strategy import AlignmentStrategy
 except ImportError:
@@ -60,7 +60,7 @@ except ImportError:
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.strategy import AlignmentStrategy
 
@@ -317,10 +317,9 @@ def create_summary_writer_agent() -> Agent:
         # Load configuration
         config = _load_agent_config()
 
-        # Extract LLM settings
-        llm_model = config.get("llm", "gpt-4o")
-        temperature = config.get("temperature", 0.7)
-        verbose = config.get("verbose", True)
+        # Load centralized resilience configuration
+        app_config = get_config()
+        agent_defaults = app_config.llm.agent_defaults
 
         # Create the agent
         # NOTE: We do NOT assign tools here because this agent's job is to output

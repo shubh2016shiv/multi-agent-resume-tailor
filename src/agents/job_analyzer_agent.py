@@ -34,20 +34,20 @@ from pydantic import ValidationError
 
 # Handle imports for both package usage and direct script execution
 try:
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
-    from src.data_models.job import JobDescription
-    from src.tools.job_analyzer import parse_job_description
+    from src.data_models.job import JobDescription, SkillImportance
+    from src.data_models.strategy import AlignmentStrategy_job_description
 except ImportError:
     # Fallback for when running this file directly
     import sys
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
-    from src.data_models.job import JobDescription
-    from src.tools.job_analyzer import parse_job_description
+    from src.data_models.job import JobDescription, SkillImportance
+    from src.data_models.strategy import AlignmentStrategy_job_description
 
 logger = get_logger(__name__)
 
@@ -160,21 +160,15 @@ def create_job_analyzer_agent() -> Agent:
         verbose = config.get("verbose", True)
 
         # Create the agent
-        agent = Agent(
-            role=config["role"],
-            goal=config["goal"],
-            backstory=config["backstory"],
-            tools=[parse_job_description],  # Assign the job analyzer tool
-            llm=llm_model,
-            temperature=temperature,
-            verbose=verbose,
-            allow_delegation=False,  # This agent works independently
-            max_iter=5,  # Limit iterations to prevent infinite loops
-        )
+        # Load centralized resilience configuration
+        app_config = get_config()
+        agent_defaults = app_config.llm.agent_defaults
 
-        logger.info(
-            f"Successfully created agent: {config['role']}, "
-            f"using LLM: {llm_model}, temperature: {temperature}"
+        agent = Agent(
+            role=config.get("role", "Job Description Analyzer"),
+            goal=config.get("goal", "Analyze job descriptions and extract key requirements"),
+            backstory=config.get("backstory", "Expert in analyzing job descriptions"),
+            tools=[parse_job_description],  # Assign the job analyzer tool
         )
 
         return agent

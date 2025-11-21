@@ -57,7 +57,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 # Handle imports for both package usage and direct script execution
 try:
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.resume import Experience
     from src.data_models.strategy import AlignmentStrategy
@@ -67,7 +67,7 @@ except ImportError:
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.resume import Experience
     from src.data_models.strategy import AlignmentStrategy
@@ -916,6 +916,13 @@ def create_experience_optimizer_agent() -> Agent:
         llm_model = config.get("llm", "gemini/gemini-2.5-flash-lite")
         temperature = config.get("temperature", 0.5)
         verbose = config.get("verbose", True)
+    
+        # Load centralized resilience configuration
+        app_config = get_config()
+        agent_defaults = app_config.llm.agent_defaults
+
+        # Initialize tools
+        tools = [evaluate_experience_bullets]
 
         # AGENTIC ITERATIVE IMPROVEMENT MECHANISM - COMPLETE WORKFLOW
         #
@@ -1035,8 +1042,12 @@ def create_experience_optimizer_agent() -> Agent:
             temperature=temperature,
             verbose=verbose,
             allow_delegation=False,  # This agent works independently
-            max_iter=15,  # Allows multiple tool invocations per experience entry
-            # (3 iterations × ~5 tool calls per iteration = 15 max)
+            # Resilience Parameters (Layer 1: CrewAI Native)
+            max_retry_limit=agent_defaults.max_retry_limit,
+            max_rpm=agent_defaults.max_rpm,
+            max_iter=agent_defaults.max_iter,
+            max_execution_time=agent_defaults.max_execution_time,
+            respect_context_window=agent_defaults.respect_context_window,
         )
 
         logger.info(

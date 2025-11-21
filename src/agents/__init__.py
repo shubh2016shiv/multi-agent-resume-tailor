@@ -46,6 +46,15 @@ from src.agents.summary_writer_agent import (
     create_summary_writer_agent,
     validate_summary_output,
 )
+from src.agents.ats_optimization_agent import (
+    assemble_resume_components,
+    check_ats_quality,
+    create_ats_optimization_agent,
+    generate_json_resume,
+    generate_markdown_resume,
+    validate_ats_compatibility,
+    validate_optimized_output,
+)
 
 __all__ = [
     # Resume Extractor Agent
@@ -75,4 +84,12 @@ __all__ = [
     "create_skills_optimizer_agent",
     "validate_skills_output",
     "check_skills_quality",
+    # ATS Optimization Specialist Agent
+    "create_ats_optimization_agent",
+    "validate_optimized_output",
+    "check_ats_quality",
+    "validate_ats_compatibility",
+    "assemble_resume_components",
+    "generate_markdown_resume",
+    "generate_json_resume",
 ]

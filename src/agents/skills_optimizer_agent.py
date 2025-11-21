@@ -15,16 +15,15 @@ DESIGN PRINCIPLES:
 
 import json
 import re
-import time
 import uuid
-from functools import wraps
 
 from crewai import Agent
 from pydantic import BaseModel, Field
 
 try:
-    from src.core.config import get_agents_config
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
+    from src.core.resiliency import resilient_llm_call
     from src.data_models.job import JobDescription, SkillImportance
     from src.data_models.resume import Experience, OptimizedSkillsSection, Skill
     from src.data_models.strategy import AlignmentStrategy
@@ -33,8 +32,10 @@ except ImportError:
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from src.core.config import get_agents_config
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
+    from src.core.resiliency import resilient_llm_call
     from src.data_models.job import JobDescription, SkillImportance
     from src.data_models.resume import Experience, OptimizedSkillsSection, Skill
     from src.data_models.strategy import AlignmentStrategy
@@ -66,10 +67,7 @@ MIN_EVIDENCE_QUOTE_LENGTH = 10  # Minimum character length for valid evidence qu
 QUALITY_THRESHOLD = 75.0  # Minimum acceptable quality score
 MIN_CATEGORIES = 3  # Minimum recommended skill categories
 
-# LLM retry configuration
-MAX_LLM_RETRIES = 3  # Maximum number of retry attempts for LLM calls
-LLM_RETRY_DELAY = 1.0  # Initial delay in seconds between retries
-LLM_TIMEOUT_SECONDS = 30  # Timeout for LLM calls
+
 
 
 # ==============================================================================
@@ -118,58 +116,7 @@ def log_with_context(level: str = "info", **context):
 # ==============================================================================
 
 
-def retry_llm_call(max_retries: int = MAX_LLM_RETRIES, delay: float = LLM_RETRY_DELAY):
-    """Decorator for retrying LLM calls with exponential backoff."""
 
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # correlation_id = LogContext.get_correlation_id()  # Commented out: unused variable
-
-            for attempt in range(max_retries):
-                try:
-                    log_with_context(
-                        level="debug",
-                        message=f"LLM call attempt {attempt + 1}/{max_retries}",
-                        function=func.__name__,
-                    )
-                    return func(*args, **kwargs)
-
-                except json.JSONDecodeError as e:
-                    if attempt < max_retries - 1:
-                        wait_time = delay * (2**attempt)
-                        log_with_context(
-                            level="warning",
-                            message=f"LLM JSON parse failed, retrying in {wait_time}s",
-                            function=func.__name__,
-                            attempt=attempt + 1,
-                            error=str(e),
-                        )
-                        time.sleep(wait_time)
-                    else:
-                        log_with_context(
-                            level="error",
-                            message="LLM call failed after all retries",
-                            function=func.__name__,
-                            error=str(e),
-                        )
-                        raise
-
-                except Exception as e:
-                    log_with_context(
-                        level="error",
-                        message="LLM call failed with unexpected error",
-                        function=func.__name__,
-                        attempt=attempt + 1,
-                        error=str(e),
-                    )
-                    raise
-
-            return None
-
-        return wrapper
-
-    return decorator
 
 
 # ==============================================================================
@@ -215,7 +162,7 @@ def _clean_json_string(json_str: str) -> str:
 # ==============================================================================
 
 
-@retry_llm_call(max_retries=MAX_LLM_RETRIES)
+@resilient_llm_call(provider="gemini")
 def infer_missing_skills(context: SkillInferenceContext, agent: Agent) -> list[Skill]:
     """
     Use LLM to intelligently infer missing skills based on experience.
@@ -625,7 +572,7 @@ Be strict. Only approve if evidence is clear and connection is logical.
 # ==============================================================================
 
 
-@retry_llm_call(max_retries=MAX_LLM_RETRIES)
+@resilient_llm_call(provider="gemini")
 def prioritize_and_categorize_skills(
     all_skills: list[Skill], context: SkillInferenceContext, agent: Agent
 ) -> dict[str, any]:
@@ -948,6 +895,10 @@ def create_skills_optimizer_agent() -> Agent:
     Design: Let the agent use its intelligence, not hardcoded rules.
     """
     config = get_agents_config().get("skills_section_strategist", {})
+    
+    # Load centralized resilience configuration
+    app_config = get_config()
+    agent_defaults = app_config.llm.agent_defaults
 
     logger.info("Creating Skills Optimizer agent...")
 
@@ -959,10 +910,19 @@ def create_skills_optimizer_agent() -> Agent:
         temperature=0.3,  # Balanced temperature for consistent but flexible categorization
         verbose=config.get("verbose", True),
         allow_delegation=False,
-        max_iter=5,
+        
+        # Resilience Parameters (Layer 1: CrewAI Native)
+        max_retry_limit=agent_defaults.max_retry_limit,
+        max_rpm=agent_defaults.max_rpm,
+        max_iter=agent_defaults.max_iter,
+        max_execution_time=agent_defaults.max_execution_time,
+        respect_context_window=agent_defaults.respect_context_window,
     )
 
-    logger.info("Skills Optimizer agent created successfully")
+    logger.info(
+        f"Skills Optimizer agent created successfully with resilience: "
+        f"max_retry={agent_defaults.max_retry_limit}, max_rpm={agent_defaults.max_rpm}"
+    )
     return agent
 
 

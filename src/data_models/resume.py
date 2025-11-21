@@ -27,7 +27,7 @@ DESIGN RATIONALE:
 """
 
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -78,6 +78,30 @@ class Skill(BaseModel):
         le=50, # A reasonable upper limit.
         examples=[5]
     )
+    
+    # === AI-FIRST SKILL INFERENCE FIELDS ===
+    # These optional fields support the new AI-first skill inference approach,
+    # allowing agents to add skills with justification and evidence validation
+    
+    justification: Optional[str] = Field(
+        None,
+        description="Explanation for why this skill was added or inferred, based on domain expertise.",
+        examples=["Inferred from Generative AI domain expertise - standard tool for building LLM applications"]
+    )
+    
+    evidence: Optional[List[str]] = Field(
+        None,
+        description="Direct quotes or references from experience section supporting this skill inference.",
+        examples=[["Built AI chatbots using Python", "Developed conversational AI assistants"]]
+    )
+    
+    confidence_score: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score (0-1) for inferred skills, based on evidence strength and domain relevance.",
+        examples=[0.85]
+    )
 
     class Config:
         # Pydantic configuration to provide an example for documentation generation.
@@ -89,6 +113,7 @@ class Skill(BaseModel):
                 "years_of_experience": 8,
             }
         }
+
 
 
 # ==============================================================================
@@ -256,7 +281,109 @@ class Education(BaseModel):
 
 
 # ==============================================================================
-# 4. Resume Model (Aggregator)
+# 5. Optimized Skills Section Model
+# ==============================================================================
+# Represents the output of the Skills Section Strategist agent.
+
+class OptimizedSkillsSection(BaseModel):
+    """
+    Represents an optimized skills section for a resume.
+
+    This model captures the output of the Skills Section Strategist agent,
+    including the reordered skills, categorization, and metadata about
+    optimizations made. It ensures all skill additions are truthful and
+    domain-based.
+    """
+    optimized_skills: List[Skill] = Field(
+        default_factory=list,
+        description="The complete list of skills, reordered by priority and relevance to the job.",
+    )
+
+    skill_categories: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Skills grouped into logical categories (e.g., 'Programming Languages', 'Cloud Platforms').",
+        examples=[{
+            "Programming Languages": ["Python", "JavaScript"],
+            "Cloud Platforms": ["AWS", "Azure"],
+            "Frameworks & Libraries": ["React", "Django"]
+        }]
+    )
+
+    added_skills: List[Skill] = Field(
+        default_factory=list,
+        description="Newly inferred skills added based on domain expertise, with justification.",
+        examples=[{
+            "skill_name": "LangChain",
+            "category": "AI Frameworks",
+            "proficiency_level": "intermediate",
+            "justification": "Inferred from Generative AI experience and Python expertise"
+        }]
+    )
+
+    removed_skills: List[str] = Field(
+        default_factory=list,
+        description="Skills removed from the original resume with reasons.",
+        examples=["Visual Basic", "COBOL"]
+    )
+
+    optimization_notes: str = Field(
+        default="",
+        description="Summary of optimization decisions and rationale.",
+        examples=["Prioritized AWS skills to match job requirements. Added LangChain based on Generative AI experience."]
+    )
+
+    ats_match_score: float = Field(
+        default=0.0,
+        ge=0,
+        le=100,
+        description="ATS compatibility score (0-100) based on keyword matching and optimization.",
+    )
+
+    @property
+    def total_skills_count(self) -> int:
+        """Returns the total number of skills in the optimized section."""
+        return len(self.optimized_skills)
+
+    @property
+    def category_count(self) -> int:
+        """Returns the number of skill categories."""
+        return len(self.skill_categories)
+
+    @property
+    def added_skills_count(self) -> int:
+        """Returns the number of skills added through inference."""
+        return len(self.added_skills)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "optimized_skills": [
+                    {"skill_name": "Python", "category": "Programming Languages", "proficiency_level": "Expert"},
+                    {"skill_name": "AWS", "category": "Cloud Platforms", "proficiency_level": "Advanced"},
+                    {"skill_name": "LangChain", "category": "AI Frameworks", "proficiency_level": "Intermediate"}
+                ],
+                "skill_categories": {
+                    "Programming Languages": ["Python", "JavaScript"],
+                    "Cloud Platforms": ["AWS", "Docker"],
+                    "AI & ML": ["LangChain", "OpenAI API"]
+                },
+                "added_skills": [
+                    {
+                        "skill_name": "LangChain",
+                        "category": "AI Frameworks",
+                        "proficiency_level": "intermediate",
+                        "justification": "Inferred from Generative AI project experience"
+                    }
+                ],
+                "removed_skills": ["COBOL"],
+                "optimization_notes": "Prioritized must-have AWS skills. Added LangChain based on Generative AI domain expertise.",
+                "ats_match_score": 85.0
+            }
+        }
+
+
+# ==============================================================================
+# 6. Resume Model (Aggregator)
 # ==============================================================================
 # The main model that aggregates all other components into a complete resume.
 

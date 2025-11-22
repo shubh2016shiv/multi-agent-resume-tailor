@@ -315,7 +315,7 @@ def get_optimal_keyword_density_range() -> tuple[float, float]:
 def get_standard_headers() -> dict[str, list[str]]:
     """
     Get the dictionary of standard ATS-recognized section headers.
-    
+
     Returns:
         Dictionary mapping section types to lists of standard headers
     """
@@ -325,7 +325,7 @@ def get_standard_headers() -> dict[str, list[str]]:
 def get_incompatible_patterns() -> list[str]:
     """
     Get the list of ATS-incompatible formatting patterns.
-    
+
     Returns:
         List of regex patterns that should be avoided
     """

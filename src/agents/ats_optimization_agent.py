@@ -192,9 +192,9 @@ try:
         Experience,
         OptimizedSkillsSection,
         Resume,
-        Skill,
+        # Skill,
     )
-    from src.data_models.strategy import AlignmentStrategy
+    # from src.data_models.strategy import AlignmentStrategy
     from src.tools.ats_validation import (
         calculate_keyword_density,
         validate_ats_formatting,
@@ -217,9 +217,9 @@ except ImportError:
         Experience,
         OptimizedSkillsSection,
         Resume,
-        Skill,
+        # Skill,
     )
-    from src.data_models.strategy import AlignmentStrategy
+    # from src.data_models.strategy import AlignmentStrategy
     from src.tools.ats_validation import (
         calculate_keyword_density,
         validate_ats_formatting,
@@ -287,7 +287,7 @@ PROBLEMATIC_CHARACTERS = ["™", "®", "©", "•", "→", "←", "↑", "↓", 
 class SectionValidation(BaseModel):
     """
     Validation result for a single resume section.
-    
+
     This model captures the validation status of individual sections,
     identifying any issues that may affect ATS parsing.
     """

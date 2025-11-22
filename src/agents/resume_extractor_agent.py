@@ -308,15 +308,15 @@ def create_resume_extractor_agent() -> Agent:
         # ======================================================================
         # STAGE 2.1: Configuration Retrieval
         # ======================================================================
-        
+
         # SUB-STAGE 2.1.1: Load agent-specific configuration
         config = _load_agent_config()
 
         # SUB-STAGE 2.1.2: Extract LLM settings
-        llm_model = config.get("llm", "gemini/gemini-2.5-flash")
-        temperature = config.get("temperature", 0.0)
+        # llm_model = config.get("llm", "gemini/gemini-2.5-flash")  # Unused variable - kept for potential future refactoring
+        # temperature = config.get("temperature", 0.0)  # Unused variable - kept for potential future refactoring
         verbose = config.get("verbose", True)
-        
+
         # SUB-STAGE 2.1.3: Load application-wide resilience settings
         app_config = get_config()
         agent_defaults = app_config.llm.agent_defaults
@@ -324,7 +324,7 @@ def create_resume_extractor_agent() -> Agent:
         # ======================================================================
         # STAGE 2.2: Agent Initialization
         # ======================================================================
-        
+
         # SUB-STAGE 2.2.1: Set agent identity from configuration
         # SUB-STAGE 2.2.2: Configure behavior (verbose logging, no delegation)
         # SUB-STAGE 2.2.3: Initialize CrewAI Agent object
@@ -346,7 +346,7 @@ def create_resume_extractor_agent() -> Agent:
             max_execution_time=agent_defaults.max_execution_time,  # Timeout protection
             respect_context_window=agent_defaults.respect_context_window,  # Token management
         )
-        
+
         logger.info(
             f"Resume Extractor agent created successfully with resilience: "
             f"max_retry={agent_defaults.max_retry_limit}, max_rpm={agent_defaults.max_rpm}"
@@ -426,7 +426,7 @@ def validate_resume_output(output_data: dict) -> Resume | None:
         # ======================================================================
         # STAGE 3.1: Data Validation
         # ======================================================================
-        
+
         # SUB-STAGE 3.1.1-3.1.3: Pydantic validates everything automatically
         # This single line triggers:
         #   - Type checking for all fields
@@ -438,7 +438,7 @@ def validate_resume_output(output_data: dict) -> Resume | None:
         # ======================================================================
         # STAGE 3.3: Logging & Reporting (Success Path)
         # ======================================================================
-        
+
         # SUB-STAGE 3.3.1: Log successful validation with summary
         logger.info(
             f"Resume validation successful. "
@@ -454,7 +454,7 @@ def validate_resume_output(output_data: dict) -> Resume | None:
         # ======================================================================
         # STAGE 3.2: Error Handling (Validation Errors)
         # ======================================================================
-        
+
         # SUB-STAGE 3.2.1: Catch Pydantic ValidationError
         # SUB-STAGE 3.2.2: Log detailed validation errors
         logger.error(
@@ -468,7 +468,7 @@ def validate_resume_output(output_data: dict) -> Resume | None:
         # ======================================================================
         # STAGE 3.2: Error Handling (Unexpected Errors)
         # ======================================================================
-        
+
         # SUB-STAGE 3.2.3: Catch unexpected exceptions
         logger.error(f"Unexpected error during resume validation: {e}", exc_info=True)
         # SUB-STAGE 3.2.4: Return None for graceful failure
@@ -532,7 +532,7 @@ def get_agent_info() -> dict:
     """
     # SUB-STAGE 4.1.1: Retrieve Agent Configuration
     config = _load_agent_config()
-    
+
     # SUB-STAGE 4.1.2: Format Agent Information Dictionary
     # SUB-STAGE 4.1.3: Return Structured Information
     return {

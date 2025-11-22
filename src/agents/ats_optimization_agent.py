@@ -175,11 +175,10 @@ formatted and structured for maximum ATS success while remaining appealing
 to human recruiters.
 """
 
-import re
-from typing import Optional
 import json
+import re
 
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent
 from pydantic import BaseModel, Field, ValidationError
 
 # Handle imports for both package usage and direct script execution
@@ -194,14 +193,15 @@ try:
         Resume,
         # Skill,
     )
+
     # from src.data_models.strategy import AlignmentStrategy
     from src.tools.ats_validation import (
         calculate_keyword_density,
-        validate_ats_formatting,
         check_section_headers,
+        get_incompatible_patterns,
         get_optimal_keyword_density_range,
         get_standard_headers,
-        get_incompatible_patterns,
+        validate_ats_formatting,
     )
 except ImportError:
     # Fallback for when running this file directly
@@ -219,14 +219,15 @@ except ImportError:
         Resume,
         # Skill,
     )
+
     # from src.data_models.strategy import AlignmentStrategy
     from src.tools.ats_validation import (
         calculate_keyword_density,
-        validate_ats_formatting,
         check_section_headers,
+        get_incompatible_patterns,
         get_optimal_keyword_density_range,
         get_standard_headers,
-        get_incompatible_patterns,
+        validate_ats_formatting,
     )
 
 logger = get_logger(__name__)
@@ -308,12 +309,12 @@ class SectionValidation(BaseModel):
         description="Whether the section uses a standard ATS-recognized header",
     )
 
-    header_used: Optional[str] = Field(
+    header_used: str | None = Field(
         None,
         description="The actual header text used for this section",
     )
 
-    recommended_header: Optional[str] = Field(
+    recommended_header: str | None = Field(
         None,
         description="Recommended standard header if current is non-standard",
     )
@@ -416,7 +417,7 @@ class ATSValidationResult(BaseModel):
         description="Validation results for each section",
     )
 
-    keyword_report: Optional[KeywordDensityReport] = Field(
+    keyword_report: KeywordDensityReport | None = Field(
         None,
         description="Keyword density analysis",
     )
@@ -440,6 +441,7 @@ class ATSValidationResult(BaseModel):
         default_factory=list,
         description="Aspects of the resume that are well-optimized for ATS",
     )
+
 
 # ------------------------------------------------------------------------------
 # Stage 2.2: Output Models
@@ -531,14 +533,14 @@ class OptimizedResume(BaseModel):
 def _load_agent_config() -> dict:
     """
     Load the agent configuration from agents.yaml.
-    
+
     This function provides a single point of configuration loading with
     proper error handling. If the config fails to load, it returns sensible
     defaults so the agent can still function.
-    
+
     Returns:
         Dictionary containing agent configuration (role, goal, backstory, etc.)
-        
+
     Design Note:
         Separating config loading into its own function makes the code more
         modular and testable. We can mock this function in tests.
@@ -562,6 +564,7 @@ def _load_agent_config() -> dict:
         logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
         return _get_default_config()
 
+
 # ------------------------------------------------------------------------------
 # Stage 3.2: Default Configuration Fallback
 # ------------------------------------------------------------------------------
@@ -571,10 +574,10 @@ def _load_agent_config() -> dict:
 def _get_default_config() -> dict:
     """
     Provide default configuration as a fallback.
-    
+
     This ensures the agent can still be created even if the YAML config
     is unavailable or corrupted. These defaults are basic but functional.
-    
+
     Returns:
         Dictionary with default agent configuration
     """
@@ -613,20 +616,20 @@ def _get_default_config() -> dict:
 def create_ats_optimization_agent() -> Agent:
     """
     Create and configure the ATS Optimization Specialist agent.
-    
+
     This is the main entry point for creating this agent. It handles all the
     complexity of configuration loading and agent initialization.
-    
+
     Returns:
         Configured CrewAI Agent instance ready to optimize resumes for ATS
-        
+
     Raises:
         Exception: If agent creation fails (logged and re-raised)
-        
+
     Example:
         >>> agent = create_ats_optimization_agent()
         >>> # Agent is now ready to be used in a crew or task
-        
+
     Design Notes:
         - Uses configuration from agents.yaml (with fallback to defaults)
         - Provides ATS validation tools for self-assessment
@@ -666,7 +669,6 @@ def create_ats_optimization_agent() -> Agent:
             temperature=temperature,
             verbose=verbose,
             allow_delegation=False,  # This agent works independently
-            
             # Resilience Parameters (Layer 1: CrewAI Native)
             max_retry_limit=agent_defaults.max_retry_limit,
             max_rpm=agent_defaults.max_rpm,
@@ -709,18 +711,18 @@ def validate_ats_compatibility(
 ) -> ATSValidationResult:
     """
     Perform comprehensive ATS compatibility validation.
-    
+
     This function conducts a thorough analysis of the resume against
     ATS best practices and common failure points.
-    
+
     Args:
         resume: The complete resume data model
         job_description: The target job description with requirements
         resume_text: The resume formatted as plain text
-        
+
     Returns:
         ATSValidationResult with detailed validation findings
-        
+
     Validation Checks:
         1. Section presence and headers
         2. Keyword coverage and density
@@ -738,9 +740,10 @@ def validate_ats_compatibility(
 
     # 1. Validate section presence
     logger.debug("Validating section presence and headers...")
-    
+
     section_checks = {
-        "Professional Summary": resume.professional_summary is not None and len(resume.professional_summary) > 0,
+        "Professional Summary": resume.professional_summary is not None
+        and len(resume.professional_summary) > 0,
         "Work Experience": resume.work_experience is not None and len(resume.work_experience) > 0,
         "Skills": resume.skills is not None and len(resume.skills) > 0,
         "Education": resume.education is not None and len(resume.education) > 0,
@@ -752,7 +755,7 @@ def validate_ats_compatibility(
             is_present=is_present,
             is_standard_header=True,  # Assuming we use standard headers
             header_used=section_name,
-            content_length=len(str(getattr(resume, section_name.lower().replace(" ", "_"), "")))
+            content_length=len(str(getattr(resume, section_name.lower().replace(" ", "_"), ""))),
         )
         section_validations.append(section_val)
 
@@ -763,10 +766,10 @@ def validate_ats_compatibility(
 
     # 2. Validate keyword density
     logger.debug("Analyzing keyword density and coverage...")
-    
+
     # Extract keywords from job description
     required_keywords = [req.requirement for req in job_description.requirements]
-    
+
     # Calculate metrics
     resume_lower = resume_text.lower()
     words = re.findall(r"\b\w+\b", resume_lower)
@@ -804,18 +807,24 @@ def validate_ats_compatibility(
     if is_optimal:
         all_strengths.append(f"Keyword density optimal ({keyword_density:.1%})")
     elif keyword_density < MIN_KEYWORD_DENSITY:
-        all_recommendations.append(f"Increase keyword density (current: {keyword_density:.1%}, target: {MIN_KEYWORD_DENSITY:.1%}-{MAX_KEYWORD_DENSITY:.1%})")
+        all_recommendations.append(
+            f"Increase keyword density (current: {keyword_density:.1%}, target: {MIN_KEYWORD_DENSITY:.1%}-{MAX_KEYWORD_DENSITY:.1%})"
+        )
     else:
-        all_recommendations.append(f"Reduce keyword density to avoid stuffing (current: {keyword_density:.1%}, max: {MAX_KEYWORD_DENSITY:.1%})")
+        all_recommendations.append(
+            f"Reduce keyword density to avoid stuffing (current: {keyword_density:.1%}, max: {MAX_KEYWORD_DENSITY:.1%})"
+        )
 
     if keyword_coverage >= 0.8:
         all_strengths.append(f"Excellent keyword coverage ({keyword_coverage:.0%})")
     else:
-        all_recommendations.append(f"Improve keyword coverage (current: {keyword_coverage:.0%}, missing: {len(missing_keywords)} keywords)")
+        all_recommendations.append(
+            f"Improve keyword coverage (current: {keyword_coverage:.0%}, missing: {len(missing_keywords)} keywords)"
+        )
 
     # 3. Check formatting issues
     logger.debug("Checking for ATS-incompatible formatting...")
-    
+
     formatting_issues = []
     special_char_issues = []
 
@@ -829,13 +838,13 @@ def validate_ats_compatibility(
 
     if not formatting_issues:
         all_strengths.append("No ATS-incompatible formatting detected")
-    
+
     all_issues.extend(formatting_issues)
 
     # 4. Calculate overall score
     logger.debug("Calculating overall ATS compatibility score...")
-    
-    score = 100.0
+
+    # score = 100.0  # Unused variable - kept for potential future refactoring
 
     # Keyword coverage scoring (35%)
     keyword_score = keyword_coverage * KEYWORD_COVERAGE_WEIGHT * 100
@@ -865,7 +874,9 @@ def validate_ats_compatibility(
 
     is_compatible = overall_score >= MIN_ATS_SCORE
 
-    logger.info(f"ATS validation complete. Score: {overall_score:.1f}/100, Compatible: {is_compatible}")
+    logger.info(
+        f"ATS validation complete. Score: {overall_score:.1f}/100, Compatible: {is_compatible}"
+    )
 
     return ATSValidationResult(
         overall_score=overall_score,
@@ -903,10 +914,10 @@ def assemble_resume_components(
 ) -> Resume:
     """
     Assemble all optimized components into a complete Resume object.
-    
+
     This function combines all the individually optimized sections into
     a cohesive, validated resume data structure.
-    
+
     Args:
         professional_summary: The optimized professional summary text
         optimized_experience: List of optimized experience entries
@@ -914,10 +925,10 @@ def assemble_resume_components(
         education: List of education entries
         contact_info: Dictionary with contact details
         certifications: Optional list of certifications
-        
+
     Returns:
         Complete Resume object ready for final formatting
-        
+
     Raises:
         ValidationError: If assembled resume doesn't validate
     """
@@ -954,6 +965,7 @@ def assemble_resume_components(
         logger.error(f"Resume assembly failed: {e}", exc_info=True)
         raise
 
+
 # ------------------------------------------------------------------------------
 # Stage 5.2: Format Generation
 # ------------------------------------------------------------------------------
@@ -963,17 +975,17 @@ def assemble_resume_components(
 def generate_markdown_resume(resume: Resume, skills_categories: dict[str, list[str]]) -> str:
     """
     Generate ATS-compatible Markdown representation of the resume.
-    
+
     This function creates a clean, parsable Markdown version using
     standard formatting that ATS systems can reliably parse.
-    
+
     Args:
         resume: The complete Resume object
         skills_categories: Categorized skills for organized display
-        
+
     Returns:
         Resume formatted as clean Markdown text
-        
+
     Design Notes:
         - Uses standard section headers
         - Avoids tables and complex formatting
@@ -1072,13 +1084,13 @@ def generate_markdown_resume(resume: Resume, skills_categories: dict[str, list[s
 def generate_json_resume(resume: Resume) -> str:
     """
     Generate JSON representation of the resume.
-    
+
     This function creates a structured JSON version of the resume
     for machine processing and API integration.
-    
+
     Args:
         resume: The complete Resume object
-        
+
     Returns:
         Resume as formatted JSON string
     """
@@ -1116,17 +1128,17 @@ def generate_json_resume(resume: Resume) -> str:
 def validate_optimized_output(output_data: dict) -> OptimizedResume | None:
     """
     Validate that the agent's output conforms to the OptimizedResume model.
-    
+
     This function serves as a quality gate, ensuring that the final output
     is valid according to our schema. If validation fails, it provides
     detailed error information for debugging.
-    
+
     Args:
         output_data: Dictionary containing the optimized resume
-        
+
     Returns:
         OptimizedResume object if validation succeeds, None if it fails
-        
+
     Design Notes:
         - Separating validation into its own function makes it reusable
         - Detailed logging helps diagnose generation issues
@@ -1160,6 +1172,7 @@ def validate_optimized_output(output_data: dict) -> OptimizedResume | None:
         logger.error(f"Unexpected error during output validation: {e}", exc_info=True)
         return None
 
+
 # ------------------------------------------------------------------------------
 # Stage 4.2: Quality Assessment
 # ------------------------------------------------------------------------------
@@ -1169,16 +1182,16 @@ def validate_optimized_output(output_data: dict) -> OptimizedResume | None:
 def check_ats_quality(optimized_resume: OptimizedResume) -> dict:
     """
     Perform quality checks on the optimized resume output.
-    
+
     This function validates that the resume meets all ATS best practices
     and provides actionable feedback for any issues found.
-    
+
     Args:
         optimized_resume: The validated OptimizedResume object
-        
+
     Returns:
         Dictionary with quality check results and recommendations
-        
+
     Quality Checks:
         - ATS compatibility score >= minimum threshold
         - All required sections present
@@ -1272,10 +1285,10 @@ def check_ats_quality(optimized_resume: OptimizedResume) -> dict:
 def get_agent_info() -> dict:
     """
     Get information about this agent for debugging or monitoring.
-    
+
     Returns:
         Dictionary with agent metadata
-        
+
     Example:
         >>> info = get_agent_info()
         >>> print(info["name"])
@@ -1343,7 +1356,7 @@ if __name__ == "__main__":
     print("1. Use the agent in a CrewAI task")
     print("2. Call the validation functions directly (validate_ats_compatibility, etc.)")
     print("3. Use the check_ats_quality function with sample data")
-    
+
     print("\n--- Available Validation Functions ---")
     print("[OK] validate_ats_compatibility(resume, job_description, resume_text)")
     print("[OK] assemble_resume_components(...)")
@@ -1353,4 +1366,3 @@ if __name__ == "__main__":
     print("[OK] check_ats_quality(optimized_resume)")
 
     print("\n" + "=" * 70)
-

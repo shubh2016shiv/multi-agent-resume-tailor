@@ -734,6 +734,7 @@ def validate_iteration_progress() -> dict:
 
     return validation
 
+
 # ------------------------------------------------------------------------------
 # Stage 2.4: Self-Evaluation Tool (CRITICAL)
 # ------------------------------------------------------------------------------
@@ -1187,6 +1188,7 @@ class OptimizedExperienceSection(BaseModel):
         }
     )
 
+
 # ------------------------------------------------------------------------------
 # Stage 3.2: BulletDraft Model
 # ------------------------------------------------------------------------------
@@ -1216,6 +1218,7 @@ class BulletDraft(BaseModel):
     )
 
     critique: str = Field(default="", description="Self-critique and improvement suggestions")
+
 
 # ------------------------------------------------------------------------------
 # Stage 3.3: IterativeExperienceOptimization Model
@@ -1327,6 +1330,7 @@ def _load_agent_config() -> dict:
         logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
         return _get_default_config()
 
+
 # ------------------------------------------------------------------------------
 # Stage 4.2: Default Configuration Fallback
 # ------------------------------------------------------------------------------
@@ -1408,13 +1412,13 @@ def create_experience_optimizer_agent() -> Agent:
         llm_model = config.get("llm", "gemini/gemini-2.5-flash-lite")
         temperature = config.get("temperature", 0.5)
         verbose = config.get("verbose", True)
-    
+
         # Load centralized resilience configuration
         app_config = get_config()
         agent_defaults = app_config.llm.agent_defaults
 
         # Initialize tools
-        tools = [evaluate_experience_bullets]
+        # tools = [evaluate_experience_bullets]  # Unused variable - kept for potential future refactoring
 
         # AGENTIC ITERATIVE IMPROVEMENT MECHANISM - COMPLETE WORKFLOW
         #
@@ -1817,6 +1821,7 @@ def analyze_action_verbs(achievements: list[str]) -> dict:
         "strength_score": strength_score,
         "weak_bullets": weak_bullets,
     }
+
 
 # ------------------------------------------------------------------------------
 # Stage 6.2: Quantification Analysis

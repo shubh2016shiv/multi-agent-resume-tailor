@@ -105,7 +105,7 @@ class LLMGoogleConfig(BaseModel):
 
 class LLMResilienceConfig(BaseModel):
     """Resilience configuration for LLM API calls.
-    
+
     This configuration controls retry logic, circuit breakers, rate limiting,
     and timeout behavior for all LLM interactions. These settings help ensure
     robust behavior when dealing with transient failures, API rate limits,
@@ -131,18 +131,18 @@ class LLMResilienceConfig(BaseModel):
 
 class AgentDefaults(BaseModel):
     """Default resilience settings for CrewAI agents.
-    
+
     These are CrewAI's native resilience parameters that provide the first
     layer of defense against failures. They work in conjunction with our
     custom resiliency module (LLMResilienceConfig) to provide comprehensive
     protection.
-    
+
     Layer 1 (CrewAI Native - these settings):
         - Quick retries at agent level
         - Rate limiting to respect API quotas
         - Execution timeouts to prevent runaway tasks
         - Iteration limits to prevent infinite loops
-    
+
     Layer 2 (Custom Module - LLMResilienceConfig):
         - Circuit breaker for cascading failure prevention
         - Exponential backoff with jitter
@@ -153,37 +153,29 @@ class AgentDefaults(BaseModel):
         default=3,
         ge=0,
         le=10,
-        description="Maximum number of retries when agent encounters an error"
+        description="Maximum number of retries when agent encounters an error",
     )
-    
+
     max_rpm: int = Field(
-        default=60,
-        ge=1,
-        description="Maximum requests per minute to respect API rate limits"
+        default=60, ge=1, description="Maximum requests per minute to respect API rate limits"
     )
-    
+
     max_iter: int = Field(
         default=15,
         ge=1,
         le=50,
-        description="Maximum iterations before forcing agent to provide best answer"
+        description="Maximum iterations before forcing agent to provide best answer",
     )
-    
+
     max_execution_time: int = Field(
-        default=300,
-        ge=30,
-        description="Maximum execution time in seconds for a single task"
+        default=300, ge=30, description="Maximum execution time in seconds for a single task"
     )
-    
+
     respect_context_window: bool = Field(
-        default=True,
-        description="Auto-summarize context to prevent context limit errors"
+        default=True, description="Auto-summarize context to prevent context limit errors"
     )
-    
-    verbose: bool = Field(
-        default=True,
-        description="Enable detailed logging for debugging"
-    )
+
+    verbose: bool = Field(default=True, description="Enable detailed logging for debugging")
 
 
 class LLMConfig(BaseModel):

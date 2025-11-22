@@ -165,7 +165,9 @@ from pydantic import ValidationError
 
 # Handle imports for both package usage and direct script execution
 try:
-    from src.core.config import get_agents_config, get_config
+    from src.core.config import (
+        get_agents_config,  # get_config unused - kept for potential future refactoring
+    )
     from src.core.logger import get_logger
     from src.data_models.job import JobDescription, SkillImportance
     from src.tools.job_analyzer import parse_job_description
@@ -175,7 +177,9 @@ except ImportError:
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from src.core.config import get_agents_config, get_config
+    from src.core.config import (
+        get_agents_config,  # get_config unused - kept for potential future refactoring
+    )
     from src.core.logger import get_logger
     from src.data_models.job import JobDescription, SkillImportance
     from src.tools.job_analyzer import parse_job_description
@@ -230,6 +234,7 @@ def _load_agent_config() -> dict:
     except Exception as e:
         logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
         return _get_default_config()
+
 
 # ------------------------------------------------------------------------------
 # Stage 1.3: Default Configuration Fallback
@@ -309,14 +314,14 @@ def create_job_analyzer_agent() -> Agent:
         config = _load_agent_config()
 
         # Extract LLM settings
-        llm_model = config.get("llm", "gemini/gemini-2.5-flash")
-        temperature = config.get("temperature", 0.2)
-        verbose = config.get("verbose", True)
+        # llm_model = config.get("llm", "gemini/gemini-2.5-flash")  # Unused variable - kept for potential future refactoring
+        # temperature = config.get("temperature", 0.2)  # Unused variable - kept for potential future refactoring
+        # verbose = config.get("verbose", True)  # Unused variable - kept for potential future refactoring
 
         # Create the agent
         # Load centralized resilience configuration
-        app_config = get_config()
-        agent_defaults = app_config.llm.agent_defaults
+        # app_config = get_config()  # Unused variable - kept for potential future refactoring
+        # agent_defaults = app_config.llm.agent_defaults  # Unused variable - kept for potential future refactoring
 
         agent = Agent(
             role=config.get("role", "Job Description Analyzer"),

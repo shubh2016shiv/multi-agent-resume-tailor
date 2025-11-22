@@ -181,6 +181,7 @@ The agent employs a systematic approach to gap analysis:
 The result is a comprehensive strategic assessment that guides all downstream
 content optimization and ensures maximum alignment between candidate and role.
 """
+
 from crewai import Agent
 from pydantic import ValidationError
 
@@ -220,6 +221,68 @@ logger = get_logger(__name__)
 # This stage loads agent configuration from external files with error handling.
 
 
+def _load_agent_config() -> dict:
+    """
+    Load the agent configuration from agents.yaml.
+
+    This function provides a single point of configuration loading with
+    proper error handling. If the config fails to load, it returns sensible
+    defaults so the agent can still function.
+
+    Returns:
+        Dictionary containing agent configuration (role, goal, backstory, etc.)
+
+    Design Note:
+        Separating config loading into its own function makes the code more
+        modular and testable. We can mock this function in tests.
+    """
+    try:
+        agents_config = get_agents_config()
+        config = agents_config.get("gap_analysis_specialist", {})
+
+        # Validate that required fields are present
+        required_fields = ["role", "goal", "backstory"]
+        missing_fields = [f for f in required_fields if f not in config]
+
+        if missing_fields:
+            logger.warning(f"Agent config missing fields: {missing_fields}. Using defaults.")
+            return _get_default_config()
+
+        logger.debug("Successfully loaded agent configuration from YAML")
+        return config
+
+    except Exception as e:
+        logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
+        return _get_default_config()
+
+
+def _get_default_config() -> dict:
+    """
+    Provide default configuration as a fallback.
+
+    This ensures the agent can still be created even if the YAML config
+    is unavailable or corrupted. These defaults are basic but functional.
+
+    Returns:
+        Dictionary with default agent configuration
+    """
+    return {
+        "role": "Gap Analysis Specialist",
+        "goal": (
+            "Compare candidate profiles against job requirements to identify "
+            "matches, gaps, and optimization opportunities with strategic insights."
+        ),
+        "backstory": (
+            "You are a strategic career advisor and recruitment expert. You excel at "
+            "identifying alignment between candidates and roles, recognizing both "
+            "obvious matches and subtle gaps that could impact success."
+        ),
+        "llm": "gemini/gemini-2.5-flash",
+        "temperature": 0.3,
+        "verbose": True,
+    }
+
+
 def create_gap_analysis_agent() -> Agent:
     """
     Create the Gap Analysis Specialist agent.
@@ -228,8 +291,8 @@ def create_gap_analysis_agent() -> Agent:
         Agent: A configured CrewAI agent ready for execution.
     """
     try:
-        config = get_agents_config()["gap_analysis_specialist"]
-        
+        config = _load_agent_config()
+
         # Load centralized resilience configuration
         app_config = get_config()
         agent_defaults = app_config.llm.agent_defaults
@@ -249,7 +312,7 @@ def create_gap_analysis_agent() -> Agent:
             max_execution_time=agent_defaults.max_execution_time,
             respect_context_window=agent_defaults.respect_context_window,
         )
-        
+
         logger.info(
             f"Gap Analysis Specialist agent created successfully with resilience: "
             f"max_retry={agent_defaults.max_retry_limit}, max_rpm={agent_defaults.max_rpm}"

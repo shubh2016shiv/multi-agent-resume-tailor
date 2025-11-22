@@ -18,6 +18,7 @@ DESIGN PRINCIPLES:
 """
 
 import re
+
 from crewai.tools import tool
 
 # ==============================================================================
@@ -32,10 +33,19 @@ OPTIMAL_KEYWORD_DENSITY = 0.035  # 3.5% - sweet spot
 # Standard ATS-recognized section headers
 STANDARD_SECTION_HEADERS = {
     "summary": ["Professional Summary", "Summary", "Profile", "Executive Summary"],
-    "experience": ["Work Experience", "Professional Experience", "Experience", "Employment History"],
+    "experience": [
+        "Work Experience",
+        "Professional Experience",
+        "Experience",
+        "Employment History",
+    ],
     "skills": ["Skills", "Technical Skills", "Core Competencies", "Key Skills"],
     "education": ["Education", "Academic Background", "Educational Qualifications"],
-    "certifications": ["Certifications", "Professional Certifications", "Licenses & Certifications"],
+    "certifications": [
+        "Certifications",
+        "Professional Certifications",
+        "Licenses & Certifications",
+    ],
 }
 
 # ATS-incompatible formatting patterns
@@ -61,17 +71,17 @@ PROBLEMATIC_CHARACTERS = ["™", "®", "©", "•", "→", "←", "↑", "↓", 
 def calculate_keyword_density(resume_text: str, required_keywords: list[str]) -> str:
     """
     Calculate keyword density and coverage in resume text.
-    
+
     Analyzes how well keywords are integrated without stuffing.
     Optimal density is 2-5% of total content.
-    
+
     Args:
         resume_text: The complete resume content as text
         required_keywords: List of keywords from job description
-        
+
     Returns:
         Formatted report of keyword metrics
-        
+
     Example:
         >>> report = calculate_keyword_density(
         ...     "Python developer with AWS experience...",
@@ -108,7 +118,9 @@ def calculate_keyword_density(resume_text: str, required_keywords: list[str]) ->
         # Calculate metrics
         unique_keywords_found = len(keyword_freq)
         keyword_density = total_keyword_instances / total_words if total_words > 0 else 0
-        keyword_coverage = unique_keywords_found / len(required_keywords) if required_keywords else 0
+        keyword_coverage = (
+            unique_keywords_found / len(required_keywords) if required_keywords else 0
+        )
 
         # Determine if optimal
         is_optimal = MIN_KEYWORD_DENSITY <= keyword_density <= MAX_KEYWORD_DENSITY
@@ -125,14 +137,14 @@ Total Keyword Instances: {total_keyword_instances}
 Unique Keywords Found: {unique_keywords_found}/{len(required_keywords)}
 Keyword Density: {keyword_density:.1%}
 Keyword Coverage: {keyword_coverage:.1%}
-Status: {'[OK] OPTIMAL' if is_optimal else '[!] NEEDS ADJUSTMENT'}
+Status: {"[OK] OPTIMAL" if is_optimal else "[!] NEEDS ADJUSTMENT"}
 
 Optimal Range: {MIN_KEYWORD_DENSITY:.1%} - {MAX_KEYWORD_DENSITY:.1%}
 
-Missing Keywords: {', '.join(missing) if missing else 'None'}
+Missing Keywords: {", ".join(missing) if missing else "None"}
 
 Top Keywords:
-{chr(10).join([f'  {kw}: {count}x' for kw, count in sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)[:10]])}
+{chr(10).join([f"  {kw}: {count}x" for kw, count in sorted(keyword_freq.items(), key=lambda x: x[1], reverse=True)[:10]])}
 """
         return report.strip()
 
@@ -144,16 +156,16 @@ Top Keywords:
 def validate_ats_formatting(resume_text: str) -> str:
     """
     Check for formatting elements that break ATS parsing.
-    
+
     Scans for tables, graphics indicators, special characters,
     and other patterns that cause ATS failures.
-    
+
     Args:
         resume_text: The complete resume content as text
-        
+
     Returns:
         Formatted report of formatting issues found
-        
+
     Example:
         >>> report = validate_ats_formatting(resume_text)
         >>> print(report)
@@ -208,7 +220,7 @@ ATS Formatting Validation:
 =========================
 [!] {len(issues)} formatting issue(s) detected:
 
-{chr(10).join([f'  {i+1}. {issue}' for i, issue in enumerate(issues)])}
+{chr(10).join([f"  {i + 1}. {issue}" for i, issue in enumerate(issues)])}
 
 Status: NEEDS FIXES
 """
@@ -269,13 +281,15 @@ def check_section_headers(resume_text: str) -> str:
 
             is_standard = matched_header in standard_headers if matched_header else False
 
-            results.append({
-                "section": section_type.title(),
-                "found": found,
-                "header": matched_header or "Not found",
-                "is_standard": is_standard,
-                "recommended": standard_headers[0],
-            })
+            results.append(
+                {
+                    "section": section_type.title(),
+                    "found": found,
+                    "header": matched_header or "Not found",
+                    "is_standard": is_standard,
+                    "recommended": standard_headers[0],
+                }
+            )
 
         # Generate report
         report_lines = ["Section Header Validation:", "=" * 50]

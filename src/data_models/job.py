@@ -19,6 +19,7 @@ WHY STRUCTURED MODELS FOR JOBS?
 """
 
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -89,7 +90,7 @@ class JobRequirement(BaseModel):
     )
 
     # Optional: The minimum years of experience needed for this specific skill.
-    years_required: int | None = Field(
+    years_required: Optional[int] = Field(
         None,
         description="Minimum years of experience required for this specific skill.",
         ge=0,
@@ -133,7 +134,7 @@ class JobDescription(BaseModel):
         default=JobLevel.UNSPECIFIED, description="The standardized seniority level of the role."
     )
 
-    location: str | None = Field(
+    location: Optional[str] = Field(
         None, description="Job location or work arrangement (e.g., 'San Francisco, CA', 'Remote')."
     )
 

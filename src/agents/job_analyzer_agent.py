@@ -355,6 +355,34 @@ def create_job_analyzer_agent() -> Agent:
 
 def validate_job_output(output_data: dict) -> JobDescription | None:
     """
+    DEPRECATED: This function is no longer needed with output_pydantic.
+
+    When using CrewAI's `output_pydantic` parameter in Task definitions, validation
+    happens automatically. You can access the validated JobDescription object directly via
+    `result.pydantic` without calling this function.
+
+    MIGRATION GUIDE:
+    ----------------
+    OLD APPROACH (Manual Validation):
+    ```python
+    result = crew.kickoff()
+    json_data = parse_json_output(str(result))
+    validated_job = validate_job_output(json_data)  # Not needed
+    ```
+
+    NEW APPROACH (Automatic Validation):
+    ```python
+    task = Task(..., output_pydantic=JobDescription)  # Add this parameter
+    result = crew.kickoff()
+    validated_job = result.pydantic  # Direct access, already validated
+    ```
+
+    This function is kept for backward compatibility only.
+
+    ---
+
+    ORIGINAL DOCUMENTATION:
+
     Validate that the agent's output conforms to the JobDescription model.
 
     This function serves as a quality gate, ensuring that the structured data

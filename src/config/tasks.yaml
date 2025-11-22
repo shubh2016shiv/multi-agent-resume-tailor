@@ -567,16 +567,29 @@ ats_optimization_task:
     3. Check that keyword density is optimal (2-5% overall) and not stuffed.
     4. Validate formatting for ATS parsing (no tables, columns, or complex layouts).
     5. Ensure standard section headers are used (e.g., "Experience", "Skills", "Education").
-    6. Use the `document_formatter` tool to generate the final Markdown and JSON outputs.
-    Your goal is to ensure this resume passes automated screening to reach a human reviewer.
+    6. Generate the final Markdown and JSON outputs for the optimized resume.
+    
+    OUTPUT REQUIREMENT:
+    Return a single, complete JSON object containing:
+    - The complete resume data
+    - The formatted markdown version
+    - The structured JSON version
+    - Comprehensive ATS validation results (scores, keyword analysis, formatting checks)
+    - An optimization summary
+    
+    Perform all validation checks internally. Do NOT call individual validation functions
+    as separate steps. Include all validation results within your final JSON response.
   expected_output: >
-    An ATS validation report as a JSON object containing:
-    - `ats_compatible`: a boolean indicating success.
-    - `keyword_match_score`: percentage of must-have keywords present.
-    - `formatting_issues`: a list of any detected issues.
-    - `recommendations`: specific fixes needed if not compatible.
-    - `file_paths`: paths to the generated markdown and json files.
-    If `ats_compatible` is false, provide actionable fixes.
+    A single, complete JSON object with the following structure:
+    - "resume": object with full resume data (name, email, experiences, education, skills)
+    - "markdown_content": string containing the formatted markdown resume
+    - "json_content": string containing the structured JSON resume
+    - "ats_validation": object with overall_score, keyword analysis, formatting issues, recommendations
+    - "optimization_summary": string describing the optimization work performed
+    - "components_assembled": object tracking which sections were included
+    - "quality_metrics": object with numeric quality metrics
+    
+    Output ONLY valid JSON. Do not add markdown formatting or explanatory text outside the JSON.
   context:
     - write_professional_summary_task
     - optimize_experience_section_task

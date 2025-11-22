@@ -251,7 +251,7 @@ ats_optimization_specialist:
     confirm no tables or complex formatting that breaks parsing, and test that contact
     information is easily extractable. You ensure optimization doesn't make content
     awkward for human readers.
-  llm: gemini/gemini-2.5-flash
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.2
   verbose: true
 

@@ -28,8 +28,6 @@ DESIGN RATIONALE:
 
 from datetime import date
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 # ==============================================================================
@@ -56,7 +54,7 @@ class Skill(BaseModel):
 
     # The category helps in grouping skills for better organization and display.
     # Agents can use this to differentiate between different types of skills.
-    category: Optional[str] = Field(
+    category: str | None = Field(
         None,
         description="The category of the skill (e.g., 'Programming Language', 'Tool', 'Soft Skill').",
         examples=["Technical", "Soft Skill"],
@@ -64,7 +62,7 @@ class Skill(BaseModel):
 
     # Proficiency level provides a qualitative measure of expertise.
     # This can be used by agents to assess the depth of a candidate's knowledge.
-    proficiency_level: Optional[str] = Field(
+    proficiency_level: str | None = Field(
         None,
         description="The self-assessed proficiency level (e.g., 'Beginner', 'Intermediate', 'Expert').",
         examples=["Expert"],
@@ -73,7 +71,7 @@ class Skill(BaseModel):
     # Years of experience provides a quantitative measure.
     # This is crucial for matching against job requirements that specify a certain
     # number of years of experience with a technology.
-    years_of_experience: Optional[int] = Field(
+    years_of_experience: int | None = Field(
         None,
         description="The number of years of experience with this skill.",
         ge=0,  # Must be a non-negative number.
@@ -85,7 +83,7 @@ class Skill(BaseModel):
     # These optional fields support the new AI-first skill inference approach,
     # allowing agents to add skills with justification and evidence validation
 
-    justification: Optional[str] = Field(
+    justification: str | None = Field(
         None,
         description="Explanation for why this skill was added or inferred, based on domain expertise.",
         examples=[
@@ -99,7 +97,7 @@ class Skill(BaseModel):
         examples=[["Built AI chatbots using Python", "Developed conversational AI assistants"]],
     )
 
-    confidence_score: Optional[float] = Field(
+    confidence_score: float | None = Field(
         None,
         ge=0.0,
         le=1.0,
@@ -149,7 +147,7 @@ class Experience(BaseModel):
     )
 
     # An end date of `None` signifies that this is the current job.
-    end_date: Optional[date] = Field(
+    end_date: date | None = Field(
         None, description="The end date of employment. If `null`, it is the current position."
     )
 
@@ -158,7 +156,7 @@ class Experience(BaseModel):
         default=False, description="A flag to indicate if this is the candidate's current job."
     )
 
-    location: Optional[str] = Field(
+    location: str | None = Field(
         None,
         description="The location of the job (e.g., 'San Francisco, CA', 'Remote').",
         examples=["Remote"],
@@ -257,14 +255,14 @@ class Education(BaseModel):
         le=date.today().year + 5,  # Allow for future graduation dates.
     )
 
-    gpa: Optional[float] = Field(
+    gpa: float | None = Field(
         None,
         description="Grade Point Average, if applicable.",
         ge=0.0,
         le=10.0,  # Accommodate different scales (4.0, 5.0, or 10.0 point scales).
     )
 
-    honors: Optional[str] = Field(
+    honors: str | None = Field(
         None,
         description="Any academic honors or distinctions (e.g., 'Summa Cum Laude').",
         examples=["Cum Laude"],
@@ -424,13 +422,13 @@ class Resume(BaseModel):
 
     email: str = Field(..., description="The primary email address for professional communication.")
 
-    phone_number: Optional[str] = Field(
+    phone_number: str | None = Field(
         None, description="Phone number, preferably with a country code."
     )
 
-    location: Optional[str] = Field(None, description="Current city and state/country, or 'Remote'.")
+    location: str | None = Field(None, description="Current city and state/country, or 'Remote'.")
 
-    website_or_portfolio: Optional[str] = Field(
+    website_or_portfolio: str | None = Field(
         None,
         description="URL to a personal website, portfolio, or professional profile (e.g., GitHub, LinkedIn).",
     )

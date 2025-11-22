@@ -9,6 +9,15 @@ Each agent is responsible for a specific part of the workflow and is built with:
 - Documentation: Self-explanatory code with detailed comments
 """
 
+from src.agents.ats_optimization_agent import (
+    assemble_resume_components,
+    check_ats_quality,
+    create_ats_optimization_agent,
+    generate_json_resume,
+    generate_markdown_resume,
+    validate_ats_compatibility,
+    validate_optimized_output,
+)
 from src.agents.experience_optimizer_agent import (
     check_experience_quality,
     create_experience_optimizer_agent,
@@ -45,15 +54,6 @@ from src.agents.summary_writer_agent import (
     check_summary_quality,
     create_summary_writer_agent,
     validate_summary_output,
-)
-from src.agents.ats_optimization_agent import (
-    assemble_resume_components,
-    check_ats_quality,
-    create_ats_optimization_agent,
-    generate_json_resume,
-    generate_markdown_resume,
-    validate_ats_compatibility,
-    validate_optimized_output,
 )
 
 __all__ = [

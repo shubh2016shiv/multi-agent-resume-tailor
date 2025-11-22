@@ -23,6 +23,49 @@ WORKFLOW OVERVIEW:
 3. Analyze Markdown using LLM with Resume model schema
 4. Return structured Resume object (JSON)
 
+STRUCTURED OUTPUT ENFORCEMENT (Industry-Standard Approach):
+--------------------------------------------------------------
+This agent uses CrewAI's `output_pydantic` parameter to enforce structured outputs.
+This is the RECOMMENDED approach for ensuring LLM outputs match Pydantic schemas.
+
+HOW IT WORKS:
+- When creating a Task, set `output_pydantic=Resume`
+- CrewAI automatically provides the Resume schema to the LLM
+- The LLM generates output that conforms to the schema
+- CrewAI validates the output against the Pydantic model
+- If validation fails, CrewAI retries automatically (up to max_retry_limit)
+- The final result is a validated Resume object accessible via `result.pydantic`
+
+BENEFITS:
+- No manual JSON parsing required
+- No manual validation logic needed
+- Automatic retry on validation failures
+- Type-safe access to structured data
+- Follows CrewAI best practices
+
+EXAMPLE USAGE:
+--------------
+```python
+from crewai import Task
+from src.agents.resume_extractor_agent import create_resume_extractor_agent
+from src.data_models.resume import Resume
+
+agent = create_resume_extractor_agent()
+
+task = Task(
+    description="Extract resume content from the provided file...",
+    expected_output="A structured Resume object with all fields populated",
+    agent=agent,
+    output_pydantic=Resume,  # This enforces structured output
+)
+
+# Execute and access validated output
+result = crew.kickoff()
+validated_resume = result.pydantic  # Direct access to Resume object
+print(validated_resume.full_name)
+print(validated_resume.work_experience)
+```
+
 MODULE STRUCTURE (Hierarchical Organization):
 ----------------------------------------------
 This module is organized into 4 main BLOCKS, each containing STAGES with SUB-STAGES:
@@ -64,39 +107,26 @@ BLOCK 2: AGENT CREATION
     ├── Sub-stage 2.4.2: Configure execution timeouts
     └── Sub-stage 2.4.3: Enable context window management
 
-BLOCK 3: OUTPUT VALIDATION
-├── Stage 3.1: Data Validation
-│   ├── Sub-stage 3.1.1: Parse output data into Resume model
-│   ├── Sub-stage 3.1.2: Validate required fields presence
-│   └── Sub-stage 3.1.3: Validate data types and constraints
+BLOCK 3: UTILITY FUNCTIONS
+├── Stage 3.1: Agent Information
+│   ├── Sub-stage 3.1.1: Retrieve agent metadata
+│   ├── Sub-stage 3.1.2: Format agent information dictionary
+│   └── Sub-stage 3.1.3: Return structured agent info
 │
-├── Stage 3.2: Error Handling
-│   ├── Sub-stage 3.2.1: Catch Pydantic ValidationError
-│   ├── Sub-stage 3.2.2: Log detailed validation errors
-│   └── Sub-stage 3.2.3: Return None for graceful failure handling
-│
-└── Stage 3.3: Logging & Reporting
-    ├── Sub-stage 3.3.1: Log successful validation with summary
-    ├── Sub-stage 3.3.2: Log validation failures with details
-    └── Sub-stage 3.3.3: Return validated Resume object
+└── Stage 3.2: Testing Support
+    ├── Sub-stage 3.2.1: Test configuration loading
+    ├── Sub-stage 3.2.2: Test agent creation
+    └── Sub-stage 3.2.3: Display agent information
 
-BLOCK 4: UTILITY FUNCTIONS
-├── Stage 4.1: Agent Information
-│   ├── Sub-stage 4.1.1: Retrieve agent metadata
-│   ├── Sub-stage 4.1.2: Format agent information dictionary
-│   └── Sub-stage 4.1.3: Return structured agent info
-│
-└── Stage 4.2: Testing Support
-    ├── Sub-stage 4.2.1: Test configuration loading
-    ├── Sub-stage 4.2.2: Test agent creation
-    └── Sub-stage 4.2.3: Display agent information
+NOTE: The validate_resume_output() function has been REMOVED as it's no longer
+needed with output_pydantic. CrewAI handles validation automatically.
 
 HOW TO USE THIS MODULE:
 -----------------------
 1. Import: `from src.agents.resume_extractor_agent import create_resume_extractor_agent`
 2. Create Agent: `agent = create_resume_extractor_agent()`
-3. Use in Crew: Add agent to a CrewAI Crew with appropriate tasks
-4. Validate Output: Use `validate_resume_output()` to ensure data quality
+3. Create Task with output_pydantic: `Task(..., output_pydantic=Resume)`
+4. Access Output: `validated_resume = result.pydantic`
 """
 
 from crewai import Agent
@@ -373,6 +403,34 @@ def create_resume_extractor_agent() -> Agent:
 
 def validate_resume_output(output_data: dict) -> Resume | None:
     """
+    DEPRECATED: This function is no longer needed with output_pydantic.
+    
+    When using CrewAI's `output_pydantic` parameter in Task definitions, validation
+    happens automatically. You can access the validated Resume object directly via
+    `result.pydantic` without calling this function.
+    
+    MIGRATION GUIDE:
+    ----------------
+    OLD APPROACH (Manual Validation):
+    ```python
+    result = crew.kickoff()
+    json_data = parse_json_output(str(result))
+    validated_resume = validate_resume_output(json_data)  # Not needed
+    ```
+    
+    NEW APPROACH (Automatic Validation):
+    ```python
+    task = Task(..., output_pydantic=Resume)  # Add this parameter
+    result = crew.kickoff()
+    validated_resume = result.pydantic  # Direct access, already validated
+    ```
+    
+    This function is kept for backward compatibility only.
+    
+    ---
+    
+    ORIGINAL DOCUMENTATION:
+    
     Validate that the agent's output conforms to the Resume model.
 
     STAGE: 3.1-3.3 - Complete Validation Workflow

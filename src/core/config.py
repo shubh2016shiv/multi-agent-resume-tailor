@@ -67,7 +67,7 @@ def yaml_config_settings_source() -> dict[str, Any]:
         return {}  # Return empty dict if file doesn't exist
 
     try:
-        with open(SETTINGS_YAML_PATH, encoding='utf-8') as f:
+        with open(SETTINGS_YAML_PATH, encoding="utf-8") as f:
             return yaml.safe_load(f)
     except (OSError, yaml.YAMLError) as e:
         # In a real application, you'd want a logger here.
@@ -323,7 +323,7 @@ def get_agents_config() -> dict:
     """
     if not AGENTS_YAML_PATH.exists():
         raise FileNotFoundError(f"Agent configuration not found at: {AGENTS_YAML_PATH}")
-    with open(AGENTS_YAML_PATH, encoding='utf-8') as f:
+    with open(AGENTS_YAML_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -334,7 +334,7 @@ def get_tasks_config() -> dict:
     """
     if not TASKS_YAML_PATH.exists():
         raise FileNotFoundError(f"Task configuration not found at: {TASKS_YAML_PATH}")
-    with open(TASKS_YAML_PATH, encoding='utf-8') as f:
+    with open(TASKS_YAML_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

@@ -404,11 +404,11 @@ def create_resume_extractor_agent() -> Agent:
 def validate_resume_output(output_data: dict) -> Resume | None:
     """
     DEPRECATED: This function is no longer needed with output_pydantic.
-    
+
     When using CrewAI's `output_pydantic` parameter in Task definitions, validation
     happens automatically. You can access the validated Resume object directly via
     `result.pydantic` without calling this function.
-    
+
     MIGRATION GUIDE:
     ----------------
     OLD APPROACH (Manual Validation):
@@ -417,20 +417,20 @@ def validate_resume_output(output_data: dict) -> Resume | None:
     json_data = parse_json_output(str(result))
     validated_resume = validate_resume_output(json_data)  # Not needed
     ```
-    
+
     NEW APPROACH (Automatic Validation):
     ```python
     task = Task(..., output_pydantic=Resume)  # Add this parameter
     result = crew.kickoff()
     validated_resume = result.pydantic  # Direct access, already validated
     ```
-    
+
     This function is kept for backward compatibility only.
-    
+
     ---
-    
+
     ORIGINAL DOCUMENTATION:
-    
+
     Validate that the agent's output conforms to the Resume model.
 
     STAGE: 3.1-3.3 - Complete Validation Workflow

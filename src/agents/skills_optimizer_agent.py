@@ -266,7 +266,6 @@ of candidate capabilities, without resorting to resume inflation or fabrication.
 import json
 import re
 import uuid
-from typing import Optional, Union
 
 from crewai import Agent
 from pydantic import BaseModel, Field
@@ -337,7 +336,7 @@ MIN_CATEGORIES = 3  # Minimum recommended skill categories
 class LogContext:
     """Thread-safe context manager for correlation IDs and structured logging."""
 
-    _correlation_id: Optional[str] = None
+    _correlation_id: str | None = None
 
     @classmethod
     def set_correlation_id(cls, correlation_id: str):
@@ -405,7 +404,7 @@ class SkillValidationResult(BaseModel):
     confidence_score: float = Field(ge=0.0, le=1.0)
     justification: str
     evidence_snippets: list[str] = Field(default_factory=list)
-    rejection_reason: Optional[str] = None
+    rejection_reason: str | None = None
 
 
 # ==============================================================================
@@ -628,7 +627,7 @@ def _parse_skill_inference_response(response: str) -> list[Skill]:
 
 
 def validate_skill_inference(
-    skill: Skill, context: SkillInferenceContext, agent: Optional[Agent] = None
+    skill: Skill, context: SkillInferenceContext, agent: Agent | None = None
 ) -> SkillValidationResult:
     """
     Validate that an inferred skill is truthfully supported by experience.
@@ -1365,7 +1364,7 @@ def optimize_skills_section(
 # This stage validates that agent outputs conform to expected data models.
 
 
-def validate_skills_output(data: dict) -> Optional[OptimizedSkillsSection]:
+def validate_skills_output(data: dict) -> OptimizedSkillsSection | None:
     """
     Validate and parse skills optimization data into Pydantic model.
 

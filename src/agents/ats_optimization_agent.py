@@ -309,13 +309,13 @@ class SectionValidation(BaseModel):
         description="Whether the section uses a standard ATS-recognized header",
     )
 
-    header_used: str | None = Field(
-        None,
+    header_used: str = Field(
+        default="",
         description="The actual header text used for this section",
     )
 
-    recommended_header: str | None = Field(
-        None,
+    recommended_header: str = Field(
+        default="",
         description="Recommended standard header if current is non-standard",
     )
 
@@ -417,8 +417,15 @@ class ATSValidationResult(BaseModel):
         description="Validation results for each section",
     )
 
-    keyword_report: KeywordDensityReport | None = Field(
-        None,
+    keyword_report: KeywordDensityReport = Field(
+        default_factory=lambda: KeywordDensityReport(
+            total_words=0,
+            total_keywords=0,
+            unique_keywords=0,
+            keyword_density=0.0,
+            is_optimal=False,
+            keyword_coverage=0.0,
+        ),
         description="Keyword density analysis",
     )
 
@@ -584,22 +591,32 @@ def _get_default_config() -> dict:
     return {
         "role": "ATS Optimization Specialist",
         "goal": (
-            "Assemble all optimized resume components and ensure maximum ATS compatibility. "
-            "Validate formatting, keyword density, section structure, and overall parsability. "
-            "Generate final resume in Markdown and JSON formats with comprehensive metadata."
+            "Validate and optimize the resume for maximum ATS compatibility. Verify all critical "
+            "keywords from the job description are present, check that keyword density is optimal "
+            "(not stuffing), validate formatting meets ATS standards, ensure section headers "
+            "use standard conventions, and identify any elements that may cause parsing issues.\n\n"
+            "CRITICAL: You must output a SINGLE, complete JSON object with all resume data, "
+            "validation results, and optimized content. Do not make multiple separate outputs. "
+            "Perform all validation internally and include everything in one final response."
         ),
         "backstory": (
-            "You are a meticulous ATS optimization expert with deep technical knowledge of how "
-            "Applicant Tracking Systems parse and rank resumes. You understand both the technical "
-            "requirements of ATS software and the human readability needs. Your expertise includes:\n"
-            "- Technical knowledge of ATS parsing algorithms and ranking systems\n"
+            "You are an ATS systems expert with a technical background in HR technology platforms. "
+            "Having worked with major ATS vendors and analyzed thousands of resume parsing "
+            "scenarios, you understand exactly how these systems work and what causes failures. "
+            "Your expertise includes:\n"
+            "- Technical knowledge of how ATS parse different file formats and structures\n"
+            "- Understanding of keyword matching algorithms and ranking systems\n"
             "- Pattern recognition for ATS-incompatible formatting elements\n"
-            "- Keyword optimization without stuffing (2-5% density sweet spot)\n"
             "- Standard section header conventions across different ATS platforms\n"
-            "- Quality assurance mindset with attention to detail\n\n"
-            "You are the final checkpoint ensuring resumes pass ATS screening while remaining "
-            "professional and readable. You make conservative decisions, prioritizing parsability "
-            "over aesthetics, and catch inconsistencies that other agents may have missed."
+            "- Insight into optimal keyword density (enough to match, not enough to be flagged)\n\n"
+            "Your methodology is technical and precise. You run systematic checks: verify every "
+            "must-have keyword from the job posting appears at least once, ensure keyword density "
+            "falls in the 2-5% range, validate section headers use standard terminology, "
+            "confirm no tables or complex formatting that breaks parsing, and test that contact "
+            "information is easily extractable.\n\n"
+            "IMPORTANT: You are a 'finalizer' agent. Your job is to assemble the complete, "
+            "production-ready resume with all metadata. Output everything at once in a single "
+            "comprehensive response."
         ),
         "llm": "gemini/gemini-2.5-flash",
         "temperature": 0.2,

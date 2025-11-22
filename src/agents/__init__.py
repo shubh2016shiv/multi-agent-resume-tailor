@@ -40,6 +40,18 @@ from src.agents.job_analyzer_agent import (
     create_job_analyzer_agent,
     validate_job_output,
 )
+from src.agents.quality_assurance_agent import (
+    calculate_weighted_score,
+    check_formatting_standards,
+    check_grammar_quality,
+    check_qa_quality,
+    check_red_flags,
+    create_quality_assurance_agent,
+    evaluate_accuracy,
+    evaluate_ats_optimization,
+    evaluate_relevance,
+    validate_qa_output,
+)
 from src.agents.resume_extractor_agent import (
     create_resume_extractor_agent,
     validate_resume_output,
@@ -54,18 +66,6 @@ from src.agents.summary_writer_agent import (
     check_summary_quality,
     create_summary_writer_agent,
     validate_summary_output,
-)
-from src.agents.quality_assurance_agent import (
-    calculate_weighted_score,
-    check_formatting_standards,
-    check_grammar_quality,
-    check_qa_quality,
-    check_red_flags,
-    create_quality_assurance_agent,
-    evaluate_accuracy,
-    evaluate_ats_optimization,
-    evaluate_relevance,
-    validate_qa_output,
 )
 
 __all__ = [

@@ -388,11 +388,11 @@ def create_gap_analysis_agent() -> Agent:
 def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
     """
     DEPRECATED: This function is no longer needed with output_pydantic.
-    
+
     When using CrewAI's `output_pydantic` parameter in Task definitions, validation
     happens automatically. You can access the validated AlignmentStrategy object directly via
     `result.pydantic` without calling this function.
-    
+
     MIGRATION GUIDE:
     ----------------
     OLD APPROACH (Manual Validation):
@@ -401,20 +401,20 @@ def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
     json_data = parse_json_output(str(result))
     validated_strategy = validate_analysis_output(json_data)  # Not needed
     ```
-    
+
     NEW APPROACH (Automatic Validation):
     ```python
     task = Task(..., output_pydantic=AlignmentStrategy)  # Add this parameter
     result = crew.kickoff()
     validated_strategy = result.pydantic  # Direct access, already validated
     ```
-    
+
     This function is kept for backward compatibility only.
-    
+
     ---
-    
+
     ORIGINAL DOCUMENTATION:
-    
+
     Validate that the agent's output conforms to the AlignmentStrategy model.
 
     This function serves as a quality gate, ensuring that the analysis data

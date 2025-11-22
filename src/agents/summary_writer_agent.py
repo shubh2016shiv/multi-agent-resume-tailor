@@ -592,11 +592,11 @@ def create_summary_writer_agent() -> Agent:
 def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
     """
     DEPRECATED: This function is no longer needed with output_pydantic.
-    
+
     When using CrewAI's `output_pydantic` parameter in Task definitions, validation
     happens automatically. You can access the validated ProfessionalSummary object directly via
     `result.pydantic` without calling this function.
-    
+
     MIGRATION GUIDE:
     ----------------
     OLD APPROACH (Manual Validation):
@@ -605,20 +605,20 @@ def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
     json_data = parse_json_output(str(result))
     validated_summary = validate_summary_output(json_data)  # Not needed
     ```
-    
+
     NEW APPROACH (Automatic Validation):
     ```python
     task = Task(..., output_pydantic=ProfessionalSummary)  # Add this parameter
     result = crew.kickoff()
     validated_summary = result.pydantic  # Direct access, already validated
     ```
-    
+
     This function is kept for backward compatibility only.
-    
+
     ---
-    
+
     ORIGINAL DOCUMENTATION:
-    
+
     Validate that the agent's output conforms to the ProfessionalSummary model.
 
     This function serves as a quality gate, ensuring that the generated summary

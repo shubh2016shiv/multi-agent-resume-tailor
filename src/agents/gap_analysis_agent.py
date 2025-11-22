@@ -35,6 +35,49 @@ WORKFLOW OVERVIEW:
 7. Create comprehensive AlignmentStrategy with prioritized action items
 8. Return structured strategy object for downstream content generation
 
+STRUCTURED OUTPUT ENFORCEMENT (Industry-Standard Approach):
+--------------------------------------------------------------
+This agent uses CrewAI's `output_pydantic` parameter to enforce structured outputs.
+This is the RECOMMENDED approach for ensuring LLM outputs match Pydantic schemas.
+
+HOW IT WORKS:
+- When creating a Task, set `output_pydantic=AlignmentStrategy`
+- CrewAI automatically provides the AlignmentStrategy schema to the LLM
+- The LLM generates output that conforms to the schema
+- CrewAI validates the output against the Pydantic model
+- If validation fails, CrewAI retries automatically (up to max_retry_limit)
+- The final result is a validated AlignmentStrategy object accessible via `result.pydantic`
+
+BENEFITS:
+- No manual JSON parsing required
+- No manual validation logic needed
+- Automatic retry on validation failures
+- Type-safe access to structured data
+- Follows CrewAI best practices
+
+EXAMPLE USAGE:
+--------------
+```python
+from crewai import Task
+from src.agents.gap_analysis_agent import create_gap_analysis_agent
+from src.data_models.strategy import AlignmentStrategy
+
+agent = create_gap_analysis_agent()
+
+task = Task(
+    description="Create a comprehensive strategy for aligning the resume...",
+    expected_output="A detailed JSON object representing an AlignmentStrategy...",
+    agent=agent,
+    output_pydantic=AlignmentStrategy,  # This enforces structured output
+)
+
+# Execute and access validated output
+result = crew.kickoff()
+validated_strategy = result.pydantic  # Direct access to AlignmentStrategy object
+print(validated_strategy.overall_fit_score)
+print(validated_strategy.identified_matches)
+```
+
 MODULE STRUCTURE (Hierarchical Organization):
 =============================================
 This module is organized into 7 main BLOCKS, each containing STAGES with SUB-STAGES:
@@ -137,10 +180,13 @@ HOW TO USE THIS MODULE:
 -----------------------
 1. Import: `from src.agents.gap_analysis_agent import create_gap_analysis_agent`
 2. Create Agent: `agent = create_gap_analysis_agent()`
-3. Use in Crew: Add agent to CrewAI crew with Resume and JobDescription data
-4. Validate Output: Use `validate_analysis_output()` to ensure data quality
-5. Check Quality: Use `check_analysis_quality()` for analysis validation
-6. Get Stats: Use `calculate_coverage_stats()` for coverage metrics
+3. Create Task with output_pydantic: `Task(..., output_pydantic=AlignmentStrategy)`
+4. Access Output: `validated_strategy = result.pydantic`
+5. Optional Quality Checks: Use `check_analysis_quality()` for additional validation
+6. Optional Stats: Use `calculate_coverage_stats()` for coverage metrics
+
+NOTE: The validate_analysis_output() function is kept for backward compatibility only.
+      With output_pydantic, CrewAI handles validation automatically.
 
 KEY ANALYSIS CAPABILITIES:
 -------------------------
@@ -341,6 +387,34 @@ def create_gap_analysis_agent() -> Agent:
 
 def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
     """
+    DEPRECATED: This function is no longer needed with output_pydantic.
+    
+    When using CrewAI's `output_pydantic` parameter in Task definitions, validation
+    happens automatically. You can access the validated AlignmentStrategy object directly via
+    `result.pydantic` without calling this function.
+    
+    MIGRATION GUIDE:
+    ----------------
+    OLD APPROACH (Manual Validation):
+    ```python
+    result = crew.kickoff()
+    json_data = parse_json_output(str(result))
+    validated_strategy = validate_analysis_output(json_data)  # Not needed
+    ```
+    
+    NEW APPROACH (Automatic Validation):
+    ```python
+    task = Task(..., output_pydantic=AlignmentStrategy)  # Add this parameter
+    result = crew.kickoff()
+    validated_strategy = result.pydantic  # Direct access, already validated
+    ```
+    
+    This function is kept for backward compatibility only.
+    
+    ---
+    
+    ORIGINAL DOCUMENTATION:
+    
     Validate that the agent's output conforms to the AlignmentStrategy model.
 
     This function serves as a quality gate, ensuring that the analysis data

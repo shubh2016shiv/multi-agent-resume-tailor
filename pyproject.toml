@@ -45,6 +45,9 @@ dependencies = [
     "pyyaml>=6.0",
     "structlog>=25.0.0",
     "tenacity>=8.2.0",
+    "pybreaker>=1.0.0",
+    "ratelimit>=2.2.1",
+    "pyrate-limiter>=3.0.0",
     "requests>=2.31.0",
 ]
 

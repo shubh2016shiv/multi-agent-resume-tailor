@@ -1,42 +1,258 @@
 """
-Gap Analysis Specialist Agent
------------------------------
+Gap Analysis Specialist Agent - Strategic Alignment Engine
+==========================================================
 
+OVERVIEW:
+---------
 This module defines the third agent in our workflow: the Gap Analysis Specialist.
-This agent is responsible for comparing a candidate's resume against a job description
-to identify skill matches, gaps, and alignment opportunities.
+This agent serves as the strategic brain of the system, comparing candidate profiles
+against job requirements to identify matches, gaps, and optimization opportunities.
+
+WHAT MAKES THIS AGENT STRATEGIC:
+--------------------------------
+- **Decision Engine**: Determines what aspects of a resume to emphasize or modify
+- **Gap Intelligence**: Identifies missing skills with priority rankings
+- **Match Optimization**: Finds best alignment between candidate and role
+- **Strategy Generation**: Creates actionable plans for resume tailoring
+- **Confidence Scoring**: Quantifies alignment quality with statistical rigor
 
 AGENT DESIGN PRINCIPLES:
-- Single Responsibility: Compare resume vs job requirements and identify gaps
-- Modularity: Clear separation between agent creation, analysis logic, and validation
-- Robustness: Comprehensive error handling with graceful degradation
-- Type Safety: Uses Pydantic models for validated, structured output
-- Observability: Detailed logging at every step for debugging
+------------------------
+- **Comparative Analysis**: Expert at side-by-side resume vs job evaluation
+- **Strategic Thinking**: Goes beyond simple matching to understand implications
+- **Confidence-Based**: Provides statistical confidence in gap identifications
+- **Actionable Insights**: Generates specific, implementable recommendations
+- **Context Aware**: Considers experience levels, domains, and career trajectories
 
-WORKFLOW:
-1. Receive structured Resume and JobDescription objects as input
-2. Analyze skill matches between resume and job requirements
-3. Identify missing must-have skills (critical gaps)
-4. Identify missing nice-to-have skills (opportunities)
-5. Calculate match percentages and confidence scores
-6. Provide prioritized gap recommendations
-7. Return structured AlignmentStrategy object (JSON)
+WORKFLOW OVERVIEW:
+------------------
+1. Receive structured Resume and JobDescription data from upstream agents
+2. Perform multi-dimensional comparison across skills, experience, and requirements
+3. Calculate match scores and confidence levels for each comparison
+4. Identify critical gaps (must-have skills missing) with high priority
+5. Identify enhancement opportunities (nice-to-have skills) with medium priority
+6. Generate keyword optimization suggestions for ATS compatibility
+7. Create comprehensive AlignmentStrategy with prioritized action items
+8. Return structured strategy object for downstream content generation
 
-KEY ANALYSIS DIMENSIONS:
-- Hard Skills: Technical competencies (e.g., Python, AWS, Docker)
-- Soft Skills: Interpersonal abilities (e.g., leadership, communication)
-- Experience Level: Years of experience alignment
-- Domain Knowledge: Industry-specific expertise
-- Certifications: Professional qualifications
+MODULE STRUCTURE (Hierarchical Organization):
+=============================================
+This module is organized into 7 main BLOCKS, each containing STAGES with SUB-STAGES:
 
-CRITICAL INSIGHTS PROVIDED:
-- Match Confidence Score (0-100%)
-- Skill Coverage Percentage
-- Critical Gaps (must-have skills missing)
-- Enhancement Opportunities (nice-to-have skills)
-- Experience Level Alignment
-- Keyword Optimization Suggestions
+BLOCK 1: MODULE SETUP & CONFIGURATION
+├── Stage 1.1: Import Management
+│   ├── Sub-stage 1.1.1: Standard library imports
+│   ├── Sub-stage 1.1.2: CrewAI framework imports
+│   ├── Sub-stage 1.1.3: Project-specific imports (with fallback handling)
+│   └── Sub-stage 1.1.4: Logger initialization
+│
+├── Stage 1.2: Configuration Loading
+│   ├── Sub-stage 1.2.1: Load agent config from agents.yaml
+│   ├── Sub-stage 1.2.2: Extract LLM settings and parameters
+│   └── Sub-stage 1.2.3: Load resilience configuration
+
+BLOCK 2: AGENT CREATION
+├── Stage 2.1: Configuration Retrieval
+│   ├── Sub-stage 2.1.1: Load gap_analysis_specialist configuration
+│   ├── Sub-stage 2.1.2: Extract specialized settings for comparative analysis
+│   └── Sub-stage 2.1.3: Apply resilience parameters
+│
+├── Stage 2.2: Agent Initialization
+│   ├── Sub-stage 2.2.1: Set agent role, goal, and backstory for gap analysis
+│   ├── Sub-stage 2.2.2: Configure agent behavior (no delegation, verbose logging)
+│   └── Sub-stage 2.2.3: Initialize CrewAI Agent object
+│
+└── Stage 2.3: Resilience Configuration
+    ├── Sub-stage 2.3.1: Set retry limits and rate limiting
+    ├── Sub-stage 2.3.2: Configure execution timeouts
+    └── Sub-stage 2.3.3: Enable context window management
+
+BLOCK 3: OUTPUT VALIDATION
+├── Stage 3.1: Data Validation
+│   ├── Sub-stage 3.1.1: Parse output into AlignmentStrategy model
+│   ├── Sub-stage 3.1.2: Validate required fields and score ranges
+│   └── Sub-stage 3.1.3: Check nested model relationships
+│
+├── Stage 3.2: Error Handling
+│   ├── Sub-stage 3.2.1: Catch Pydantic ValidationError
+│   ├── Sub-stage 3.2.2: Log detailed validation errors
+│   └── Sub-stage 3.2.3: Return None for graceful failure handling
+│
+└── Stage 3.3: Logging & Reporting
+    ├── Sub-stage 3.3.1: Log successful validation with summary statistics
+    ├── Sub-stage 3.3.2: Log validation failures with error details
+    └── Sub-stage 3.3.3: Return validated AlignmentStrategy object
+
+BLOCK 4: ANALYSIS HELPER FUNCTIONS
+├── Stage 4.1: Skill Normalization
+│   ├── Sub-stage 4.1.1: normalize_skill() function
+│   ├── Sub-stage 4.1.2: Standardize skill naming conventions
+│   └── Sub-stage 4.1.3: Handle common synonyms and variations
+│
+├── Stage 4.2: Data Extraction
+│   ├── Sub-stage 4.2.1: extract_resume_skills() function
+│   ├── Sub-stage 4.2.2: extract_job_requirements() function
+│   └── Sub-stage 4.2.3: Map requirements to importance levels
+│
+└── Stage 4.3: Analysis Utilities
+    ├── Sub-stage 4.3.1: Helper functions for skill comparison
+    ├── Sub-stage 4.3.2: Scoring algorithms for match confidence
+    └── Sub-stage 4.3.3: Gap prioritization logic
+
+BLOCK 5: ANALYSIS QUALITY CHECKS
+├── Stage 5.1: Quality Assessment
+│   ├── Sub-stage 5.1.1: check_analysis_quality() function
+│   ├── Sub-stage 5.1.2: Validate strategy completeness
+│   └── Sub-stage 5.1.3: Check logical consistency of results
+│
+├── Stage 5.2: Coverage Statistics
+│   ├── Sub-stage 5.2.1: calculate_coverage_stats() function
+│   ├── Sub-stage 5.2.2: Compute match percentages and ratios
+│   └── Sub-stage 5.2.3: Generate coverage metrics
+│
+└── Stage 5.3: Quality Reporting
+    ├── Sub-stage 5.3.1: Structure quality check results
+    ├── Sub-stage 5.3.2: Log issues and recommendations
+    └── Sub-stage 5.3.3: Return comprehensive quality report
+
+BLOCK 6: UTILITY FUNCTIONS
+├── Stage 6.1: Agent Information
+│   ├── Sub-stage 6.1.1: get_agent_info() function
+│   ├── Sub-stage 6.1.2: Retrieve agent metadata
+│   └── Sub-stage 6.1.3: Format information for debugging
+│
+└── Stage 6.2: Testing Support
+    ├── Sub-stage 6.2.1: Test configuration loading
+    ├── Sub-stage 6.2.2: Test agent creation
+    ├── Sub-stage 6.2.3: Test validation functions
+    └── Sub-stage 6.2.4: Test helper functions
+
+BLOCK 7: INTEGRATION TESTING
+├── Stage 7.1: End-to-End Testing
+│   ├── Sub-stage 7.1.1: Mock data creation for testing
+│   ├── Sub-stage 7.1.2: Gap analysis validation
+│   └── Sub-stage 7.1.3: Integration test scenarios
+
+HOW TO USE THIS MODULE:
+-----------------------
+1. Import: `from src.agents.gap_analysis_agent import create_gap_analysis_agent`
+2. Create Agent: `agent = create_gap_analysis_agent()`
+3. Use in Crew: Add agent to CrewAI crew with Resume and JobDescription data
+4. Validate Output: Use `validate_analysis_output()` to ensure data quality
+5. Check Quality: Use `check_analysis_quality()` for analysis validation
+6. Get Stats: Use `calculate_coverage_stats()` for coverage metrics
+
+KEY ANALYSIS CAPABILITIES:
+-------------------------
+- **Multi-Dimensional Matching**: Skills, experience, domain, certifications
+- **Confidence Scoring**: Statistical confidence in gap identifications
+- **Priority Ranking**: Must-have vs should-have vs nice-to-have gaps
+- **Strategic Recommendations**: Actionable plans for resume optimization
+- **Keyword Intelligence**: ATS keyword optimization suggestions
+- **Experience Alignment**: Years and level compatibility assessment
+
+STRATEGIC INSIGHTS PROVIDED:
+---------------------------
+- **Gap Prioritization**: Which missing skills to address first
+- **Match Optimization**: How to best position existing skills
+- **Career Trajectory**: Alignment between candidate path and job requirements
+- **Competitive Positioning**: How candidate stacks up against job needs
+- **Optimization Roadmap**: Step-by-step plan for resume improvement
+
+TECHNICAL ARCHITECTURE:
+-----------------------
+- **Comparative Algorithms**: Sophisticated matching and gap detection
+- **Confidence Modeling**: Statistical approaches to gap certainty
+- **Strategy Generation**: AI-driven recommendation engine
+- **Validation Layers**: Multiple quality checks and error handling
+- **Observable Operations**: Comprehensive logging and monitoring
+- **Type Safety**: Full Pydantic model validation
+
+ANALYSIS METHODOLOGY:
+--------------------
+The agent employs a systematic approach to gap analysis:
+1. **Normalization**: Standardize skill names and requirement formats
+2. **Multi-Level Comparison**: Skills, experience, domain, certifications
+3. **Confidence Calculation**: Statistical measures of match quality
+4. **Gap Classification**: Priority-based categorization of missing elements
+5. **Strategy Synthesis**: Coherent action plan generation
+6. **Quality Assurance**: Built-in validation of analysis results
+
+The result is a comprehensive strategic assessment that guides all downstream
+content optimization and ensures maximum alignment between candidate and role.
 """
+from crewai import Agent
+from pydantic import ValidationError
+
+# Handle imports for both package usage and direct script execution
+try:
+    from src.core.config import get_agents_config, get_config
+    from src.core.logger import get_logger
+    from src.data_models.job import JobDescription
+    from src.data_models.resume import Resume
+    from src.data_models.strategy import AlignmentStrategy
+except ImportError:
+    # Fallback for when running this file directly
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from src.core.config import get_agents_config, get_config
+    from src.core.logger import get_logger
+    from src.data_models.job import JobDescription
+    from src.data_models.resume import Resume
+    from src.data_models.strategy import AlignmentStrategy
+
+logger = get_logger(__name__)
+
+
+# ==============================================================================
+# BLOCK 1: MODULE SETUP & CONFIGURATION
+# ==============================================================================
+# PURPOSE: Initialize the module with imports and configuration
+# WHAT: Global setup and agent configuration loading
+# WHY: Ensures consistent agent behavior across different environments
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 1.2: Configuration Loading
+# ------------------------------------------------------------------------------
+# This stage loads agent configuration from external files with error handling.
+
+
+def create_gap_analysis_agent() -> Agent:
+    """
+    Create the Gap Analysis Specialist agent.
+
+    Returns:
+        Agent: A configured CrewAI agent ready for execution.
+    """
+    try:
+        config = get_agents_config()["gap_analysis_specialist"]
+        
+        # Load centralized resilience configuration
+        app_config = get_config()
+        agent_defaults = app_config.llm.agent_defaults
+
+        logger.info("Creating Gap Analysis Specialist agent...")
+
+        agent = Agent(
+            role=config["role"],
+            goal=config["goal"],
+            backstory=config["backstory"],
+            allow_delegation=False,
+            verbose=True,
+            # Resilience Parameters (Layer 1: CrewAI Native)
+            max_retry_limit=agent_defaults.max_retry_limit,
+            max_rpm=agent_defaults.max_rpm,
+            max_iter=agent_defaults.max_iter,
+            max_execution_time=agent_defaults.max_execution_time,
+            respect_context_window=agent_defaults.respect_context_window,
+        )
+        
+        logger.info(
+            f"Gap Analysis Specialist agent created successfully with resilience: "
+            f"max_retry={agent_defaults.max_retry_limit}, max_rpm={agent_defaults.max_rpm}"
         )
 
         return agent
@@ -47,8 +263,17 @@ CRITICAL INSIGHTS PROVIDED:
 
 
 # ==============================================================================
-# Output Validation
+# BLOCK 3: OUTPUT VALIDATION
 # ==============================================================================
+# PURPOSE: Validate that agent outputs conform to expected data models
+# WHAT: Quality gates that ensure structured analysis data meets schema requirements
+# WHY: Prevents downstream errors and ensures strategic data consistency
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 3.1-3.3: Complete Validation Workflow
+# ------------------------------------------------------------------------------
+# This stage orchestrates all validation steps to ensure analysis output quality.
 
 
 def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
@@ -106,8 +331,17 @@ def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
 
 
 # ==============================================================================
-# Analysis Helper Functions
+# BLOCK 4: ANALYSIS HELPER FUNCTIONS
 # ==============================================================================
+# PURPOSE: Provide utility functions for gap analysis and skill comparison
+# WHAT: Helper functions for data normalization, extraction, and analysis
+# WHY: Enables accurate skill matching and gap identification
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 4.1: Skill Normalization
+# ------------------------------------------------------------------------------
+# This stage provides functions for standardizing skill names and comparisons.
 
 
 def normalize_skill(skill: str) -> str:
@@ -202,8 +436,17 @@ def extract_job_requirements(job: JobDescription) -> dict[str, str]:
 
 
 # ==============================================================================
-# Analysis Quality Checks
+# BLOCK 5: ANALYSIS QUALITY CHECKS
 # ==============================================================================
+# PURPOSE: Validate the quality and completeness of gap analysis results
+# WHAT: Comprehensive quality assessment with scoring and recommendations
+# WHY: Ensures analysis results are reliable and actionable for optimization
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 5.1-5.3: Complete Quality Assessment Workflow
+# ------------------------------------------------------------------------------
+# This stage performs comprehensive quality checks on gap analysis results.
 
 
 def check_analysis_quality(strategy: AlignmentStrategy) -> dict:
@@ -355,8 +598,17 @@ def calculate_coverage_stats(strategy: AlignmentStrategy) -> dict:
 
 
 # ==============================================================================
-# Utility Functions
+# BLOCK 6: UTILITY FUNCTIONS
 # ==============================================================================
+# PURPOSE: Provide utility functions for debugging, monitoring, and testing
+# WHAT: Helper functions for agent metadata and diagnostic information
+# WHY: Enables debugging, monitoring, and validation of agent functionality
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 6.1: Agent Information
+# ------------------------------------------------------------------------------
+# This stage provides metadata and diagnostic information about the agent.
 
 
 def get_agent_info() -> dict:
@@ -382,8 +634,17 @@ def get_agent_info() -> dict:
 
 
 # ==============================================================================
-# Testing Block
+# BLOCK 7: INTEGRATION TESTING
 # ==============================================================================
+# PURPOSE: Provide testing and validation capabilities for the agent
+# WHAT: Test functions and integration validation code
+# WHY: Ensures agent functionality and enables development-time validation
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 7.1: End-to-End Testing
+# ------------------------------------------------------------------------------
+# This stage provides comprehensive testing of agent functionality.
 
 if __name__ == "__main__":
     """

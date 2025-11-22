@@ -1,57 +1,183 @@
 """
-ATS Optimization Specialist Agent
-----------------------------------
+ATS Optimization Specialist Agent - Final Quality Assurance System
+===================================================================
 
+OVERVIEW:
+---------
 This module defines the final agent in our workflow: the ATS Optimization Specialist.
-This agent is responsible for assembling all optimized components and ensuring maximum
-ATS (Applicant Tracking System) compatibility through comprehensive validation and optimization.
+This agent serves as the quality assurance checkpoint that assembles all optimized
+resume components and ensures maximum Applicant Tracking System (ATS) compatibility.
+
+WHAT MAKES THIS AGENT CRITICAL:
+-------------------------------
+- **Final Quality Gate**: Last opportunity to catch issues before submission
+- **ATS Expertise**: Deep understanding of ATS parsing algorithms and limitations
+- **Conservative Approach**: When in doubt, chooses the most ATS-compatible option
+- **Comprehensive Validation**: Checks formatting, keywords, structure, and completeness
+- **Multi-Format Output**: Generates both human-readable and machine-readable versions
 
 AGENT DESIGN PRINCIPLES:
-- Conservative Decision-Making: When ambiguous, choose the most ATS-safe option
-- Attention to Detail: Catch inconsistencies other agents may have missed
-- Format Minimalism: Strip everything that isn't ATS-necessary
-- Keyword Strategy: Optimize without over-optimization
-- Final Quality Checkpoint: Last line of defense before output
+------------------------
+- **Parsability First**: ATS compatibility takes precedence over visual appeal
+- **Conservative Decision-Making**: When ambiguous, choose the safest ATS option
+- **Format Minimalism**: Strip anything that might confuse ATS parsing
+- **Keyword Strategy**: Optimize density without appearing stuffed
+- **Detail Orientation**: Catch inconsistencies other agents might miss
 
-WORKFLOW:
-1. Receive all optimized components (summary, experience, skills, education)
-2. Combine components into complete resume
-3. Validate ATS compatibility (formatting, keywords, structure)
-4. Calculate keyword density (optimal: 2-5%)
-5. Verify standard section headers
-6. Check for ATS-incompatible formatting elements
-7. Generate final output in Markdown and JSON formats
-8. Provide comprehensive optimization metadata
+WORKFLOW OVERVIEW:
+------------------
+1. Receive optimized components (summary, experience, skills, education)
+2. Assemble components into complete, cohesive resume
+3. Validate ATS compatibility across multiple dimensions
+4. Calculate and optimize keyword density (optimal: 2-5%)
+5. Verify standard section headers and formatting
+6. Check for ATS-incompatible elements (tables, graphics, etc.)
+7. Generate final outputs in Markdown and JSON formats
+8. Provide comprehensive validation report and optimization metadata
+
+MODULE STRUCTURE (Hierarchical Organization):
+=============================================
+This module is organized into 7 main BLOCKS, each containing STAGES with SUB-STAGES:
+
+BLOCK 1: MODULE SETUP & CONFIGURATION
+├── Stage 1.1: Import Management
+│   ├── Sub-stage 1.1.1: Standard library imports
+│   ├── Sub-stage 1.1.2: CrewAI framework imports
+│   ├── Sub-stage 1.1.3: Project-specific imports (with fallback handling)
+│   └── Sub-stage 1.1.4: Logger initialization
+│
+├── Stage 1.2: ATS Constants & Patterns
+│   ├── Sub-stage 1.2.1: Standard section headers
+│   ├── Sub-stage 1.2.2: ATS-incompatible patterns
+│   ├── Sub-stage 1.2.3: Keyword density ranges
+│   └── Sub-stage 1.2.4: Validation thresholds
+
+BLOCK 2: DATA MODELS
+├── Stage 2.1: Validation Models
+│   ├── Sub-stage 2.1.1: SectionValidation model
+│   ├── Sub-stage 2.1.2: KeywordDensityReport model
+│   └── Sub-stage 2.1.3: ATSValidationResult model
+│
+├── Stage 2.2: Output Models
+│   ├── Sub-stage 2.2.1: OptimizedResume model
+│   └── Sub-stage 2.2.2: Optimization metadata fields
+
+BLOCK 3: AGENT CONFIGURATION & CREATION
+├── Stage 3.1: Configuration Loading
+│   ├── Sub-stage 3.1.1: Load from agents.yaml with fallback
+│   ├── Sub-stage 3.1.2: Validate required fields
+│   └── Sub-stage 3.1.3: Error handling with defaults
+│
+├── Stage 3.2: Default Configuration
+│   ├── Sub-stage 3.2.1: Define ATS Specialist role
+│   ├── Sub-stage 3.2.2: Set conservative LLM parameters
+│   └── Sub-stage 3.2.3: Configure validation-focused behavior
+│
+└── Stage 3.3: Agent Creation
+    ├── Sub-stage 3.3.1: CrewAI Agent initialization
+    ├── Sub-stage 3.3.2: Tool assignment for ATS validation
+    └── Sub-stage 3.3.3: Resilience configuration
+
+BLOCK 4: ATS VALIDATION SYSTEM
+├── Stage 4.1: Compatibility Validation
+│   ├── Sub-stage 4.1.1: validate_ats_compatibility() function
+│   ├── Sub-stage 4.1.2: Keyword density calculation
+│   ├── Sub-stage 4.1.3: Formatting validation
+│   └── Sub-stage 4.1.4: Section header verification
+│
+├── Stage 4.2: Quality Assessment
+│   ├── Sub-stage 4.2.1: check_ats_quality() function
+│   ├── Sub-stage 4.2.2: Comprehensive scoring algorithm
+│   └── Sub-stage 4.2.3: Issue identification and recommendations
+
+BLOCK 5: RESUME ASSEMBLY & GENERATION
+├── Stage 5.1: Component Assembly
+│   ├── Sub-stage 5.1.1: assemble_resume_components() function
+│   ├── Sub-stage 5.1.2: Section ordering and integration
+│   └── Sub-stage 5.1.3: Consistency validation
+│
+├── Stage 5.2: Format Generation
+│   ├── Sub-stage 5.2.1: generate_markdown_resume() function
+│   ├── Sub-stage 5.2.2: generate_json_resume() function
+│   └── Sub-stage 5.2.3: Format-specific optimizations
+
+BLOCK 6: OUTPUT VALIDATION
+├── Stage 6.1: Result Validation
+│   ├── Sub-stage 6.1.1: validate_optimized_output() function
+│   ├── Sub-stage 6.1.2: Schema compliance checking
+│   └── Sub-stage 6.1.3: Data integrity validation
+│
+└── Stage 6.2: Final Quality Checks
+    ├── Sub-stage 6.2.1: Information completeness verification
+    ├── Sub-stage 6.2.2: ATS score threshold validation
+    └── Sub-stage 6.2.3: Optimization metadata generation
+
+BLOCK 7: UTILITIES & TESTING
+├── Stage 7.1: Agent Information
+│   ├── Sub-stage 7.1.1: get_agent_info() function
+│   ├── Sub-stage 7.1.2: Metadata retrieval
+│   └── Sub-stage 7.1.3: Diagnostic information
+│
+└── Stage 7.2: Testing Support
+    ├── Sub-stage 7.2.1: Test configuration loading
+    ├── Sub-stage 7.2.2: Test agent creation
+    ├── Sub-stage 7.2.3: Test validation functions
+    └── Sub-stage 7.2.4: Test resume generation
+
+HOW TO USE THIS MODULE:
+-----------------------
+1. Import: `from src.agents.ats_optimization_agent import create_ats_optimization_agent`
+2. Create Agent: `agent = create_ats_optimization_agent()`
+3. Run Optimization: Use in a Crew with optimized resume components
+4. Validate Output: Use `validate_optimized_output()` to ensure quality
+5. Check Quality: Use `check_ats_quality()` for detailed scoring
 
 KEY OPTIMIZATION PRINCIPLES:
-- Parsability Over Aesthetics: ATS success comes first
-- Standard Conventions: Use recognized section headers
-- Clean Formatting: No tables, columns, or graphics
-- Keyword Balance: Present but not stuffed
-- Contact Information: Easily extractable
-- Special Characters: Avoid parsing-breaking characters
+---------------------------
+- **ATS-First Mindset**: Compatibility takes precedence over aesthetics
+- **Conservative Choices**: When in doubt, choose the most ATS-safe option
+- **Format Purity**: Strip tables, columns, graphics, and complex formatting
+- **Keyword Balance**: Present all required keywords without stuffing
+- **Standard Headers**: Use universally recognized section names
+- **Clean Structure**: Ensure proper spacing and readable formatting
 
 ATS VALIDATION CRITERIA:
-- Keyword Coverage: All must-have keywords present
-- Keyword Density: 2-5% of total content
-- Section Headers: Standard and recognizable
-- Formatting: Plain text compatible
-- Contact Info: Top of resume, simple format
-- File Format: .txt or .docx compatible structure
-- White Space: Proper spacing and readability
-- Font Consistency: Single, standard font implied
+------------------------
+- **Keyword Coverage**: All must-have keywords must be present
+- **Keyword Density**: Optimal range of 2-5% of total content
+- **Section Headers**: Standard headers that ATS systems recognize
+- **Formatting**: Plain text compatible (no special characters/issues)
+- **Contact Info**: Prominent placement with simple, extractable format
+- **Completeness**: All sections present with no information loss
+- **Parsability**: Content structured for easy ATS parsing
 
-OUTPUT VALIDATION:
-- All sections present and complete
-- No information loss from optimization
-- ATS compatibility score >= 85/100
-- Keyword density in optimal range
-- Standard section headers used
-- No formatting issues detected
+TECHNICAL ARCHITECTURE:
+-----------------------
+- **Validation-First**: Comprehensive checks before output generation
+- **Multi-Format Support**: Generates both Markdown and JSON outputs
+- **Tool Integration**: Uses specialized ATS validation tools
+- **Quality Scoring**: Numerical scoring system with actionable feedback
+- **Error Recovery**: Graceful handling of validation failures
+- **Metadata Rich**: Detailed optimization reports and validation results
+
+FINAL QUALITY ASSURANCE:
+-----------------------
+This agent serves as the last line of defense, ensuring that:
+1. All optimized components integrate seamlessly
+2. ATS compatibility is maximized
+3. No information is lost in the assembly process
+4. Output meets professional standards
+5. Keyword optimization is balanced and effective
+6. Formatting is ATS-compatible and clean
+
+The result is a resume that not only contains optimized content but is also
+formatted and structured for maximum ATS success while remaining appealing
+to human recruiters.
 """
 
 import re
 from typing import Optional
+import json
 
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel, Field, ValidationError
@@ -107,6 +233,20 @@ logger = get_logger(__name__)
 
 
 # ==============================================================================
+# BLOCK 1: MODULE SETUP & CONFIGURATION
+# ==============================================================================
+# PURPOSE: Initialize the module with imports, constants, and ATS validation patterns
+# WHAT: Global constants and patterns used throughout ATS optimization
+# WHY: Centralized configuration ensures consistency across all ATS checks
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 1.2: ATS Constants & Patterns
+# ------------------------------------------------------------------------------
+# This stage defines the core constants and patterns used for ATS validation.
+
+
+# ==============================================================================
 # Module Constants
 # ==============================================================================
 
@@ -131,8 +271,17 @@ PROBLEMATIC_CHARACTERS = ["™", "®", "©", "•", "→", "←", "↑", "↓", 
 
 
 # ==============================================================================
-# Core Data Models
+# BLOCK 2: DATA MODELS
 # ==============================================================================
+# PURPOSE: Define structured data models for ATS validation and optimization results
+# WHAT: Pydantic models that ensure type safety and validation for ATS-related data
+# WHY: Type-safe data structures prevent bugs and enable validation at runtime
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 2.1: Validation Models
+# ------------------------------------------------------------------------------
+# This stage defines models for tracking ATS validation results and metrics.
 
 
 class SectionValidation(BaseModel):
@@ -292,6 +441,11 @@ class ATSValidationResult(BaseModel):
         description="Aspects of the resume that are well-optimized for ATS",
     )
 
+# ------------------------------------------------------------------------------
+# Stage 2.2: Output Models
+# ------------------------------------------------------------------------------
+# This stage defines the final output model containing the complete optimized resume.
+
 
 class OptimizedResume(BaseModel):
     """
@@ -361,8 +515,17 @@ class OptimizedResume(BaseModel):
 
 
 # ==============================================================================
-# Agent Configuration Loading
+# BLOCK 3: AGENT CONFIGURATION & CREATION
 # ==============================================================================
+# PURPOSE: Configure and create the ATS Optimization agent with all necessary tools
+# WHAT: Agent setup, configuration loading, and initialization with ATS validation tools
+# WHY: Proper configuration ensures the agent can perform comprehensive ATS validation
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 3.1: Configuration Loading
+# ------------------------------------------------------------------------------
+# This stage loads agent configuration from external files with graceful fallbacks.
 
 
 def _load_agent_config() -> dict:
@@ -398,6 +561,11 @@ def _load_agent_config() -> dict:
     except Exception as e:
         logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
         return _get_default_config()
+
+# ------------------------------------------------------------------------------
+# Stage 3.2: Default Configuration Fallback
+# ------------------------------------------------------------------------------
+# This stage provides production-ready defaults when configuration files are unavailable.
 
 
 def _get_default_config() -> dict:
@@ -436,9 +604,10 @@ def _get_default_config() -> dict:
     }
 
 
-# ==============================================================================
-# Agent Creation
-# ==============================================================================
+# ------------------------------------------------------------------------------
+# Stage 3.3: Agent Creation
+# ------------------------------------------------------------------------------
+# This stage creates the ATS Optimization agent with all necessary tools and configuration.
 
 
 def create_ats_optimization_agent() -> Agent:
@@ -520,8 +689,17 @@ def create_ats_optimization_agent() -> Agent:
 
 
 # ==============================================================================
-# Core Validation Functions
+# BLOCK 4: ATS VALIDATION SYSTEM
 # ==============================================================================
+# PURPOSE: Comprehensive ATS compatibility validation and quality assessment
+# WHAT: Functions that check keyword density, formatting, structure, and ATS compatibility
+# WHY: Ensures resumes are optimized for both ATS parsing and human readability
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 4.1: Compatibility Validation
+# ------------------------------------------------------------------------------
+# This stage performs comprehensive ATS compatibility checks across multiple dimensions.
 
 
 def validate_ats_compatibility(
@@ -702,8 +880,17 @@ def validate_ats_compatibility(
 
 
 # ==============================================================================
-# Content Assembly Functions
+# BLOCK 5: RESUME ASSEMBLY & GENERATION
 # ==============================================================================
+# PURPOSE: Assemble optimized components into final resume formats
+# WHAT: Functions that combine summary, experience, skills into complete resumes
+# WHY: Creates the final output in both human-readable and machine-readable formats
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 5.1: Component Assembly
+# ------------------------------------------------------------------------------
+# This stage assembles all optimized components into a cohesive resume structure.
 
 
 def assemble_resume_components(
@@ -766,6 +953,11 @@ def assemble_resume_components(
     except Exception as e:
         logger.error(f"Resume assembly failed: {e}", exc_info=True)
         raise
+
+# ------------------------------------------------------------------------------
+# Stage 5.2: Format Generation
+# ------------------------------------------------------------------------------
+# This stage generates the final resume in multiple formats optimized for different use cases.
 
 
 def generate_markdown_resume(resume: Resume, skills_categories: dict[str, list[str]]) -> str:
@@ -908,8 +1100,17 @@ def generate_json_resume(resume: Resume) -> str:
 
 
 # ==============================================================================
-# Output Validation
+# BLOCK 6: OUTPUT VALIDATION
 # ==============================================================================
+# PURPOSE: Validate final optimized resume outputs against quality standards
+# WHAT: Quality gates that ensure optimized resumes meet all requirements
+# WHY: Final checkpoint before resume is considered ready for submission
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 6.1: Result Validation
+# ------------------------------------------------------------------------------
+# This stage validates that optimized outputs conform to expected data models.
 
 
 def validate_optimized_output(output_data: dict) -> OptimizedResume | None:
@@ -958,6 +1159,11 @@ def validate_optimized_output(output_data: dict) -> OptimizedResume | None:
     except Exception as e:
         logger.error(f"Unexpected error during output validation: {e}", exc_info=True)
         return None
+
+# ------------------------------------------------------------------------------
+# Stage 4.2: Quality Assessment
+# ------------------------------------------------------------------------------
+# This stage performs comprehensive quality assessment with scoring and recommendations.
 
 
 def check_ats_quality(optimized_resume: OptimizedResume) -> dict:
@@ -1050,8 +1256,17 @@ def check_ats_quality(optimized_resume: OptimizedResume) -> dict:
 
 
 # ==============================================================================
-# Utility Functions
+# BLOCK 7: UTILITIES & TESTING
 # ==============================================================================
+# PURPOSE: Provide utility functions for debugging, monitoring, and testing
+# WHAT: Helper functions and test code for agent validation and diagnostics
+# WHY: Enables debugging, monitoring, and validation of agent functionality
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 7.1: Agent Information
+# ------------------------------------------------------------------------------
+# This stage provides metadata and diagnostic information about the agent.
 
 
 def get_agent_info() -> dict:

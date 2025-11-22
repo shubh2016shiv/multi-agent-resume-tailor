@@ -1,16 +1,266 @@
 """
-Skills Section Optimizer Agent - Domain-Agnostic Implementation
----------------------------------------------------------------
+Skills Section Optimizer Agent - AI-Powered Skills Intelligence Engine
+======================================================================
 
-A general-purpose skills optimization system that works across ALL domains
-by leveraging LLM intelligence instead of hardcoded rules.
+OVERVIEW:
+---------
+This module defines the Skills Section Optimizer Agent, an AI-first system that
+intelligently infers, validates, prioritizes, and categorizes skills for resume
+optimization. Unlike rule-based systems, it leverages LLM intelligence to work
+across ALL professional domains without hardcoded mappings.
 
-DESIGN PRINCIPLES:
-1. AI-First: Let LLM do domain inference, not hardcoded mappings
-2. Separation of Concerns: Clear modules for each responsibility
-3. Domain-Agnostic: Works for law, medicine, marketing, engineering, etc.
-4. Truthfulness: Strict validation against experience evidence
-5. Maintainability: Small, focused functions with clear purposes
+WHAT MAKES THIS AGENT ESSENTIAL:
+--------------------------------
+- **AI-Inferred Skills**: Discovers unstated but evident skills from experience
+- **Evidence-Based Validation**: Ensures every skill claim has supporting evidence
+- **ATS-Optimized Presentation**: Balances keyword density with human readability
+- **Domain-Agnostic Design**: Works for law, medicine, tech, marketing, engineering, etc.
+- **Confidence Scoring**: Quantifies skill validity with multi-factor analysis
+- **Strategic Prioritization**: Ranks skills by job relevance and career impact
+
+AGENT DESIGN PRINCIPLES:
+------------------------
+- **AI-First Approach**: LLM handles domain inference instead of hardcoded rules
+- **Evidence-Driven**: Every skill must be verifiable in experience descriptions
+- **Domain-Agnostic**: Zero hardcoded mappings - works across all professional fields
+- **Truthfulness-First**: Strict validation prevents resume inflation or fabrication
+- **Maintainability**: Small, focused functions with clear separation of concerns
+- **Performance-Optimized**: Efficient confidence scoring and quality assessment
+
+WORKFLOW OVERVIEW:
+------------------
+1. **Skill Inference**: Analyze experiences to identify unstated but evident skills
+2. **Evidence Validation**: Verify each inferred skill has supporting experience evidence
+3. **Confidence Scoring**: Calculate multi-factor confidence scores for skill validity
+4. **Job Alignment**: Prioritize skills based on job description requirements
+5. **Categorization**: Group skills into logical, ATS-friendly categories
+6. **Quality Optimization**: Balance keyword coverage with professional presentation
+7. **Final Validation**: Ensure output meets quality thresholds and schema requirements
+
+MODULE STRUCTURE (Hierarchical Organization):
+=============================================
+This module is organized into 9 main BLOCKS, each containing STAGES with SUB-STAGES:
+
+BLOCK 1: MODULE SETUP & CONFIGURATION
+├── Stage 1.1: Import Management
+│   ├── Sub-stage 1.1.1: Standard library imports (json, re, uuid)
+│   ├── Sub-stage 1.1.2: CrewAI framework imports
+│   ├── Sub-stage 1.1.3: Project-specific imports with fallback handling
+│   └── Sub-stage 1.1.4: Logger initialization
+│
+├── Stage 1.2: Module Constants
+│   ├── Sub-stage 1.2.1: Confidence thresholds and scoring weights
+│   ├── Sub-stage 1.2.2: Skill count and quality thresholds
+│   └── Sub-stage 1.2.3: Experience analysis parameters
+│
+└── Stage 1.3: Logging Infrastructure
+    ├── Sub-stage 1.3.1: LogContext class for structured logging
+    ├── Sub-stage 1.3.2: Thread-safe correlation ID management
+    └── Sub-stage 1.3.3: Context-aware logging utilities
+
+BLOCK 2: DATA MODELS & CONTEXT
+├── Stage 2.1: Skill Inference Models
+│   ├── Sub-stage 2.1.1: SkillInferenceContext model
+│   ├── Sub-stage 2.1.2: SkillValidationResult model
+│   └── Sub-stage 2.1.3: Model validation and constraints
+│
+└── Stage 2.2: Data Validation
+    ├── Sub-stage 2.2.1: Input data validation
+    ├── Sub-stage 2.2.2: Model integrity checks
+    └── Sub-stage 2.2.3: Error handling for invalid inputs
+
+BLOCK 3: SKILL INFERENCE ENGINE
+├── Stage 3.1: Core Inference Function
+│   ├── Sub-stage 3.1.1: infer_missing_skills() main orchestration
+│   ├── Sub-stage 3.1.2: Context preparation and validation
+│   └── Sub-stage 3.1.3: LLM inference with error handling
+│
+├── Stage 3.2: Missing Skills Identification
+│   ├── Sub-stage 3.2.1: _identify_missing_skills() function
+│   ├── Sub-stage 3.2.2: Gap analysis against job requirements
+│   └── Sub-stage 3.2.3: Experience-based skill discovery
+│
+├── Stage 3.3: Prompt Engineering
+│   ├── Sub-stage 3.3.1: _build_skill_inference_prompt() function
+│   ├── Sub-stage 3.3.2: Dynamic prompt construction with context
+│   └── Sub-stage 3.3.3: Evidence integration and job alignment
+│
+├── Stage 3.4: Response Parsing
+│   ├── Sub-stage 3.4.1: _parse_skill_inference_response() function
+│   ├── Sub-stage 3.4.2: JSON cleaning and validation
+│   └── Sub-stage 3.4.3: Error recovery for malformed responses
+│
+└── Stage 3.5: Inference Quality Checks
+    ├── Sub-stage 3.5.1: Basic validation of inferred skills
+    ├── Sub-stage 3.5.2: Duplicate detection and removal
+    └── Sub-stage 3.5.3: Initial confidence assessment
+
+BLOCK 4: SKILL VALIDATION SYSTEM
+├── Stage 4.1: Validation Orchestration
+│   ├── Sub-stage 4.1.1: validate_skill_inference() main function
+│   ├── Sub-stage 4.1.2: Batch processing of skills
+│   └── Sub-stage 4.1.3: Results aggregation and reporting
+│
+├── Stage 4.2: LLM-Based Validation
+│   ├── Sub-stage 4.2.1: _validate_with_llm() function
+│   ├── Sub-stage 4.2.2: Individual skill validation prompts
+│   └── Sub-stage 4.2.3: Evidence verification logic
+│
+├── Stage 4.3: Evidence Verification
+│   ├── Sub-stage 4.3.1: _verify_evidence_in_experience() function
+│   ├── Sub-stage 4.3.2: Text matching and validation
+│   └── Sub-stage 4.3.3: Quote extraction and verification
+│
+├── Stage 4.4: Confidence Scoring
+│   ├── Sub-stage 4.4.1: _calculate_confidence_score() function
+│   ├── Sub-stage 4.4.2: Multi-factor scoring algorithm
+│   └── Sub-stage 4.4.3: Weighted confidence calculation
+│
+├── Stage 4.5: Domain Relevance
+│   ├── Sub-stage 4.5.1: _is_domain_relevant() function
+│   ├── Sub-stage 4.5.2: Industry alignment assessment
+│   └── Sub-stage 4.5.3: Contextual relevance scoring
+│
+├── Stage 4.6: Job Priority Assessment
+│   ├── Sub-stage 4.6.1: _is_high_priority_skill() function
+│   ├── Sub-stage 4.6.2: Job description analysis
+│   └── Sub-stage 4.6.3: Requirement matching logic
+│
+└── Stage 4.7: Validation Prompts
+    ├── Sub-stage 4.7.1: _build_validation_prompt() function
+    ├── Sub-stage 4.7.2: Dynamic validation prompt construction
+    └── Sub-stage 4.7.3: Evidence integration strategies
+
+BLOCK 5: SKILL PRIORITIZATION & CATEGORIZATION
+├── Stage 5.1: Main Optimization Function
+│   ├── Sub-stage 5.1.1: prioritize_and_categorize_skills() orchestration
+│   ├── Sub-stage 5.1.2: Input validation and context preparation
+│   └── Sub-stage 5.1.3: LLM prioritization with fallback handling
+│
+├── Stage 5.2: Response Parsing
+│   ├── Sub-stage 5.2.1: _parse_prioritization_response() function
+│   ├── Sub-stage 5.2.2: JSON response validation and cleaning
+│   └── Sub-stage 5.2.3: Error recovery for parsing failures
+│
+├── Stage 5.3: Fallback Prioritization
+│   ├── Sub-stage 5.3.1: _fallback_prioritization() function
+│   ├── Sub-stage 5.3.2: Rule-based categorization logic
+│   └── Sub-stage 5.3.3: Basic skill grouping algorithms
+│
+├── Stage 5.4: Category Inference
+│   ├── Sub-stage 5.4.1: _infer_skill_categories() function
+│   ├── Sub-stage 5.4.2: Dynamic category discovery
+│   └── Sub-stage 5.4.3: Taxonomy development logic
+│
+└── Stage 5.5: Priority Scoring
+    ├── Sub-stage 5.5.1: _get_skill_priority_score() function
+    ├── Sub-stage 5.5.2: Multi-criteria priority assessment
+    └── Sub-stage 5.5.3: Job relevance and evidence weighting
+
+BLOCK 6: AGENT CONFIGURATION & CREATION
+├── Stage 6.1: Configuration Loading
+│   ├── Sub-stage 6.1.1: Load from agents.yaml with fallback
+│   ├── Sub-stage 6.1.2: Validate required configuration fields
+│   └── Sub-stage 6.1.3: Error handling for missing configuration
+│
+├── Stage 6.2: Default Configuration
+│   ├── Sub-stage 6.2.1: Define skills optimization role
+│   ├── Sub-stage 6.2.2: Set LLM parameters for inference tasks
+│   └── Sub-stage 6.2.3: Configure validation and reasoning settings
+│
+└── Stage 6.3: Agent Creation
+    ├── Sub-stage 6.3.1: CrewAI Agent initialization
+    ├── Sub-stage 6.3.2: Tool assignment and capability configuration
+    └── Sub-stage 6.3.3: Performance and resilience settings
+
+BLOCK 7: MAIN OPTIMIZATION WORKFLOW
+├── Stage 7.1: Workflow Orchestration
+│   ├── Sub-stage 7.1.1: optimize_skills_section() main function
+│   ├── Sub-stage 7.1.2: End-to-end skills optimization pipeline
+│   └── Sub-stage 7.1.3: Error handling and recovery
+│
+├── Stage 7.2: Pipeline Stages
+│   ├── Sub-stage 7.2.1: Skill inference from experiences
+│   ├── Sub-stage 7.2.2: Validation and confidence scoring
+│   ├── Sub-stage 7.2.3: Prioritization and categorization
+│   └── Sub-stage 7.2.4: Quality assessment and optimization
+│
+└── Stage 7.3: Results Integration
+    ├── Sub-stage 7.3.1: Combine inferred and existing skills
+    ├── Sub-stage 7.3.2: Deduplication and conflict resolution
+    └── Sub-stage 7.3.3: Final output preparation
+
+BLOCK 8: OUTPUT VALIDATION & QUALITY CHECKS
+├── Stage 8.1: Output Validation
+│   ├── Sub-stage 8.1.1: validate_skills_output() function
+│   ├── Sub-stage 8.1.2: Schema validation against Pydantic models
+│   └── Sub-stage 8.1.3: Data integrity and completeness checks
+│
+├── Stage 8.2: Quality Assessment
+│   ├── Sub-stage 8.2.1: check_skills_quality() function
+│   ├── Sub-stage 8.2.2: Multi-dimensional quality evaluation
+│   └── Sub-stage 8.2.3: Scoring and recommendation generation
+│
+├── Stage 8.3: Keyword Coverage Analysis
+│   ├── Sub-stage 8.3.1: _assess_keyword_coverage() function
+│   ├── Sub-stage 8.3.2: Job description keyword matching
+│   └── Sub-stage 8.3.3: Coverage percentage calculation
+│
+└── Stage 8.4: Presentation Quality Assessment
+    ├── Sub-stage 8.4.1: _assess_presentation_quality() function
+    ├── Sub-stage 8.4.2: ATS compatibility evaluation
+    └── Sub-stage 8.4.3: Human readability assessment
+
+BLOCK 9: TESTING & DIAGNOSTICS
+├── Stage 9.1: Integration Testing
+│   ├── Sub-stage 9.1.1: Test agent creation and configuration
+│   ├── Sub-stage 9.1.2: Test skill inference pipeline
+│   └── Sub-stage 9.1.3: Test validation and quality checks
+│
+└── Stage 9.2: Diagnostic Functions
+    ├── Sub-stage 9.2.1: Debugging utilities
+    ├── Sub-stage 9.2.2: Performance monitoring
+    └── Sub-stage 9.2.3: Error reporting and analysis
+
+HOW TO USE THIS MODULE:
+-----------------------
+1. Import: `from src.agents.skills_optimizer_agent import create_skills_optimizer_agent`
+2. Create Agent: `agent = create_skills_optimizer_agent()`
+3. Optimize Skills: Use `optimize_skills_section()` with resume and job data
+4. Validate Output: Use `validate_skills_output()` to ensure data quality
+5. Check Quality: Use `check_skills_quality()` for comprehensive assessment
+
+KEY AI-FIRST PRINCIPLES:
+------------------------
+- **Domain Agnostic**: No hardcoded skill mappings - LLM infers from context
+- **Evidence Required**: Every skill must be verifiable in experience descriptions
+- **Confidence Scoring**: Multi-factor validation prevents fabrication
+- **Job-Aligned**: Skills prioritized based on job requirements and importance
+- **Truthful**: Strict validation ensures resume accuracy and credibility
+
+TECHNICAL ARCHITECTURE:
+-----------------------
+- **Inference Engine**: LLM-powered skill discovery from unstructured experience text
+- **Validation Pipeline**: Multi-stage verification with confidence scoring
+- **Prioritization Logic**: Job-aware ranking with fallback algorithms
+- **Categorization System**: Dynamic taxonomy development
+- **Quality Assurance**: Comprehensive validation and assessment framework
+- **Error Recovery**: Graceful handling of LLM failures and parsing errors
+
+INFERENCE METHODOLOGY:
+---------------------
+The agent employs a sophisticated AI-first approach:
+1. **Experience Analysis**: Deep reading of work experience descriptions
+2. **Gap Identification**: Compare existing skills against job requirements
+3. **Skill Inference**: LLM identifies unstated but evident competencies
+4. **Evidence Verification**: Cross-reference inferred skills with experience text
+5. **Confidence Calculation**: Multi-factor scoring of skill validity
+6. **Job Prioritization**: Rank skills by relevance to target position
+7. **Intelligent Categorization**: Group skills into ATS-optimized categories
+8. **Quality Optimization**: Balance keyword coverage with professional presentation
+
+This creates skills sections that are both ATS-optimized and genuinely representative
+of candidate capabilities, without resorting to resume inflation or fabrication.
 """
 
 import json
@@ -44,8 +294,17 @@ logger = get_logger(__name__)
 
 
 # ==============================================================================
-# Module Constants
+# BLOCK 1: MODULE SETUP & CONFIGURATION
 # ==============================================================================
+# PURPOSE: Initialize the module with constants, logging, and foundational infrastructure
+# WHAT: Core setup including constants, logging context, and module-level configuration
+# WHY: Provides the stable foundation for AI-powered skills optimization
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 1.2: Module Constants
+# ------------------------------------------------------------------------------
+# This stage defines all configuration constants used throughout the skills optimization system.
 
 # Confidence thresholds
 CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence score to accept inferred skill
@@ -70,9 +329,10 @@ MIN_CATEGORIES = 3  # Minimum recommended skill categories
 
 
 
-# ==============================================================================
-# Structured Logging Context
-# ==============================================================================
+# ------------------------------------------------------------------------------
+# Stage 1.3: Logging Infrastructure
+# ------------------------------------------------------------------------------
+# This stage provides thread-safe structured logging with correlation IDs.
 
 
 class LogContext:
@@ -120,8 +380,17 @@ def log_with_context(level: str = "info", **context):
 
 
 # ==============================================================================
-# Core Data Models
+# BLOCK 2: DATA MODELS & CONTEXT
 # ==============================================================================
+# PURPOSE: Define structured data models for skill inference and validation
+# WHAT: Pydantic models that enforce data integrity throughout the optimization pipeline
+# WHY: Ensures type safety and validation for complex skill optimization workflows
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 2.1: Skill Inference Models
+# ------------------------------------------------------------------------------
+# This stage defines the core data models for skill inference and validation operations.
 
 
 class SkillInferenceContext(BaseModel):
@@ -158,8 +427,17 @@ def _clean_json_string(json_str: str) -> str:
 
 
 # ==============================================================================
-# 1. Domain-Agnostic Skill Inference (AI-Powered)
+# BLOCK 3: SKILL INFERENCE ENGINE
 # ==============================================================================
+# PURPOSE: AI-powered discovery of skills from experience descriptions
+# WHAT: LLM-based inference system that identifies unstated but evident competencies
+# WHY: Enables comprehensive skill identification without hardcoded domain mappings
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 3.1: Core Inference Function
+# ------------------------------------------------------------------------------
+# This stage orchestrates the main skill inference workflow using LLM intelligence.
 
 
 @resilient_llm_call(provider="gemini")
@@ -340,8 +618,17 @@ def _parse_skill_inference_response(response: str) -> list[Skill]:
 
 
 # ==============================================================================
-# 2. Truthfulness Validation (Evidence-Based)
+# BLOCK 4: SKILL VALIDATION SYSTEM
 # ==============================================================================
+# PURPOSE: Ensure skill claims are truthful and evidence-based
+# WHAT: Multi-stage validation pipeline that verifies skills against experience evidence
+# WHY: Prevents resume inflation and maintains credibility through strict validation
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 4.1: Validation Orchestration
+# ------------------------------------------------------------------------------
+# This stage orchestrates the comprehensive skill validation process.
 
 
 def validate_skill_inference(
@@ -568,8 +855,17 @@ Be strict. Only approve if evidence is clear and connection is logical.
 
 
 # ==============================================================================
-# 3. Skills Prioritization (AI-Guided)
+# BLOCK 5: SKILL PRIORITIZATION & CATEGORIZATION
 # ==============================================================================
+# PURPOSE: Intelligently rank and group skills for optimal presentation
+# WHAT: AI-guided prioritization based on job relevance and dynamic categorization
+# WHY: Creates ATS-optimized skill sections with strategic importance ordering
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 5.1: Main Optimization Function
+# ------------------------------------------------------------------------------
+# This stage orchestrates the complete prioritization and categorization workflow.
 
 
 @resilient_llm_call(provider="gemini")
@@ -884,8 +1180,17 @@ def _get_skill_priority_score(skill: Skill, context: SkillInferenceContext) -> i
 
 
 # ==============================================================================
-# 4. Agent Creation (Simplified)
+# BLOCK 6: AGENT CONFIGURATION & CREATION
 # ==============================================================================
+# PURPOSE: Configure and create the Skills Optimizer agent
+# WHAT: Agent setup with AI-first configuration and tool assignment
+# WHY: Produces an intelligent agent capable of domain-agnostic skill optimization
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 6.1: Configuration Loading
+# ------------------------------------------------------------------------------
+# This stage loads agent configuration from external files with fallbacks.
 
 
 def create_skills_optimizer_agent() -> Agent:
@@ -927,8 +1232,17 @@ def create_skills_optimizer_agent() -> Agent:
 
 
 # ==============================================================================
-# 5. Main Optimization Workflow
+# BLOCK 7: MAIN OPTIMIZATION WORKFLOW
 # ==============================================================================
+# PURPOSE: Orchestrate the complete end-to-end skills optimization process
+# WHAT: Full pipeline from inference to final optimized skills section
+# WHY: Provides the main API for comprehensive skill optimization
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 7.1: Workflow Orchestration
+# ------------------------------------------------------------------------------
+# This stage coordinates the complete skills optimization pipeline.
 
 
 def optimize_skills_section(
@@ -1043,8 +1357,17 @@ def optimize_skills_section(
 
 
 # ==============================================================================
-# Utility Functions for Testing and Quality Assessment
+# BLOCK 8: OUTPUT VALIDATION & QUALITY CHECKS
 # ==============================================================================
+# PURPOSE: Ensure output quality and validate against requirements
+# WHAT: Comprehensive validation and quality assessment functions
+# WHY: Guarantees that optimized skills meet professional standards and ATS requirements
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 8.1: Output Validation
+# ------------------------------------------------------------------------------
+# This stage validates that agent outputs conform to expected data models.
 
 
 def validate_skills_output(data: dict) -> OptimizedSkillsSection | None:
@@ -1334,8 +1657,17 @@ def categorize_skills(
 
 
 # ==============================================================================
-# Test Block
+# BLOCK 9: TESTING & DIAGNOSTICS
 # ==============================================================================
+# PURPOSE: Provide testing capabilities and diagnostic functions
+# WHAT: Integration tests and debugging utilities for the skills optimizer
+# WHY: Enables development-time validation and troubleshooting
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 9.1: Integration Testing
+# ------------------------------------------------------------------------------
+# This stage provides comprehensive testing of the skills optimization system.
 
 if __name__ == "__main__":
     print("=" * 70)

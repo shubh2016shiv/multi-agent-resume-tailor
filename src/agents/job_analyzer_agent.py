@@ -1,32 +1,163 @@
 """
-Job Description Analyst Agent
------------------------------
+Job Description Analyst Agent - Requirements Extraction System
+===============================================================
 
+OVERVIEW:
+---------
 This module defines the second agent in our workflow: the Job Description Analyst.
-This agent is responsible for analyzing job postings, extracting requirements,
-and structuring them into our canonical JobDescription data model.
+This agent serves as the bridge between raw job postings and structured requirements
+that enable intelligent resume tailoring.
+
+WHAT MAKES THIS AGENT ESSENTIAL:
+--------------------------------
+- **Foundation Layer**: Extracts structured data that all downstream agents depend on
+- **Requirements Parsing**: Distinguishes must-haves from nice-to-haves
+- **Context Understanding**: Captures company culture, seniority levels, and expectations
+- **Validation Gateway**: Ensures job data quality before gap analysis begins
 
 AGENT DESIGN PRINCIPLES:
-- Single Responsibility: Analyze and structure job posting data
-- Modularity: Clear separation between agent creation, configuration, and execution
-- Robustness: Comprehensive error handling with graceful degradation
-- Type Safety: Uses Pydantic models for validated, structured output
-- Observability: Detailed logging at every step for debugging
+------------------------
+- **Analytical Focus**: Deep analysis of job requirements and expectations
+- **Structured Extraction**: Transforms unstructured job text into typed data
+- **Quality Validation**: Built-in checks for analysis completeness and accuracy
+- **Context Preservation**: Maintains nuance while providing structure
 
-WORKFLOW:
-1. Receive job posting file path or text as input
-2. Use the parse_job_description tool to convert file to Markdown
-3. Analyze Markdown using LLM with JobDescription model schema
-4. Extract key requirements: must-haves, nice-to-haves, responsibilities
-5. Identify experience level, salary range, and other metadata
-6. Return structured JobDescription object (JSON)
+WORKFLOW OVERVIEW:
+------------------
+1. Receive job posting file or text input
+2. Use parse_job_description tool to convert to clean Markdown
+3. Apply LLM analysis with JobDescription schema constraints
+4. Extract and categorize requirements (must-have, should-have, nice-to-have)
+5. Identify experience levels, company context, and key responsibilities
+6. Return validated JobDescription object with comprehensive metadata
 
-KEY ANALYSIS POINTS:
-- Required vs preferred qualifications
-- Technical skills vs soft skills
-- Experience level and seniority
-- Company culture and values
-- Red flags or unclear requirements
+MODULE STRUCTURE (Hierarchical Organization):
+=============================================
+This module is organized into 6 main BLOCKS, each containing STAGES with SUB-STAGES:
+
+BLOCK 1: MODULE SETUP & CONFIGURATION
+├── Stage 1.1: Import Management
+│   ├── Sub-stage 1.1.1: Standard library imports
+│   ├── Sub-stage 1.1.2: CrewAI framework imports
+│   ├── Sub-stage 1.1.3: Project-specific imports (with fallback handling)
+│   └── Sub-stage 1.1.4: Logger initialization
+│
+├── Stage 1.2: Configuration Loading
+│   ├── Sub-stage 1.2.1: Load agent config from agents.yaml
+│   ├── Sub-stage 1.2.2: Validate required configuration fields
+│   └── Sub-stage 1.2.3: Error handling with graceful fallbacks
+│
+└── Stage 1.3: Default Configuration Fallback
+    ├── Sub-stage 1.3.1: Define default agent role and expertise
+    ├── Sub-stage 1.3.2: Set default LLM parameters for analysis
+    └── Sub-stage 1.3.3: Configure default behavior settings
+
+BLOCK 2: AGENT CREATION
+├── Stage 2.1: Configuration Retrieval
+│   ├── Sub-stage 2.1.1: Load agent-specific configuration
+│   ├── Sub-stage 2.1.2: Extract LLM settings and parameters
+│   └── Sub-stage 2.1.3: Load resilience configuration
+│
+├── Stage 2.2: Agent Initialization
+│   ├── Sub-stage 2.2.1: Set agent role, goal, and backstory
+│   ├── Sub-stage 2.2.2: Configure agent behavior and constraints
+│   └── Sub-stage 2.2.3: Initialize CrewAI Agent object
+│
+├── Stage 2.3: Tool Assignment
+│   ├── Sub-stage 2.3.1: Assign parse_job_description tool
+│   └── Sub-stage 2.3.2: Configure tool parameters and access
+│
+└── Stage 2.4: Resilience Configuration
+    ├── Sub-stage 2.4.1: Set retry limits and rate limiting
+    ├── Sub-stage 2.4.2: Configure execution timeouts
+    └── Sub-stage 2.4.3: Enable context window management
+
+BLOCK 3: OUTPUT VALIDATION
+├── Stage 3.1: Data Validation
+│   ├── Sub-stage 3.1.1: Parse output into JobDescription model
+│   ├── Sub-stage 3.1.2: Validate required fields and constraints
+│   └── Sub-stage 3.1.3: Check nested model relationships
+│
+├── Stage 3.2: Error Handling
+│   ├── Sub-stage 3.2.1: Catch Pydantic ValidationError
+│   ├── Sub-stage 3.2.2: Log detailed validation errors
+│   └── Sub-stage 3.2.3: Return None for graceful failure handling
+│
+└── Stage 3.3: Logging & Reporting
+    ├── Sub-stage 3.3.1: Log successful validation with summary
+    ├── Sub-stage 3.3.2: Log validation failures with error details
+    └── Sub-stage 3.3.3: Return validated JobDescription object
+
+BLOCK 4: ANALYSIS QUALITY CHECKS
+├── Stage 4.1: Quality Assessment
+│   ├── Sub-stage 4.1.1: check_analysis_quality() function
+│   ├── Sub-stage 4.1.2: Evaluate requirements completeness
+│   ├── Sub-stage 4.1.3: Check experience level identification
+│   └── Sub-stage 4.1.4: Validate ATS keywords presence
+│
+├── Stage 4.2: Scoring Algorithm
+│   ├── Sub-stage 4.2.1: Calculate quality score (0-100)
+│   ├── Sub-stage 4.2.2: Identify critical issues vs warnings
+│   └── Sub-stage 4.2.3: Generate actionable recommendations
+│
+└── Stage 4.3: Quality Reporting
+    ├── Sub-stage 4.3.1: Structure quality check results
+    ├── Sub-stage 4.3.2: Log issues and recommendations
+    └── Sub-stage 4.3.3: Return comprehensive quality report
+
+BLOCK 5: UTILITY FUNCTIONS
+├── Stage 5.1: Agent Information
+│   ├── Sub-stage 5.1.1: get_agent_info() function
+│   ├── Sub-stage 5.1.2: Retrieve agent metadata
+│   └── Sub-stage 5.1.3: Format information for debugging
+│
+└── Stage 5.2: Testing Support
+    ├── Sub-stage 5.2.1: Test configuration loading
+    ├── Sub-stage 5.2.2: Test agent creation
+    ├── Sub-stage 5.2.3: Test validation functions
+    └── Sub-stage 5.2.4: Test quality assessment
+
+BLOCK 6: INTEGRATION TESTING
+├── Stage 6.1: End-to-End Testing
+│   ├── Sub-stage 6.1.1: Mock data creation for testing
+│   ├── Sub-stage 6.1.2: Quality check validation
+│   └── Sub-stage 6.1.3: Integration test scenarios
+
+HOW TO USE THIS MODULE:
+-----------------------
+1. Import: `from src.agents.job_analyzer_agent import create_job_analyzer_agent`
+2. Create Agent: `agent = create_job_analyzer_agent()`
+3. Use in Crew: Add agent to CrewAI crew with job description files
+4. Validate Output: Use `validate_job_output()` to ensure data quality
+5. Check Quality: Use `check_analysis_quality()` for analysis validation
+
+KEY ANALYSIS CAPABILITIES:
+-------------------------
+- **Requirements Categorization**: Must-have vs should-have vs nice-to-have
+- **Experience Level Detection**: Entry, junior, mid-level, senior, executive
+- **Skill Classification**: Technical vs soft skills identification
+- **ATS Keyword Extraction**: Keywords important for applicant tracking
+- **Context Understanding**: Company culture, values, and expectations
+- **Quality Validation**: Built-in checks for analysis completeness
+
+TECHNICAL ARCHITECTURE:
+-----------------------
+- **Tool-Based Parsing**: Uses specialized job description parsing tools
+- **Schema Validation**: Pydantic models ensure data structure and types
+- **Quality Gates**: Built-in validation prevents poor analysis from proceeding
+- **Error Recovery**: Graceful handling of parsing failures and edge cases
+- **Comprehensive Logging**: Detailed observability for debugging and monitoring
+
+ANALYSIS DEPTH:
+---------------
+This agent goes beyond simple keyword extraction to understand:
+1. **Hierarchical Requirements**: Which skills are truly critical vs desirable
+2. **Experience Context**: Years required vs preferred experience patterns
+3. **Company Culture**: Implicit values and work environment indicators
+4. **Role Expectations**: Beyond listed requirements to understood expectations
+5. **Market Positioning**: How this role fits within the company's structure
+
+The result is structured job intelligence that enables precise, effective resume tailoring.
 """
 
 from crewai import Agent
@@ -37,7 +168,7 @@ try:
     from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.job import JobDescription, SkillImportance
-    from src.data_models.strategy import AlignmentStrategy_job_description
+    from src.tools.job_analyzer import parse_job_description
 except ImportError:
     # Fallback for when running this file directly
     import sys
@@ -47,14 +178,23 @@ except ImportError:
     from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.job import JobDescription, SkillImportance
-    from src.data_models.strategy import AlignmentStrategy_job_description
+    from src.tools.job_analyzer import parse_job_description
 
 logger = get_logger(__name__)
 
 
 # ==============================================================================
-# Agent Configuration Loading
+# BLOCK 1: MODULE SETUP & CONFIGURATION
 # ==============================================================================
+# PURPOSE: Initialize the module with imports, configuration, and defaults
+# WHAT: Global setup functions and configuration management
+# WHY: Ensures consistent agent behavior across different environments
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 1.2: Configuration Loading
+# ------------------------------------------------------------------------------
+# This stage loads agent configuration from external files with error handling.
 
 
 def _load_agent_config() -> dict:
@@ -91,6 +231,11 @@ def _load_agent_config() -> dict:
         logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
         return _get_default_config()
 
+# ------------------------------------------------------------------------------
+# Stage 1.3: Default Configuration Fallback
+# ------------------------------------------------------------------------------
+# This stage provides production-ready defaults when configuration files fail.
+
 
 def _get_default_config() -> dict:
     """
@@ -120,8 +265,17 @@ def _get_default_config() -> dict:
 
 
 # ==============================================================================
-# Agent Creation
+# BLOCK 2: AGENT CREATION
 # ==============================================================================
+# PURPOSE: Create and configure the Job Description Analyst agent with all tools
+# WHAT: Agent initialization, tool assignment, and resilience configuration
+# WHY: Produces a fully functional agent ready for job description analysis
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 2.1-2.4: Complete Agent Creation Workflow
+# ------------------------------------------------------------------------------
+# This stage orchestrates all aspects of agent creation in proper sequence.
 
 
 def create_job_analyzer_agent() -> Agent:
@@ -181,6 +335,17 @@ def create_job_analyzer_agent() -> Agent:
 # ==============================================================================
 # Output Validation
 # ==============================================================================
+# BLOCK 3: OUTPUT VALIDATION
+# ==============================================================================
+# PURPOSE: Validate that agent outputs conform to expected data models
+# WHAT: Quality gates that ensure structured data meets schema requirements
+# WHY: Prevents downstream errors and ensures data consistency
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 3.1-3.3: Complete Validation Workflow
+# ------------------------------------------------------------------------------
+# This stage orchestrates all validation steps to ensure output quality.
 
 
 def validate_job_output(output_data: dict) -> JobDescription | None:
@@ -239,8 +404,17 @@ def validate_job_output(output_data: dict) -> JobDescription | None:
 
 
 # ==============================================================================
-# Analysis Quality Checks
+# BLOCK 4: ANALYSIS QUALITY CHECKS
 # ==============================================================================
+# PURPOSE: Validate the quality and completeness of job description analysis
+# WHAT: Comprehensive quality assessment with scoring and recommendations
+# WHY: Ensures analysis is thorough enough for effective resume tailoring
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 4.1-4.3: Complete Quality Assessment Workflow
+# ------------------------------------------------------------------------------
+# This stage performs comprehensive quality checks on job description analysis.
 
 
 def check_analysis_quality(job: JobDescription) -> dict:
@@ -335,8 +509,17 @@ def check_analysis_quality(job: JobDescription) -> dict:
 
 
 # ==============================================================================
-# Utility Functions
+# BLOCK 5: UTILITY FUNCTIONS
 # ==============================================================================
+# PURPOSE: Provide utility functions for debugging, monitoring, and testing
+# WHAT: Helper functions for agent metadata and diagnostic information
+# WHY: Enables debugging, monitoring, and validation of agent functionality
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 5.1: Agent Information
+# ------------------------------------------------------------------------------
+# This stage provides metadata and diagnostic information about the agent.
 
 
 def get_agent_info() -> dict:
@@ -362,8 +545,17 @@ def get_agent_info() -> dict:
 
 
 # ==============================================================================
-# Testing Block
+# BLOCK 6: INTEGRATION TESTING
 # ==============================================================================
+# PURPOSE: Provide testing and validation capabilities for the agent
+# WHAT: Test functions and integration validation code
+# WHY: Ensures agent functionality and enables development-time validation
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 6.1: End-to-End Testing
+# ------------------------------------------------------------------------------
+# This stage provides comprehensive testing of agent functionality.
 
 if __name__ == "__main__":
     """

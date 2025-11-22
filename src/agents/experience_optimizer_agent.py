@@ -1,51 +1,305 @@
 """
-Experience Section Optimizer Agent
-----------------------------------
+Experience Section Optimizer Agent - Advanced Iterative Improvement System
+==========================================================================
 
+OVERVIEW:
+---------
 This module defines the fifth agent in our workflow: the Experience Section Optimizer.
-This agent is responsible for rewriting work experience entries to align with job
-requirements while maintaining complete truthfulness. It incorporates keywords naturally,
-quantifies achievements, and reorders content by relevance.
+This agent implements a sophisticated iterative improvement system where the AI agent
+autonomously evaluates and improves its own work experience bullet points through
+self-critique and regeneration cycles.
+
+WHAT MAKES THIS AGENT UNIQUE:
+-----------------------------
+Unlike traditional agents that generate once and stop, this agent:
+1. Generates initial bullets using LLM reasoning
+2. Evaluates its own output using deterministic quality functions
+3. Provides self-critique with specific improvement suggestions
+4. Regenerates bullets addressing identified issues
+5. Iterates until quality thresholds are met (up to 3 times)
+6. Maintains complete truthfulness while maximizing impact
 
 AGENT DESIGN PRINCIPLES:
-- Single Responsibility: Optimize work experience entries only
-- Modularity: Clear separation between agent creation, optimization, and validation
-- Robustness: Comprehensive error handling with graceful degradation
-- Type Safety: Uses Pydantic models for validated inputs and outputs
-- Observability: Detailed logging at every step for debugging
+------------------------
+- **Agentic Behavior**: Agent autonomously improves its output through iteration
+- **Single Responsibility**: Optimize work experience entries only
+- **Truthfulness First**: Never fabricate achievements or exaggerate
+- **Quality-Driven**: Uses objective metrics to evaluate and improve output
+- **ATS-Optimized**: Balances human readability with keyword integration
+- **Observable**: Detailed logging of iteration progress and decisions
 
-WORKFLOW:
+WORKFLOW OVERVIEW:
+------------------
 1. Receive Resume, JobDescription, and AlignmentStrategy as input
-2. Follow the experience_guidance from the strategy
-3. For each experience entry:
-   - Reorder bullets by relevance to target job
-   - Incorporate job-relevant keywords naturally
-   - Reframe achievements to emphasize relevant aspects
-   - Quantify achievements using CAR (Challenge-Action-Result) format
-   - Use strong action verbs (Led, Architected, Increased)
-4. Return optimized experience section with metadata
+2. For each experience entry, run iterative optimization:
+   - Generate initial bullets → Evaluate → Regenerate (up to 3 iterations)
+   - Each iteration improves based on quality metrics
+   - Stop when quality threshold (85/100) is met
+3. Return optimized experience section with iteration metadata
+
+MODULE STRUCTURE (Hierarchical Organization):
+=============================================
+This module is organized into 10 main BLOCKS, each containing STAGES with SUB-STAGES:
+
+BLOCK 1: ITERATIVE IMPROVEMENT CONFIGURATION
+├── Stage 1.1: Global Configuration Constants
+│   ├── Sub-stage 1.1.1: Enable/Disable Toggle (ENABLE_ITERATIVE_IMPROVEMENT)
+│   ├── Sub-stage 1.1.2: Max Iterations Setting (MAX_IMPROVEMENT_ITERATIONS)
+│   └── Sub-stage 1.1.3: Quality Threshold Configuration (QUALITY_THRESHOLD)
+│
+├── Stage 1.2: Configuration Tuning Guide
+│   ├── Sub-stage 1.2.1: Quality Threshold Guidelines (85+ = Production Ready)
+│   ├── Sub-stage 1.2.2: Iteration Count Trade-offs (1 = Fast, 3 = Balanced, 5+ = Deep)
+│   └── Sub-stage 1.2.3: Agentic Behavior Parameters
+
+BLOCK 2: ITERATION TRACKING INFRASTRUCTURE
+├── Stage 2.1: Global Tracker Setup
+│   ├── Sub-stage 2.1.1: Tracker State Variables (current_iteration, call_count, etc.)
+│   ├── Sub-stage 2.1.2: Safety Limits (max_calls_per_session)
+│   └── Sub-stage 2.1.3: Tool Call Logging Structure
+│
+├── Stage 2.2: Tracker Management Functions
+│   ├── Sub-stage 2.2.1: reset_iteration_tracker() - Clean state initialization
+│   ├── Sub-stage 2.2.2: get_iteration_tracker_state() - Current state retrieval
+│   └── Sub-stage 2.2.3: log_iteration_tracker_summary() - Complete observability
+│
+├── Stage 2.3: Progress Validation
+│   ├── Sub-stage 2.3.1: validate_iteration_progress() - Check iteration effectiveness
+│   └── Sub-stage 2.3.2: Quality assurance metrics
+│
+└── Stage 2.4: Self-Evaluation Tool (CRITICAL)
+    ├── Sub-stage 2.4.1: @tool("Evaluate Experience Bullets") decorator
+    ├── Sub-stage 2.4.2: Input parsing (JSON strings to Python objects)
+    ├── Sub-stage 2.4.3: Safety limits (prevent infinite loops)
+    ├── Sub-stage 2.4.4: Bullet evaluation (evaluate_single_bullet calls)
+    ├── Sub-stage 2.4.5: Score aggregation and critique generation
+    └── Sub-stage 2.4.6: JSON output serialization for agent consumption
+
+BLOCK 3: DATA MODELS
+├── Stage 3.1: OptimizedExperienceSection Model
+│   ├── Sub-stage 3.1.1: optimized_experiences field (list of Experience objects)
+│   ├── Sub-stage 3.1.2: optimization_notes field (human-readable explanation)
+│   ├── Sub-stage 3.1.3: keywords_integrated field (ATS tracking)
+│   └── Sub-stage 3.1.4: relevance_scores field (quality metrics)
+│
+├── Stage 3.2: BulletDraft Model
+│   ├── Sub-stage 3.2.1: iteration field (which iteration this draft represents)
+│   ├── Sub-stage 3.2.2: content field (the actual bullet text)
+│   ├── Sub-stage 3.2.3: quality_score field (0-100 evaluation)
+│   └── Sub-stage 3.2.4: issues_found field (list of identified problems)
+│
+└── Stage 3.3: IterativeExperienceOptimization Model
+    ├── Sub-stage 3.3.1: company_name field (which experience entry)
+    ├── Sub-stage 3.3.2: original_bullets field (starting point)
+    ├── Sub-stage 3.3.3: final_bullets field (optimized result)
+    └── Sub-stage 3.3.4: iteration_history field (complete audit trail)
+
+BLOCK 4: AGENT CONFIGURATION & CREATION
+├── Stage 4.1: Configuration Loading
+│   ├── Sub-stage 4.1.1: Load from agents.yaml with fallback to defaults
+│   ├── Sub-stage 4.1.2: Validate required fields (role, goal, backstory)
+│   └── Sub-stage 4.1.3: Error handling with graceful degradation
+│
+├── Stage 4.2: Default Configuration Fallback
+│   ├── Sub-stage 4.2.1: Define agent identity ("Career Narrative Specialist")
+│   ├── Sub-stage 4.2.2: Set LLM parameters (gemini-2.5-flash-lite, temperature 0.5)
+│   └── Sub-stage 4.2.3: Configure verbose logging for observability
+│
+└── Stage 4.3: Agent Creation (CRITICAL - Agentic Workflow)
+    ├── Sub-stage 4.3.1: CrewAI Agent initialization with tools
+    └── Sub-stage 4.3.2: Complete Iterative Workflow Documentation:
+        │
+        ├── Stage A: INITIAL GENERATION (Agent's First Action)
+        │   ├── Sub-stage A.1: Agent receives task with resume/job/strategy inputs
+        │   ├── Sub-stage A.2: Agent analyzes experience entries from resume
+        │   ├── Sub-stage A.3: Agent reads alignment strategy guidance
+        │   └── Sub-stage A.4: Agent generates INITIAL bullets (3-6 per entry)
+        │
+        ├── Stage B: SELF-EVALUATION (Agent Calls Tool)
+        │   ├── Sub-stage B.1: Agent invokes evaluate_experience_bullets tool
+        │   ├── Sub-stage B.2: Tool evaluates bullets using deterministic functions
+        │   ├── Sub-stage B.3: Tool returns score (0-100) + issues + critique
+        │   └── Sub-stage B.4: Agent receives evaluation result
+        │
+        ├── Stage C: DECISION POINT (Agent's Autonomous Decision)
+        │   ├── Sub-stage C.1: Agent checks: meets_threshold (score >= 85)?
+        │   ├── Sub-stage C.2: IF True → Stop iterating for this entry
+        │   ├── Sub-stage C.3: IF False + iterations < 3 → Continue to regeneration
+        │   └── Sub-stage C.4: IF False + iterations >= 3 → Stop (best effort)
+        │
+        ├── Stage D: REGENERATION (Agent Improves Based on Critique)
+        │   ├── Sub-stage D.1: Agent reads specific critique from evaluation
+        │   ├── Sub-stage D.2: Agent analyzes issues ("Add metrics", "Stronger verbs")
+        │   ├── Sub-stage D.3: Agent regenerates bullets addressing each issue
+        │   └── Sub-stage D.4: Agent loops back to Stage B (Self-Evaluation)
+        │
+        └── Stage E: ITERATION TRACKING (Agent Maintains History)
+            ├── Sub-stage E.1: Agent records each iteration in history
+            ├── Sub-stage E.2: Agent tracks quality improvements across iterations
+            └── Sub-stage E.3: Agent provides complete audit trail
+
+BLOCK 5: OUTPUT VALIDATION
+├── Stage 5.1: Data Validation
+│   ├── Sub-stage 5.1.1: Validate OptimizedExperienceSection model
+│   ├── Sub-stage 5.1.2: Check required fields and data types
+│   └── Sub-stage 5.1.3: Validate nested Experience objects
+│
+├── Stage 5.2: Error Handling
+│   ├── Sub-stage 5.2.1: Catch Pydantic ValidationError
+│   ├── Sub-stage 5.2.2: Log detailed validation errors
+│   └── Sub-stage 5.2.3: Return None for graceful failure handling
+│
+└── Stage 5.3: Logging & Reporting
+    ├── Sub-stage 5.3.1: Log successful validation with summary
+    ├── Sub-stage 5.3.2: Log validation failures with error details
+    └── Sub-stage 5.3.3: Return validated OptimizedExperienceSection
+
+BLOCK 6: QUALITY ANALYSIS FUNCTIONS
+├── Stage 6.1: Action Verb Analysis (analyze_action_verbs)
+│   ├── Sub-stage 6.1.1: Count strong action verbs (Led, Architected, Optimized)
+│   ├── Sub-stage 6.1.2: Identify weak/passive verbs ("Responsible for", "Worked on")
+│   └── Sub-stage 6.1.3: Calculate verb strength score (0-100)
+│
+├── Stage 6.2: Quantification Analysis (count_quantified_achievements)
+│   ├── Sub-stage 6.2.1: Detect percentage metrics ("reduced by 40%")
+│   ├── Sub-stage 6.2.2: Detect monetary values ("saved $50K")
+│   ├── Sub-stage 6.2.3: Detect scale indicators ("team of 8", "1000 users")
+│   └── Sub-stage 6.2.4: Calculate quantification rate
+│
+├── Stage 6.3: Structure Validation (validate_bullet_structure)
+│   ├── Sub-stage 6.3.1: Check CAR format (Challenge-Action-Result)
+│   ├── Sub-stage 6.3.2: Verify bullet completeness
+│   └── Sub-stage 6.3.3: Assess impact description
+│
+├── Stage 6.4: Impact Assessment (assess_impact_level)
+│   ├── Sub-stage 6.4.1: Identify business outcomes vs task descriptions
+│   ├── Sub-stage 6.4.2: Score impact magnitude (strategic vs tactical)
+│   └── Sub-stage 6.4.3: Flag activity-focused bullets
+│
+├── Stage 6.5: Voice Detection (detect_passive_voice)
+│   ├── Sub-stage 6.5.1: Pattern matching for passive constructions
+│   ├── Sub-stage 6.5.2: Count passive voice occurrences
+│   └── Sub-stage 6.5.3: Flag passive bullets for correction
+│
+├── Stage 6.6: Specificity Checks (check_specificity)
+│   ├── Sub-stage 6.6.1: Detect generic phrases ("improved performance")
+│   ├── Sub-stage 6.6.2: Verify technology mentions
+│   ├── Sub-stage 6.6.3: Check for quantifiable metrics
+│   └── Sub-stage 6.6.4: Calculate specificity score
+│
+└── Stage 6.7: Relevance Reordering (reorder_bullets_by_relevance)
+    ├── Sub-stage 6.7.1: Score bullets by keyword matches
+    ├── Sub-stage 6.7.2: Weight by business impact metrics
+    ├── Sub-stage 6.7.3: Factor leadership indicators
+    └── Sub-stage 6.7.4: Sort bullets by relevance score
+
+BLOCK 7: EVALUATION FRAMEWORK
+├── Stage 7.1: Single Bullet Evaluation (evaluate_single_bullet)
+│   ├── Sub-stage 7.1.1: Orchestrate all quality checks (6.1 through 6.7)
+│   ├── Sub-stage 7.1.2: Aggregate scores into overall quality metric
+│   ├── Sub-stage 7.1.3: Identify critical issues for improvement
+│   └── Sub-stage 7.1.4: Return structured evaluation result
+│
+└── Stage 7.2: Critique Generation (generate_bullet_critique)
+    ├── Sub-stage 7.2.1: Analyze evaluation results for improvement areas
+    ├── Sub-stage 7.2.2: Generate specific, actionable suggestions
+    ├── Sub-stage 7.2.3: Prioritize most impactful changes
+    └── Sub-stage 7.2.4: Format critique for agent consumption
+
+BLOCK 8: ITERATIVE OPTIMIZATION WORKFLOW
+├── Stage 8.1: Iterative Optimization Function (optimize_bullets_iteratively)
+│   ├── Sub-stage 8.1.1: Initialize iteration tracking
+│   ├── Sub-stage 8.1.2: Generate initial bullets via agent
+│   ├── Sub-stage 8.1.3: Self-evaluation loop (up to 3 iterations)
+│   ├── Sub-stage 8.1.4: Decision logic (continue vs stop)
+│   ├── Sub-stage 8.1.5: Regeneration with critique
+│   └── Sub-stage 8.1.6: Final bullet selection and return
+│
+├── Stage 8.2: Main Optimization Workflow
+│   ├── Sub-stage 8.2.1: Process multiple experience entries
+│   ├── Sub-stage 8.2.2: Coordinate with alignment strategy
+│   └── Sub-stage 8.2.3: Assemble final optimized section
+│
+└── Stage 8.3: Quality Assurance Integration
+    ├── Sub-stage 8.3.1: Final quality validation
+    ├── Sub-stage 8.3.2: Keyword integration verification
+    └── Sub-stage 8.3.3: Relevance scoring
+
+BLOCK 9: QUALITY ASSESSMENT FUNCTIONS
+├── Stage 9.1: Keyword Integration Check (check_keyword_integration)
+│   ├── Sub-stage 9.1.1: Compare required keywords against bullet content
+│   ├── Sub-stage 9.1.2: Calculate integration coverage
+│   └── Sub-stage 9.1.3: Flag missing critical keywords
+│
+├── Stage 9.2: Relevance Score Calculation (calculate_relevance_score)
+│   ├── Sub-stage 9.2.1: Score experience-job alignment
+│   ├── Sub-stage 9.2.2: Factor recency and seniority
+│   └── Sub-stage 9.2.3: Weight by strategy importance
+│
+└── Stage 9.3: Experience Quality Check (check_experience_quality)
+    ├── Sub-stage 9.3.1: Aggregate all quality metrics
+    ├── Sub-stage 9.3.2: Calculate overall quality score
+    ├── Sub-stage 9.3.3: Identify optimization opportunities
+    └── Sub-stage 9.3.4: Generate improvement recommendations
+
+BLOCK 10: LOGGING & UTILITIES
+├── Stage 10.1: Iteration Progress Logging (log_iteration_progress)
+│   ├── Sub-stage 10.1.1: Format iteration history for readability
+│   ├── Sub-stage 10.1.2: Show quality improvements over time
+│   ├── Sub-stage 10.1.3: Flag when thresholds aren't met
+│   └── Sub-stage 10.1.4: Provide debugging information
+│
+├── Stage 10.2: Agent Information (get_agent_info)
+│   ├── Sub-stage 10.2.1: Retrieve agent metadata
+│   ├── Sub-stage 10.2.2: Format information dictionary
+│   └── Sub-stage 10.2.3: Return structured agent info
+│
+└── Stage 10.3: Testing Support
+    ├── Sub-stage 10.3.1: Test configuration loading
+    ├── Sub-stage 10.3.2: Test agent creation
+    ├── Sub-stage 10.3.3: Test quality analysis functions
+    └── Sub-stage 10.3.4: Validate iterative workflow
+
+HOW TO USE THIS MODULE:
+-----------------------
+1. Import: `from src.agents.experience_optimizer_agent import create_experience_optimizer_agent`
+2. Create Agent: `agent = create_experience_optimizer_agent()`
+3. Run Optimization: Use in a Crew with experience data, job description, and alignment strategy
+4. The agent will autonomously iterate to improve bullet quality
+5. Validate Output: Use `validate_experience_output()` to ensure data quality
 
 KEY OPTIMIZATION PRINCIPLES:
-- Truthfulness: Never fabricate or exaggerate
-- Relevance: Most relevant achievements first
-- Quantification: Include metrics wherever possible
-- Action-Oriented: Strong verbs that convey impact
-- Keyword-Rich: Naturally integrate ATS keywords
-- CAR Format: Challenge-Action-Result structure
+---------------------------
+- **Truthfulness**: Never fabricate or exaggerate achievements
+- **Relevance**: Most relevant achievements appear first
+- **Quantification**: Include metrics wherever possible (40%, $50K, team of 8)
+- **Action-Oriented**: Strong verbs convey impact (Led, Architected, Increased)
+- **Keyword-Rich**: Naturally integrate ATS keywords without keyword stuffing
+- **CAR Format**: Challenge-Action-Result structure maximizes impact
+- **Iterative**: Agent improves its own output through self-evaluation
 
-CONTENT GENERATION STRATEGY:
-- Use gemini-2.5-flash-lite for cost-effective rewriting with iterative improvement
-- Moderate temperature (0.5) for balanced creativity
-- Focus on impact and outcomes over tasks
-- Maintain authenticity and accuracy
-- Optimize for both ATS and human readers
+TECHNICAL ARCHITECTURE:
+-----------------------
+- **Iterative Framework**: Agent calls deterministic evaluation functions
+- **Self-Evaluation Tool**: @tool decorator enables agent to critique its work
+- **Quality Thresholds**: 85/100 quality score triggers completion
+- **Safety Limits**: Max 3 iterations prevents excessive API calls
+- **Observable**: Complete audit trail of iteration decisions
+- **Deterministic Evaluation**: Quality functions provide consistent feedback
 
-OUTPUT VALIDATION:
-- Action verb strength check
-- Quantification rate verification
-- Keyword integration analysis
-- Relevance ordering validation
-- Bullet count compliance (3-6 per entry)
+AGENTIC BEHAVIOR WORKFLOW:
+--------------------------
+The agent exhibits true agentic behavior by:
+1. Understanding its task autonomously
+2. Generating initial solutions
+3. Evaluating its own work objectively
+4. Identifying specific improvement areas
+5. Regenerating better solutions
+6. Deciding when quality is sufficient
+7. Maintaining iteration history for transparency
+
+This creates an AI system that can improve its own output quality through
+reflection and iteration, mimicking expert human editing processes.
 """
 
 import json
@@ -76,7 +330,7 @@ logger = get_logger(__name__)
 
 
 # ==============================================================================
-# STAGE 1: Configuration for Iterative Improvement Framework
+# BLOCK 1: ITERATIVE IMPROVEMENT CONFIGURATION
 # ==============================================================================
 # PURPOSE: Configure the agentic iterative improvement system
 # WHAT: Global settings that control the self-improvement behavior
@@ -99,38 +353,90 @@ logger = get_logger(__name__)
 #   • 5+ = Deep refinement (slower, diminishing returns)
 # ==============================================================================
 
-# Toggle iterative improvement on/off for backward compatibility
+# ------------------------------------------------------------------------------
+# Stage 1.1: Global Configuration Constants
+# ------------------------------------------------------------------------------
+# This stage defines the core parameters that control the iterative improvement
+# system. These constants determine when and how the agent improves its output.
+
+# SUB-STAGE 1.1.1: Enable/Disable Toggle
+# WHAT: Master switch for iterative improvement functionality
+# WHY: Allows backward compatibility and A/B testing
+# VALUES: True = Enable iterative improvement, False = Single-pass only
+# IMPACT: When False, agent generates once and stops (like traditional AI)
 ENABLE_ITERATIVE_IMPROVEMENT = True
 
-# Maximum number of improvement iterations per experience entry
+# SUB-STAGE 1.1.2: Max Iterations Setting
+# WHAT: Maximum number of improvement cycles per experience entry
+# WHY: Prevents infinite loops and excessive API costs
+# VALUES: 1-5 (recommended: 3 for balance of quality vs. speed)
+# IMPACT: Higher values allow more refinement but increase processing time
 MAX_IMPROVEMENT_ITERATIONS = 3
 
-# Quality score threshold to stop iterating (0-100)
+# SUB-STAGE 1.1.3: Quality Threshold Configuration
+# WHAT: Minimum quality score required to stop iterating
+# WHY: Defines the "good enough" standard for bullet quality
+# VALUES: 0-100 (recommended: 85 for professional-grade quality)
+# IMPACT: Higher thresholds demand better quality but require more iterations
 QUALITY_THRESHOLD = 85
 
+# ------------------------------------------------------------------------------
+# Stage 1.2: Configuration Tuning Guide
+# ------------------------------------------------------------------------------
+# This stage provides guidance for optimizing the configuration parameters
+# based on different use cases and quality requirements.
+
+# SUB-STAGE 1.2.1: Quality Threshold Guidelines
+# WHAT: Recommended threshold values for different quality levels
+# PRODUCTION (85+): Professional-grade, ATS-optimized, human-reviewed quality
+# DEVELOPMENT (70-84): Good quality with room for improvement
+# EXPERIMENTAL (<70): Basic functionality, needs significant work
+# TRADE-OFF: Higher thresholds = Better quality but more iterations/API calls
+
+# SUB-STAGE 1.2.2: Iteration Count Trade-offs
+# WHAT: How to choose MAX_IMPROVEMENT_ITERATIONS based on needs
+# SPEED (1 iteration): Fast processing, basic optimization
+# BALANCED (3 iterations): Recommended default, good quality-cost ratio
+# QUALITY (5+ iterations): Deep refinement, diminishing returns
+# TRADE-OFF: More iterations = Better quality but higher costs
+
+# SUB-STAGE 1.2.3: Agentic Behavior Parameters
+# WHAT: How these parameters affect the agent's autonomous decision-making
+# DECISION LOGIC: Agent stops when (score >= threshold) OR (iterations >= max)
+# AUTONOMY: Agent independently decides whether to continue improving
+# OBSERVABILITY: All decisions are logged for monitoring and debugging
+
 
 # ==============================================================================
-# STAGE 2: CrewAI Tool Infrastructure for Self-Evaluation
+# BLOCK 2: ITERATION TRACKING INFRASTRUCTURE
 # ==============================================================================
-# PURPOSE: Provide the LLM agent with a self-evaluation capability
-# WHAT: A CrewAI @tool that the agent can invoke to evaluate its own output
-# WHY: Enables true agentic behavior - the agent critiques and improves itself
+# PURPOSE: Provide complete observability and safety controls for iterative improvement
+# WHAT: Global state tracking, safety limits, and logging for the agentic workflow
+# WHY: Enables debugging, monitoring, and prevents runaway iterations
 #
-# AGENTIC WORKFLOW:
-# 1. Agent generates initial bullets (via LLM reasoning)
-# 2. Agent invokes evaluate_experience_bullets tool on its output
-# 3. Tool returns objective quality score + specific critique
-# 4. Agent reads critique and regenerates bullets addressing issues
-# 5. Loop continues until threshold met or max iterations reached
-#
-# KEY DESIGN DECISIONS:
-# - Tool is DETERMINISTIC (no LLM calls) for consistent scoring
-# - Returns ACTIONABLE critique (not just "bad" but "add metrics to bullet 2")
-# - Uses JSON for structured communication with agent
-# - Scoped access to evaluation functions via imports
+# AGENTIC BEHAVIOR SUPPORT:
+# - Tracks every iteration decision and quality score
+# - Prevents infinite loops with safety limits
+# - Provides complete audit trail for transparency
+# - Enables debugging of agent decision-making
 # ==============================================================================
 
-# Global tracking for observability (thread-safe for single-threaded execution)
+# ------------------------------------------------------------------------------
+# Stage 2.1: Global Tracker Setup
+# ------------------------------------------------------------------------------
+# This stage initializes the global state that tracks all iteration activity.
+# The tracker provides observability into the agent's autonomous behavior.
+
+# SUB-STAGE 2.1.1: Tracker State Variables
+# WHAT: Global dictionary that maintains state across the entire optimization session
+# WHY: Provides observability into agent behavior and prevents runaway iterations
+# THREADING: Single-threaded execution makes this safe (no race conditions)
+# FIELDS:
+#   - current_iteration: Which iteration the agent is currently on
+#   - call_count: Total number of tool calls made (safety monitoring)
+#   - iteration_history: Per-company progress tracking
+#   - tool_call_log: Detailed log of every tool invocation
+#   - max_calls_per_session: Safety limit to prevent excessive API usage
 _iteration_tracker = {
     "current_iteration": 0,
     "call_count": 0,
@@ -139,15 +445,50 @@ _iteration_tracker = {
     "max_calls_per_session": 50,  # Safety limit to prevent excessive API calls
 }
 
+# SUB-STAGE 2.1.2: Safety Limits
+# WHAT: Maximum number of tool calls allowed per session
+# WHY: Prevents infinite loops and excessive API costs
+# VALUE: 50 calls = ~25 iterations across multiple experience entries
+# MONITORING: Logged when limit is approached or exceeded
+
+# SUB-STAGE 2.1.3: Tool Call Logging Structure
+# WHAT: Each tool call is logged with comprehensive metadata
+# WHY: Enables debugging of agent decision-making and quality improvements
+# STRUCTURE: call_id, timestamp, inputs, outputs, scores, critiques
+
+
+# ------------------------------------------------------------------------------
+# Stage 2.2: Tracker Management Functions
+# ------------------------------------------------------------------------------
+# This stage provides functions to manage and query the iteration tracker.
+# These functions enable observability and debugging of the agentic workflow.
+
 
 def reset_iteration_tracker():
     """
     Reset the iteration tracker for a new optimization session.
 
+    STAGE: 2.2.1 - Clean State Initialization
+    PURPOSE: Ensure clean tracking for each optimization session
+
+    SUB-STAGES:
+    -----------
+    2.2.1.1: Reset Global State
+        - Clear current_iteration to 0
+        - Reset call_count to 0
+        - Empty iteration_history and tool_call_log
+        - Restore max_calls_per_session safety limit
+
+    2.2.1.2: Log Reset Operation
+        - Confirm tracker has been reset for new session
+        - Provides observability into session boundaries
+
     Call this before starting a new experience optimization to ensure
-    clean tracking and observability.
+    clean tracking and observability. This prevents state pollution
+    between different optimization runs.
     """
     global _iteration_tracker
+    # SUB-STAGE 2.2.1.1: Reset Global State
     _iteration_tracker = {
         "current_iteration": 0,
         "call_count": 0,
@@ -155,6 +496,7 @@ def reset_iteration_tracker():
         "tool_call_log": [],
         "max_calls_per_session": 50,
     }
+    # SUB-STAGE 2.2.1.2: Log Reset Operation
     logger.info("[ITERATION TRACKER] Reset iteration tracker for new session")
 
 
@@ -162,12 +504,37 @@ def get_iteration_tracker_state() -> dict:
     """
     Get current state of iteration tracker for debugging/observability.
 
+    STAGE: 2.2.2 - Current State Retrieval
+    PURPOSE: Provide read-only access to tracker state for monitoring
+
+    SUB-STAGES:
+    -----------
+    2.2.2.1: Create Safe Copy
+        - Return copy to prevent external modification
+        - Maintains encapsulation of global state
+
+    2.2.2.2: Include All State Fields
+        - call_count: Safety monitoring (API usage limits)
+        - current_iteration: Progress tracking
+        - iteration_history: Per-company progress
+        - tool_call_log: Detailed audit trail
+        - max_calls_per_session: Safety threshold
+
+    2.2.2.3: Return Structured State
+        - Dictionary format for easy inspection
+        - Used by validate_iteration_progress() and debugging
+
     Returns:
         Dictionary with current iteration state including:
-        - call_count: Total number of tool calls
-        - current_iteration: Current iteration number (estimated)
+        - call_count: Total number of tool calls (safety monitoring)
+        - current_iteration: Current iteration number
         - tool_call_log: List of recent tool calls with inputs/outputs
+        - iteration_history: Progress tracking per experience entry
+        - max_calls_per_session: Safety limit configuration
     """
+    # SUB-STAGE 2.2.2.1: Create Safe Copy
+    # SUB-STAGE 2.2.2.2: Include All State Fields
+    # SUB-STAGE 2.2.2.3: Return Structured State
     return _iteration_tracker.copy()
 
 
@@ -175,12 +542,41 @@ def log_iteration_tracker_summary():
     """
     Log a comprehensive summary of all tool calls for observability.
 
+    STAGE: 2.2.3 - Complete Audit Trail Logging
+    PURPOSE: Provide full transparency into the iterative improvement process
+
+    SUB-STAGES:
+    -----------
+    2.2.3.1: Extract Tracker Data
+        - Get call_count and tool_calls from global tracker
+        - Access iteration_history for per-company progress
+
+    2.2.3.2: Log Summary Statistics
+        - Total tool calls made during session
+        - Number of tracked calls (with full metadata)
+        - Warning if no tool calls (agent may not be iterating)
+
+    2.2.3.3: Log Detailed Call History
+        - For each tool call: inputs, outputs, scores, critiques
+        - Show first 3 bullets from each call (truncated for readability)
+        - Display quality scores and threshold compliance
+
+    2.2.3.4: Analyze Improvement Trends
+        - Compare scores between consecutive calls
+        - Flag improvements (+score) or degradations (-score)
+        - Log no-change scenarios (=score)
+
+    2.2.3.5: Provide Session Summary
+        - Total calls across all experience entries
+        - Average iterations per entry
+        - Overall effectiveness assessment
+
     This function provides complete visibility into:
-    - How many times the tool was called
-    - What bullets were input in each call
-    - What scores were returned
-    - What critique was generated
-    - Whether iterations are improving
+    - How many times the tool was called (API usage monitoring)
+    - What bullets were input in each call (content evolution)
+    - What scores were returned (quality progression)
+    - What critique was generated (agent feedback loop)
+    - Whether iterations are improving (agent effectiveness)
     """
     global _iteration_tracker
 
@@ -239,17 +635,57 @@ def log_iteration_tracker_summary():
     logger.info("=" * 80 + "\n")
 
 
+# ------------------------------------------------------------------------------
+# Stage 2.3: Progress Validation
+# ------------------------------------------------------------------------------
+# This stage validates that the iterative improvement process is working correctly.
+# It checks for common issues like lack of iteration or lack of improvement.
+
+
 def validate_iteration_progress() -> dict:
     """
     Validate that iteration is actually happening and progressing.
 
+    STAGE: 2.3.1 - Check Iteration Effectiveness
+    PURPOSE: Ensure the agentic workflow is functioning as expected
+
+    SUB-STAGES:
+    -----------
+    2.3.1.1: Initialize Validation Metrics
+        - is_iterating: Multiple tool calls indicate iteration is happening
+        - tool_call_count: Total API usage for safety monitoring
+        - tracked_calls: Number of calls with full metadata
+        - has_improvement: Score progression over time
+        - meets_expectations: Overall workflow health
+
+    2.3.1.2: Check Iteration Occurrence
+        - Require at least 2 tool calls for meaningful iteration
+        - Flag if agent is not iterating (single-pass only)
+        - Recommend checking task instructions if not iterating
+
+    2.3.1.3: Analyze Score Improvement
+        - Compare first vs last scores across all calls
+        - Flag if scores are not improving over iterations
+        - Identify potential issues with regeneration logic
+
+    2.3.1.4: Validate Threshold Compliance
+        - Check if final scores meet QUALITY_THRESHOLD
+        - Flag if max iterations reached without meeting threshold
+        - Assess overall workflow effectiveness
+
+    2.3.1.5: Generate Recommendations
+        - Provide actionable suggestions for issues found
+        - Help diagnose problems with agent behavior
+        - Guide optimization of configuration parameters
+
     Returns:
         Dictionary with validation results:
         - is_iterating: bool - Whether tool is being called multiple times
-        - tool_call_count: int - Number of tool calls
-        - has_improvement: bool - Whether scores are improving
+        - tool_call_count: int - Number of tool calls (safety monitoring)
+        - tracked_calls: int - Number of calls with full metadata
+        - has_improvement: bool - Whether scores are improving over iterations
         - meets_expectations: bool - Whether iteration meets minimum expectations
-        - recommendations: list[str] - Recommendations for improvement
+        - recommendations: list[str] - Actionable suggestions for improvement
     """
     global _iteration_tracker
 
@@ -297,6 +733,12 @@ def validate_iteration_progress() -> dict:
         validation["meets_expectations"] = True
 
     return validation
+
+# ------------------------------------------------------------------------------
+# Stage 2.4: Self-Evaluation Tool (CRITICAL)
+# ------------------------------------------------------------------------------
+# This stage defines the tool that enables true agentic behavior.
+# The agent calls this tool to evaluate its own output and get improvement guidance.
 
 
 @tool("Evaluate Experience Bullets")
@@ -670,8 +1112,23 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
 
 
 # ==============================================================================
-# Output Model for Optimized Experience Section
+# BLOCK 3: DATA MODELS
 # ==============================================================================
+# PURPOSE: Define structured data models for the iterative optimization workflow
+# WHAT: Pydantic models that ensure type safety and validation throughout the process
+# WHY: Type-safe data structures prevent bugs and enable validation at runtime
+#
+# DESIGN PRINCIPLES:
+# - Each model serves a specific purpose in the workflow
+# - Models include validation and helpful descriptions
+# - Models are composable (can reference each other)
+# - Models support serialization for agent communication
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 3.1: OptimizedExperienceSection Model
+# ------------------------------------------------------------------------------
+# This stage defines the main output model containing all optimized experience entries.
 
 
 class OptimizedExperienceSection(BaseModel):
@@ -730,6 +1187,11 @@ class OptimizedExperienceSection(BaseModel):
         }
     )
 
+# ------------------------------------------------------------------------------
+# Stage 3.2: BulletDraft Model
+# ------------------------------------------------------------------------------
+# This stage defines the model for tracking individual bullet iterations during optimization.
+
 
 class BulletDraft(BaseModel):
     """
@@ -754,6 +1216,11 @@ class BulletDraft(BaseModel):
     )
 
     critique: str = Field(default="", description="Self-critique and improvement suggestions")
+
+# ------------------------------------------------------------------------------
+# Stage 3.3: IterativeExperienceOptimization Model
+# ------------------------------------------------------------------------------
+# This stage defines the comprehensive model that tracks the complete iterative optimization process.
 
 
 class IterativeExperienceOptimization(BaseModel):
@@ -804,8 +1271,26 @@ class IterativeExperienceOptimization(BaseModel):
 
 
 # ==============================================================================
-# Agent Configuration Loading
+# BLOCK 4: AGENT CONFIGURATION & CREATION
 # ==============================================================================
+# PURPOSE: Configure and create the Experience Optimizer agent with all necessary tools
+# WHAT: Agent setup, configuration loading, and the complete agentic workflow documentation
+# WHY: This is where the iterative improvement system comes together
+#
+# AGENTIC WORKFLOW OVERVIEW:
+# This agent exhibits true agentic behavior by autonomously improving its output:
+# 1. Generates initial bullets via LLM reasoning
+# 2. Evaluates its own output using deterministic quality functions
+# 3. Provides self-critique with specific improvement suggestions
+# 4. Regenerates bullets addressing identified issues
+# 5. Iterates until quality thresholds are met (up to 3 times)
+# 6. Maintains complete truthfulness while maximizing impact
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 4.1: Configuration Loading
+# ------------------------------------------------------------------------------
+# This stage loads agent configuration from external files with graceful fallbacks.
 
 
 def _load_agent_config() -> dict:
@@ -842,6 +1327,11 @@ def _load_agent_config() -> dict:
         logger.error(f"Failed to load agent config: {e}. Using defaults.", exc_info=True)
         return _get_default_config()
 
+# ------------------------------------------------------------------------------
+# Stage 4.2: Default Configuration Fallback
+# ------------------------------------------------------------------------------
+# This stage provides production-ready defaults when configuration files are unavailable.
+
 
 def _get_default_config() -> dict:
     """
@@ -877,9 +1367,11 @@ def _get_default_config() -> dict:
     }
 
 
-# ==============================================================================
-# Agent Creation
-# ==============================================================================
+# ------------------------------------------------------------------------------
+# Stage 4.3: Agent Creation (CRITICAL - Agentic Workflow)
+# ------------------------------------------------------------------------------
+# This stage creates the agent and documents the complete agentic iterative workflow.
+# This is the heart of the system - where true AI agentic behavior is implemented.
 
 
 def create_experience_optimizer_agent() -> Agent:
@@ -1063,8 +1555,23 @@ def create_experience_optimizer_agent() -> Agent:
 
 
 # ==============================================================================
-# Output Validation
+# BLOCK 5: OUTPUT VALIDATION
 # ==============================================================================
+# PURPOSE: Validate that agent outputs conform to expected data models
+# WHAT: Quality gates that ensure structured data meets schema requirements
+# WHY: Prevents downstream errors and ensures data consistency
+#
+# VALIDATION PRINCIPLES:
+# - Multiple model support (backward compatibility)
+# - Detailed error reporting for debugging
+# - Graceful failure handling
+# - Schema validation with Pydantic
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 5.1-5.3: Complete Validation Workflow
+# ------------------------------------------------------------------------------
+# This stage orchestrates all validation steps to ensure output quality.
 
 
 def validate_experience_output(
@@ -1137,7 +1644,27 @@ def validate_experience_output(
 
 
 # ==============================================================================
-# Quality Check Helper Functions
+# BLOCK 6: QUALITY ANALYSIS FUNCTIONS
+# ==============================================================================
+# PURPOSE: Deterministic functions that evaluate bullet quality without LLM calls
+# WHAT: Individual quality checks for verbs, metrics, structure, impact, etc.
+# WHY: Fast, consistent evaluation that enables agentic self-improvement
+#
+# QUALITY DIMENSIONS ASSESSED:
+# 1. Action Verb Strength - Leadership vs passive language
+# 2. Quantification - Metrics and measurable results
+# 3. Structure - CAR format (Challenge-Action-Result)
+# 4. Impact - Business outcomes vs task descriptions
+# 5. Voice - Active vs passive constructions
+# 6. Specificity - Concrete details vs generic phrases
+# 7. Relevance - Job alignment and keyword integration
+#
+# DESIGN PRINCIPLES:
+# - Each function evaluates one quality dimension
+# - Functions are composable (can be combined)
+# - Deterministic results (no randomness)
+# - Fast execution (no LLM calls)
+# - Actionable output (specific issues identified)
 # ==============================================================================
 
 # Strong action verbs for quality checks
@@ -1234,6 +1761,11 @@ STRONG_ACTION_VERBS = {
     "consulted",
 }
 
+# ------------------------------------------------------------------------------
+# Stage 6.1: Action Verb Analysis
+# ------------------------------------------------------------------------------
+# This stage evaluates the strength and impact of action verbs used in bullets.
+
 
 def analyze_action_verbs(achievements: list[str]) -> dict:
     """
@@ -1285,6 +1817,11 @@ def analyze_action_verbs(achievements: list[str]) -> dict:
         "strength_score": strength_score,
         "weak_bullets": weak_bullets,
     }
+
+# ------------------------------------------------------------------------------
+# Stage 6.2: Quantification Analysis
+# ------------------------------------------------------------------------------
+# This stage evaluates the presence of measurable metrics and quantifiable results.
 
 
 def count_quantified_achievements(achievements: list[str]) -> dict:

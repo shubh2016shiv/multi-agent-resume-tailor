@@ -1,48 +1,190 @@
 """
-Professional Summary Writer Agent
----------------------------------
+Professional Summary Writer Agent - Narrative Crafting Specialist
+=================================================================
 
+OVERVIEW:
+---------
 This module defines the fourth agent in our workflow: the Professional Summary Writer.
-This agent is responsible for crafting a compelling, tailored professional summary that
-aligns with the job requirements and highlights the candidate's strongest matches.
+This agent serves as the narrative architect, transforming raw career data into compelling
+professional summaries that capture attention, demonstrate value, and optimize for ATS systems.
+
+WHAT MAKES THIS AGENT ESSENTIAL:
+--------------------------------
+- **First Impression Specialist**: The summary is often the first (and sometimes only) text recruiters read
+- **Narrative Weaver**: Crafts cohesive stories from disparate resume data
+- **ATS-SEO Expert**: Balances human readability with algorithmic optimization
+- **Psychological Engineer**: Uses writing principles to create compelling value propositions
+- **Authenticity Preserver**: Maintains candidate voice while optimizing for impact
 
 AGENT DESIGN PRINCIPLES:
-- Single Responsibility: Write professional summaries only
-- Modularity: Clear separation between agent creation, content generation, and validation
-- Robustness: Comprehensive error handling with graceful degradation
-- Type Safety: Uses Pydantic models for validated inputs and outputs
-- Observability: Detailed logging at every step for debugging
+------------------------
+- **Narrative Focus**: Expert storyteller who understands professional communication
+- **Strategic Integration**: Seamlessly weaves keywords and requirements into natural prose
+- **Psychological Insight**: Uses principles of attention, persuasion, and memorability
+- **Quality-Over-Quantity**: Prioritizes impact over length (50-100 words sweet spot)
+- **Validation-Driven**: Comprehensive quality checks ensure summaries meet standards
 
-WORKFLOW:
-1. Receive Resume, JobDescription, and AlignmentStrategy as input
-2. Follow the professional_summary_guidance from the strategy
-3. Integrate required keywords naturally
-4. Emphasize identified skill matches
-5. Address critical gaps tactfully (if applicable)
-6. Craft a compelling 3-5 sentence summary
-7. Return the summary text with metadata
+WORKFLOW OVERVIEW:
+------------------
+1. Receive Resume, JobDescription, and AlignmentStrategy from upstream agents
+2. Analyze candidate's strongest matches and unique value propositions
+3. Generate multiple summary drafts using different narrative strategies
+4. Evaluate each draft for quality, keyword integration, and compelling narrative
+5. Select the optimal summary based on comprehensive scoring
+6. Validate final output against quality standards and factual accuracy
+7. Return structured ProfessionalSummary with metadata and quality metrics
 
-KEY WRITING PRINCIPLES:
-- Compelling: Grab attention in the first sentence
-- Relevant: Directly address the job requirements
-- Quantifiable: Include metrics and achievements where possible
-- Keyword-Rich: Naturally integrate ATS keywords
-- Authentic: Maintain the candidate's voice and experience
-- Concise: 3-5 sentences, 50-100 words
+MODULE STRUCTURE (Hierarchical Organization):
+=============================================
+This module is organized into 7 main BLOCKS, each containing STAGES with SUB-STAGES:
+
+BLOCK 1: MODULE SETUP & CONFIGURATION
+├── Stage 1.1: Import Management
+│   ├── Sub-stage 1.1.1: Standard library imports
+│   ├── Sub-stage 1.1.2: CrewAI framework imports
+│   ├── Sub-stage 1.1.3: Project-specific imports (with fallback handling)
+│   └── Sub-stage 1.1.4: Logger initialization
+│
+├── Stage 1.2: Data Models
+│   ├── Sub-stage 1.2.1: SummaryDraft model for iteration tracking
+│   ├── Sub-stage 1.2.2: ProfessionalSummary model for final output
+│   └── Sub-stage 1.2.3: Model validation and constraints
+
+BLOCK 2: AGENT CONFIGURATION & CREATION
+├── Stage 2.1: Configuration Loading
+│   ├── Sub-stage 2.1.1: Load from agents.yaml with fallback to defaults
+│   ├── Sub-stage 2.1.2: Validate required fields (role, goal, backstory)
+│   └── Sub-stage 2.1.3: Error handling with graceful degradation
+│
+├── Stage 2.2: Default Configuration
+│   ├── Sub-stage 2.2.1: Define narrative specialist role
+│   ├── Sub-stage 2.2.2: Set creative LLM parameters (temperature 0.7)
+│   └── Sub-stage 2.2.3: Configure content generation settings
+│
+└── Stage 2.3: Agent Creation
+    ├── Sub-stage 2.3.1: CrewAI Agent initialization with tools
+    ├── Sub-stage 2.3.2: Tool assignment for draft evaluation
+    └── Sub-stage 2.3.3: Resilience and performance configuration
+
+BLOCK 3: DRAFT EVALUATION INFRASTRUCTURE
+├── Stage 3.1: Evaluation Tool Framework
+│   ├── Sub-stage 3.1.1: DraftEvaluationTool class design
+│   ├── Sub-stage 3.1.2: Quality assessment criteria
+│   └── Sub-stage 3.1.3: Scoring algorithm implementation
+│
+├── Stage 3.2: Multi-Criteria Evaluation
+│   ├── Sub-stage 3.2.1: Content quality assessment
+│   ├── Sub-stage 3.2.2: Keyword integration verification
+│   └── Sub-stage 3.2.3: Narrative coherence evaluation
+│
+└── Stage 3.3: Selection Logic
+    ├── Sub-stage 3.3.1: Best draft selection algorithm
+    ├── Sub-stage 3.3.2: Tie-breaking criteria
+    └── Sub-stage 3.3.3: Quality threshold enforcement
+
+BLOCK 4: OUTPUT VALIDATION
+├── Stage 4.1: Data Validation
+│   ├── Sub-stage 4.1.1: Validate ProfessionalSummary model
+│   ├── Sub-stage 4.1.2: Check required fields and data types
+│   └── Sub-stage 4.1.3: Verify nested model relationships
+│
+├── Stage 4.2: Error Handling
+│   ├── Sub-stage 4.2.1: Catch Pydantic ValidationError
+│   ├── Sub-stage 4.2.2: Log detailed validation errors
+│   └── Sub-stage 4.2.3: Return None for graceful failure handling
+│
+└── Stage 4.3: Logging & Reporting
+    ├── Sub-stage 4.3.1: Log successful validation with summary
+    ├── Sub-stage 4.3.2: Log validation failures with error details
+    └── Sub-stage 4.3.3: Return validated ProfessionalSummary
+
+BLOCK 5: QUALITY ASSESSMENT FUNCTIONS
+├── Stage 5.1: Summary Quality Check
+│   ├── Sub-stage 5.1.1: check_summary_quality() function
+│   ├── Sub-stage 5.1.2: Multi-dimensional quality assessment
+│   └── Sub-stage 5.1.3: Scoring and recommendations
+│
+├── Stage 5.2: Keyword Integration Analysis
+│   ├── Sub-stage 5.2.1: analyze_keyword_integration() function
+│   ├── Sub-stage 5.2.2: Natural integration verification
+│   └── Sub-stage 5.2.3: Keyword density optimization
+│
+└── Stage 5.3: Content Validation
+    ├── Sub-stage 5.3.1: Factual accuracy checking
+    ├── Sub-stage 5.3.2: Professional tone verification
+    └── Sub-stage 5.3.3: Length and structure compliance
+
+BLOCK 6: UTILITY FUNCTIONS
+├── Stage 6.1: Agent Information
+│   ├── Sub-stage 6.1.1: get_agent_info() function
+│   ├── Sub-stage 6.1.2: Retrieve agent metadata
+│   └── Sub-stage 6.1.3: Format information for debugging
+│
+├── Stage 6.2: Word Counting Utility
+│   ├── Sub-stage 6.2.1: count_words() function
+│   ├── Sub-stage 6.2.2: Accurate word counting algorithm
+│   └── Sub-stage 6.2.3: Length validation support
+│
+└── Stage 6.3: Testing Support
+    ├── Sub-stage 6.3.1: Test configuration loading
+    ├── Sub-stage 6.3.2: Test agent creation
+    ├── Sub-stage 6.3.3: Test validation functions
+    └── Sub-stage 6.3.4: Test summary generation
+
+BLOCK 7: INTEGRATION TESTING
+├── Stage 7.1: End-to-End Testing
+│   ├── Sub-stage 7.1.1: Mock data creation for testing
+│   ├── Sub-stage 7.1.2: Summary generation validation
+│   └── Sub-stage 7.1.3: Integration test scenarios
+
+HOW TO USE THIS MODULE:
+-----------------------
+1. Import: `from src.agents.summary_writer_agent import create_summary_writer_agent`
+2. Create Agent: `agent = create_summary_writer_agent()`
+3. Use in Crew: Add agent to CrewAI crew with Resume, JobDescription, and AlignmentStrategy
+4. Validate Output: Use `validate_summary_output()` to ensure data quality
+5. Check Quality: Use `check_summary_quality()` for comprehensive assessment
+
+KEY NARRATIVE PRINCIPLES:
+-------------------------
+- **Hook Strategy**: First sentence must grab attention and create interest
+- **Value Proposition**: Clearly articulate what makes the candidate valuable
+- **Evidence-Based**: Support claims with specific achievements and metrics
+- **Relevance Focus**: Address the target role's specific requirements
+- **Authenticity**: Maintain genuine voice while optimizing for impact
+- **Conciseness**: Maximum impact in minimum words (50-100 word sweet spot)
 
 CONTENT GENERATION STRATEGY:
-- Use GPT-4o for high-quality, nuanced writing
-- Higher temperature (0.7) for creative, engaging content
-- Focus on value proposition and unique strengths
-- Balance confidence with authenticity
-- Avoid clichés and buzzwords without substance
+---------------------------
+- **Multi-Draft Approach**: Generate multiple versions with different strategies
+- **Creative Temperature**: Higher temperature (0.7) for engaging, nuanced writing
+- **Strategic Frameworks**: Use proven narrative structures (Hook-Value-Future, etc.)
+- **Keyword Integration**: Natural incorporation without keyword stuffing
+- **Quality Iteration**: Self-evaluation and improvement of generated content
+- **Validation Loops**: Continuous quality checking and refinement
 
-OUTPUT VALIDATION:
-- Length check (50-100 words optimal)
-- Keyword integration verification
-- Tone and professionalism check
-- Factual accuracy against resume
-- ATS optimization score
+TECHNICAL ARCHITECTURE:
+-----------------------
+- **Draft-Based Generation**: Multiple iterations with evaluation feedback
+- **Tool-Augmented Writing**: Self-evaluation capabilities for quality improvement
+- **Model-Driven Validation**: Pydantic models ensure output structure and quality
+- **Scoring Algorithms**: Multi-criteria assessment of summary effectiveness
+- **Error Recovery**: Graceful handling of generation failures
+- **Performance Optimization**: Efficient word counting and quality checks
+
+WRITING METHODOLOGY:
+--------------------
+The agent employs a systematic approach to summary creation:
+1. **Analysis Phase**: Understand candidate strengths, job requirements, alignment strategy
+2. **Strategy Selection**: Choose appropriate narrative frameworks based on context
+3. **Draft Generation**: Create multiple summary versions using different approaches
+4. **Quality Evaluation**: Assess each draft against comprehensive criteria
+5. **Optimization**: Refine and improve based on evaluation feedback
+6. **Final Selection**: Choose the highest-scoring, most effective summary
+7. **Validation**: Ensure final output meets all quality and accuracy standards
+
+This creates professional summaries that not only pass ATS filters but also
+compel human recruiters to continue reading the full resume.
 """
 
 from crewai import Agent
@@ -68,8 +210,17 @@ logger = get_logger(__name__)
 
 
 # ==============================================================================
-# Output Model for Professional Summary
+# BLOCK 1: MODULE SETUP & CONFIGURATION
 # ==============================================================================
+# PURPOSE: Initialize the module with data models and configuration
+# WHAT: Core data structures and setup for summary writing functionality
+# WHY: Provides the foundation for narrative generation and quality assessment
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 1.2: Data Models
+# ------------------------------------------------------------------------------
+# This stage defines the structured data models for summary generation and evaluation.
 
 
 class SummaryDraft(BaseModel):
@@ -151,8 +302,17 @@ class ProfessionalSummary(BaseModel):
 
 
 # ==============================================================================
-# Agent Configuration Loading
+# BLOCK 2: AGENT CONFIGURATION & CREATION
 # ==============================================================================
+# PURPOSE: Configure and create the Summary Writer agent with all necessary tools
+# WHAT: Agent setup, configuration loading, and initialization with evaluation capabilities
+# WHY: Produces a fully functional agent ready for narrative generation and quality assessment
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 2.1: Configuration Loading
+# ------------------------------------------------------------------------------
+# This stage loads agent configuration from external files with graceful fallbacks.
 
 
 def _load_agent_config() -> dict:
@@ -220,8 +380,17 @@ def _get_default_config() -> dict:
 
 
 # ==============================================================================
-# Tools
+# BLOCK 3: DRAFT EVALUATION INFRASTRUCTURE
 # ==============================================================================
+# PURPOSE: Provide evaluation capabilities for summary draft quality assessment
+# WHAT: Tools and functions for scoring and critiquing generated summaries
+# WHY: Enables the agent to improve its own output through iterative evaluation
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 3.1: Evaluation Tool Framework
+# ------------------------------------------------------------------------------
+# This stage defines the tool that enables self-evaluation of summary drafts.
 
 
 class DraftEvaluationTool:
@@ -282,9 +451,10 @@ class DraftEvaluationTool:
             return f"Error evaluating draft: {str(e)}"
 
 
-# ==============================================================================
-# Agent Creation
-# ==============================================================================
+# ------------------------------------------------------------------------------
+# Stage 2.3: Agent Creation
+# ------------------------------------------------------------------------------
+# This stage creates the Summary Writer agent with all tools and configuration.
 
 
 def create_summary_writer_agent() -> Agent:
@@ -352,8 +522,17 @@ def create_summary_writer_agent() -> Agent:
 
 
 # ==============================================================================
-# Output Validation
+# BLOCK 4: OUTPUT VALIDATION
 # ==============================================================================
+# PURPOSE: Validate that agent outputs conform to expected data models
+# WHAT: Quality gates that ensure structured summary data meets schema requirements
+# WHY: Prevents downstream errors and ensures narrative quality
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 4.1-4.3: Complete Validation Workflow
+# ------------------------------------------------------------------------------
+# This stage orchestrates all validation steps to ensure summary output quality.
 
 
 def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
@@ -410,8 +589,17 @@ def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
 
 
 # ==============================================================================
-# Content Quality Checks
+# BLOCK 5: QUALITY ASSESSMENT FUNCTIONS
 # ==============================================================================
+# PURPOSE: Provide comprehensive quality assessment for generated summaries
+# WHAT: Functions that evaluate content quality, keyword integration, and effectiveness
+# WHY: Ensures summaries meet professional standards and optimization goals
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 5.1: Summary Quality Check
+# ------------------------------------------------------------------------------
+# This stage performs comprehensive quality assessment of generated summaries.
 
 
 def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrategy) -> dict:
@@ -551,8 +739,17 @@ def analyze_keyword_integration(summary_text: str, required_keywords: list[str])
 
 
 # ==============================================================================
-# Utility Functions
+# BLOCK 6: UTILITY FUNCTIONS
 # ==============================================================================
+# PURPOSE: Provide utility functions for debugging, monitoring, and text processing
+# WHAT: Helper functions for agent metadata, word counting, and diagnostic information
+# WHY: Enables debugging, monitoring, and validation of agent functionality
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 6.1: Agent Information
+# ------------------------------------------------------------------------------
+# This stage provides metadata and diagnostic information about the agent.
 
 
 def get_agent_info() -> dict:
@@ -592,8 +789,17 @@ def count_words(text: str) -> int:
 
 
 # ==============================================================================
-# Testing Block
+# BLOCK 7: INTEGRATION TESTING
 # ==============================================================================
+# PURPOSE: Provide testing and validation capabilities for the agent
+# WHAT: Test functions and integration validation code
+# WHY: Ensures agent functionality and enables development-time validation
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 7.1: End-to-End Testing
+# ------------------------------------------------------------------------------
+# This stage provides comprehensive testing of agent functionality.
 
 if __name__ == "__main__":
     """

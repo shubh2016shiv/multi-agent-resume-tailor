@@ -338,7 +338,7 @@ class SectionValidation(BaseModel):
 class KeywordDensityReport(BaseModel):
     """
     Analysis of keyword usage and density in resume content.
-    
+
     This model provides comprehensive metrics about keyword integration,
     helping ensure optimal ATS performance without keyword stuffing.
     """
@@ -394,7 +394,7 @@ class KeywordDensityReport(BaseModel):
 class ATSValidationResult(BaseModel):
     """
     Comprehensive ATS compatibility validation result.
-    
+
     This model represents the complete ATS validation assessment,
     including all checks performed and an overall compatibility score.
     """
@@ -450,7 +450,7 @@ class ATSValidationResult(BaseModel):
 class OptimizedResume(BaseModel):
     """
     Final optimized resume with comprehensive metadata.
-    
+
     This model represents the complete, ATS-optimized resume output
     with all metadata about the optimization process and validation results.
     """

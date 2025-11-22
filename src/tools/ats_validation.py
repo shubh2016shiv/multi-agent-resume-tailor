@@ -223,16 +223,16 @@ Status: NEEDS FIXES
 def check_section_headers(resume_text: str) -> str:
     """
     Validate that section headers use standard ATS-recognized conventions.
-    
+
     ATS systems look for specific header patterns to identify sections.
     Non-standard headers can cause section mis-classification or omission.
-    
+
     Args:
         resume_text: The complete resume content as text
-        
+
     Returns:
         Formatted report of section header validation
-        
+
     Example:
         >>> report = check_section_headers(resume_text)
         >>> print(report)
@@ -305,7 +305,7 @@ def check_section_headers(resume_text: str) -> str:
 def get_optimal_keyword_density_range() -> tuple[float, float]:
     """
     Get the optimal keyword density range.
-    
+
     Returns:
         Tuple of (min_density, max_density) as percentages (0.0-1.0)
     """

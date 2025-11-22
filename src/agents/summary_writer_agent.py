@@ -34,6 +34,48 @@ WORKFLOW OVERVIEW:
 6. Validate final output against quality standards and factual accuracy
 7. Return structured ProfessionalSummary with metadata and quality metrics
 
+STRUCTURED OUTPUT ENFORCEMENT (Industry-Standard Approach):
+--------------------------------------------------------------
+This agent uses CrewAI's `output_pydantic` parameter to enforce structured outputs.
+This is the RECOMMENDED approach for ensuring LLM outputs match Pydantic schemas.
+
+HOW IT WORKS:
+- When creating a Task, set `output_pydantic=ProfessionalSummary`
+- CrewAI automatically provides the ProfessionalSummary schema to the LLM
+- The LLM generates output that conforms to the schema
+- CrewAI validates the output against the Pydantic model
+- If validation fails, CrewAI retries automatically (up to max_retry_limit)
+- The final result is a validated ProfessionalSummary object accessible via `result.pydantic`
+
+BENEFITS:
+- No manual JSON parsing required
+- No manual validation logic needed
+- Automatic retry on validation failures
+- Type-safe access to structured data
+- Follows CrewAI best practices
+
+EXAMPLE USAGE:
+--------------
+```python
+from crewai import Task
+from src.agents.summary_writer_agent import create_summary_writer_agent, ProfessionalSummary
+
+agent = create_summary_writer_agent()
+
+task = Task(
+    description="Write a professional summary based on the following inputs...",
+    expected_output="A structured ProfessionalSummary object with multiple drafts...",
+    agent=agent,
+    output_pydantic=ProfessionalSummary,  # This enforces structured output
+)
+
+# Execute and access validated output
+result = crew.kickoff()
+validated_summary = result.pydantic  # Direct access to ProfessionalSummary object
+print(validated_summary.recommended_version)
+print(validated_summary.drafts)
+```
+
 MODULE STRUCTURE (Hierarchical Organization):
 =============================================
 This module is organized into 7 main BLOCKS, each containing STAGES with SUB-STAGES:
@@ -139,11 +181,14 @@ BLOCK 7: INTEGRATION TESTING
 
 HOW TO USE THIS MODULE:
 -----------------------
-1. Import: `from src.agents.summary_writer_agent import create_summary_writer_agent`
+1. Import: `from src.agents.summary_writer_agent import create_summary_writer_agent, ProfessionalSummary`
 2. Create Agent: `agent = create_summary_writer_agent()`
-3. Use in Crew: Add agent to CrewAI crew with Resume, JobDescription, and AlignmentStrategy
-4. Validate Output: Use `validate_summary_output()` to ensure data quality
-5. Check Quality: Use `check_summary_quality()` for comprehensive assessment
+3. Create Task with output_pydantic: `Task(..., output_pydantic=ProfessionalSummary)`
+4. Access Output: `validated_summary = result.pydantic`
+5. Optional Quality Checks: Use `check_summary_quality()` for additional validation
+
+NOTE: The validate_summary_output() function is kept for backward compatibility only.
+      With output_pydantic, CrewAI handles validation automatically.
 
 KEY NARRATIVE PRINCIPLES:
 -------------------------
@@ -546,6 +591,34 @@ def create_summary_writer_agent() -> Agent:
 
 def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
     """
+    DEPRECATED: This function is no longer needed with output_pydantic.
+    
+    When using CrewAI's `output_pydantic` parameter in Task definitions, validation
+    happens automatically. You can access the validated ProfessionalSummary object directly via
+    `result.pydantic` without calling this function.
+    
+    MIGRATION GUIDE:
+    ----------------
+    OLD APPROACH (Manual Validation):
+    ```python
+    result = crew.kickoff()
+    json_data = parse_json_output(str(result))
+    validated_summary = validate_summary_output(json_data)  # Not needed
+    ```
+    
+    NEW APPROACH (Automatic Validation):
+    ```python
+    task = Task(..., output_pydantic=ProfessionalSummary)  # Add this parameter
+    result = crew.kickoff()
+    validated_summary = result.pydantic  # Direct access, already validated
+    ```
+    
+    This function is kept for backward compatibility only.
+    
+    ---
+    
+    ORIGINAL DOCUMENTATION:
+    
     Validate that the agent's output conforms to the ProfessionalSummary model.
 
     This function serves as a quality gate, ensuring that the generated summary

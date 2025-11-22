@@ -266,6 +266,7 @@ of candidate capabilities, without resorting to resume inflation or fabrication.
 import json
 import re
 import uuid
+from typing import Optional, Union
 
 from crewai import Agent
 from pydantic import BaseModel, Field
@@ -327,8 +328,6 @@ QUALITY_THRESHOLD = 75.0  # Minimum acceptable quality score
 MIN_CATEGORIES = 3  # Minimum recommended skill categories
 
 
-
-
 # ------------------------------------------------------------------------------
 # Stage 1.3: Logging Infrastructure
 # ------------------------------------------------------------------------------
@@ -338,7 +337,7 @@ MIN_CATEGORIES = 3  # Minimum recommended skill categories
 class LogContext:
     """Thread-safe context manager for correlation IDs and structured logging."""
 
-    _correlation_id: str | None = None
+    _correlation_id: Optional[str] = None
 
     @classmethod
     def set_correlation_id(cls, correlation_id: str):
@@ -376,9 +375,6 @@ def log_with_context(level: str = "info", **context):
 # ==============================================================================
 
 
-
-
-
 # ==============================================================================
 # BLOCK 2: DATA MODELS & CONTEXT
 # ==============================================================================
@@ -409,7 +405,7 @@ class SkillValidationResult(BaseModel):
     confidence_score: float = Field(ge=0.0, le=1.0)
     justification: str
     evidence_snippets: list[str] = Field(default_factory=list)
-    rejection_reason: str | None = None
+    rejection_reason: Optional[str] = None
 
 
 # ==============================================================================
@@ -632,7 +628,7 @@ def _parse_skill_inference_response(response: str) -> list[Skill]:
 
 
 def validate_skill_inference(
-    skill: Skill, context: SkillInferenceContext, agent: Agent | None = None
+    skill: Skill, context: SkillInferenceContext, agent: Optional[Agent] = None
 ) -> SkillValidationResult:
     """
     Validate that an inferred skill is truthfully supported by experience.
@@ -1200,7 +1196,7 @@ def create_skills_optimizer_agent() -> Agent:
     Design: Let the agent use its intelligence, not hardcoded rules.
     """
     config = get_agents_config().get("skills_section_strategist", {})
-    
+
     # Load centralized resilience configuration
     app_config = get_config()
     agent_defaults = app_config.llm.agent_defaults
@@ -1215,7 +1211,6 @@ def create_skills_optimizer_agent() -> Agent:
         temperature=0.3,  # Balanced temperature for consistent but flexible categorization
         verbose=config.get("verbose", True),
         allow_delegation=False,
-        
         # Resilience Parameters (Layer 1: CrewAI Native)
         max_retry_limit=agent_defaults.max_retry_limit,
         max_rpm=agent_defaults.max_rpm,
@@ -1370,7 +1365,7 @@ def optimize_skills_section(
 # This stage validates that agent outputs conform to expected data models.
 
 
-def validate_skills_output(data: dict) -> OptimizedSkillsSection | None:
+def validate_skills_output(data: dict) -> Optional[OptimizedSkillsSection]:
     """
     Validate and parse skills optimization data into Pydantic model.
 

@@ -84,14 +84,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.agents.skills_optimizer_agent import (
+from src.agents.skills_optimizer_agent import (  # noqa: E402
     create_skills_optimizer_agent,
     validate_skills_output,
 )
-from src.core.logger import get_logger
-from src.data_models.resume import Experience, Skill, OptimizedSkillsSection
-from src.data_models.job import JobDescription, JobRequirement, SkillImportance
-from src.data_models.strategy import AlignmentStrategy
+from src.core.logger import get_logger  # noqa: E402
+from src.data_models.job import JobDescription, JobRequirement, SkillImportance  # noqa: E402
+from src.data_models.resume import Experience, OptimizedSkillsSection, Skill  # noqa: E402
+from src.data_models.strategy import AlignmentStrategy  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -110,12 +110,12 @@ def main():
     print("=" * 80)
     print("\nThis example shows how the AI infers, validates, prioritizes, and")
     print("categorizes skills based on experience and job requirements.\n")
-    
+
     # ========================================================================
     # STEP 1: PREPARE INPUT DATA
     # ========================================================================
     print_section("STEP 1: INPUT DATA", "Setting up mock structured data...")
-    
+
     # Mock Experience (Subset of what would be parsed from resume)
     experiences = [
         Experience(
@@ -127,9 +127,9 @@ def main():
             achievements=[
                 "Reduced API latency by 40% through code optimization",
                 "Migrated legacy monolith to microservices architecture",
-                "Implemented CI/CD pipelines using GitHub Actions"
+                "Implemented CI/CD pipelines using GitHub Actions",
             ],
-            skills_used=["Python", "Flask", "AWS", "Docker"]
+            skills_used=["Python", "Flask", "AWS", "Docker"],
         ),
         Experience(
             job_title="Software Developer",
@@ -137,21 +137,19 @@ def main():
             start_date="2015-06-01",
             end_date="2017-12-31",
             description="Built data processing pipelines using SQL and Python.",
-            achievements=[
-                "Automated daily reporting saving 10 hours per week"
-            ],
-            skills_used=["Python", "SQL"]
-        )
+            achievements=["Automated daily reporting saving 10 hours per week"],
+            skills_used=["Python", "SQL"],
+        ),
     ]
-    
+
     # Mock Original Skills
     original_skills = [
         Skill(skill_name="Python", category="Programming"),
         Skill(skill_name="SQL", category="Database"),
         Skill(skill_name="Flask", category="Web Framework"),
-        Skill(skill_name="Docker", category="DevOps")
+        Skill(skill_name="Docker", category="DevOps"),
     ]
-    
+
     # Mock Job Description Requirements
     job_desc = JobDescription(
         job_title="Senior Backend Engineer",
@@ -167,9 +165,9 @@ def main():
             JobRequirement(requirement="Docker", importance=SkillImportance.MUST_HAVE),
             JobRequirement(requirement="Terraform", importance=SkillImportance.SHOULD_HAVE),
         ],
-        ats_keywords=["Python", "AWS", "Kubernetes", "Docker", "CI/CD", "Microservices"]
+        ats_keywords=["Python", "AWS", "Kubernetes", "Docker", "CI/CD", "Microservices"],
     )
-    
+
     # Mock Strategy
     strategy = AlignmentStrategy(
         overall_fit_score=0.8,
@@ -179,9 +177,9 @@ def main():
         keywords_to_integrate=["AWS", "Microservices", "CI/CD", "Terraform"],
         professional_summary_guidance="",
         experience_guidance="",
-        skills_guidance="Prioritize cloud technologies and microservices experience"
+        skills_guidance="Prioritize cloud technologies and microservices experience",
     )
-    
+
     print("\n[INPUT] Mock Experience Data:")
     print("-" * 40)
     for exp in experiences:
@@ -189,32 +187,32 @@ def main():
         print(f"    Description: {exp.description}")
         print(f"    Skills mentioned: {', '.join(exp.skills_used)}")
     print("-" * 40)
-    
+
     print("\n[INPUT] Original Skills:")
     print("-" * 40)
     for skill in original_skills:
         print(f"  • {skill.skill_name} ({skill.category})")
     print("-" * 40)
-    
+
     print("\n[INPUT] Job Requirements:")
     print("-" * 40)
     for req in job_desc.requirements:
         print(f"  • {req.requirement} ({req.importance.value})")
     print("-" * 40)
-    
+
     print("\n[INFO] In a real workflow, this data would come from:")
     print("  - Resume Extractor Agent (experiences, original skills)")
     print("  - Job Analyzer Agent (job description)")
     print("  - Gap Analysis Agent (strategy)")
-    
+
     # ========================================================================
     # STEP 2: CREATE THE AGENT
     # ========================================================================
     print_section("STEP 2: AGENT CREATION", "Initializing the Skills Optimizer Agent...")
-    
+
     try:
         agent = create_skills_optimizer_agent()
-        print(f"\n[SUCCESS] Agent created successfully!")
+        print("\n[SUCCESS] Agent created successfully!")
         print(f"  Role: {agent.role}")
         print(f"  Goal: {agent.goal}")
         print("\n[INFO] This agent is specialized in:")
@@ -226,37 +224,38 @@ def main():
         logger.error(f"Failed to create agent: {e}", exc_info=True)
         print(f"\n[ERROR] Failed to create agent: {e}")
         return
-    
+
     # ========================================================================
     # STEP 3: DEFINE THE TASK
     # ========================================================================
     print_section("STEP 3: TASK DEFINITION", "Setting up the optimization task...")
-    
+
     # Load task configuration from tasks.yaml (same as real application)
     try:
         from src.core.config import get_tasks_config
+
         tasks_config = get_tasks_config()
         task_config = tasks_config.get("optimize_skills_section_task", {})
-        
+
         if not task_config:
             raise ValueError("optimize_skills_section_task not found in tasks.yaml")
-        
+
         # Get the base task description and expected_output from config
         base_description = task_config.get("description", "")
         base_expected_output = task_config.get("expected_output", "")
-        
+
         print("\n[INFO] Loaded task configuration from tasks.yaml")
-        print(f"  Task: optimize_skills_section_task")
+        print("  Task: optimize_skills_section_task")
         print(f"  Agent: {task_config.get('agent', 'N/A')}")
-        
+
     except Exception as e:
         logger.error(f"Failed to load task config: {e}", exc_info=True)
         print(f"\n[ERROR] Failed to load task configuration: {e}")
         return
-    
+
     # Adapt the task description for the example context
     # The real task expects data from previous agents, but we're providing mock data directly
-    # 
+    #
     # IMPORTANT: We use output_pydantic=OptimizedSkillsSection to enforce structured output.
     # This is the industry-standard approach in CrewAI for ensuring LLM outputs
     # match our Pydantic model schema. It eliminates the need for manual JSON
@@ -278,34 +277,36 @@ def main():
         f"- Provide justification and evidence for all added skills\n"
         f"- Ensure output conforms exactly to the OptimizedSkillsSection model schema\n"
     )
-    
+
     from crewai import Task
+
     task = Task(
         description=task_description,
         expected_output=base_expected_output,
         agent=agent,
         output_pydantic=OptimizedSkillsSection,  # ⭐ STRUCTURED OUTPUT ENFORCEMENT
     )
-    
+
     print("\n[INFO] Task configured with:")
     print("  - Real task description from tasks.yaml")
     print("  - Real expected_output from tasks.yaml")
     print("  - Adapted for example context (structured data provided directly)")
     print("  - Schema requirements to match OptimizedSkillsSection model")
-    
+
     # ========================================================================
     # STEP 4: EXECUTE THE AGENT
     # ========================================================================
     print_section("STEP 4: AGENT EXECUTION", "Running the agent (this calls the LLM)...")
-    
+
     from crewai import Crew, Process
+
     crew = Crew(
         agents=[agent],
         tasks=[task],
         process=Process.sequential,
         verbose=True,
     )
-    
+
     print("\n[INFO] The agent will now:")
     print("  1. Infer missing skills from experience descriptions")
     print("  2. Validate each inference against evidence")
@@ -313,32 +314,35 @@ def main():
     print("  4. Categorize skills into domain-appropriate categories")
     print("  5. Calculate ATS match score")
     print("\n[WAIT] This may take 60-120 seconds as the LLM processes each step...\n")
-    
+
     try:
         result = crew.kickoff()
     except Exception as e:
         logger.error(f"Error during agent execution: {e}", exc_info=True)
         print(f"\n[ERROR] Agent execution failed: {e}")
         return
-    
+
     # ========================================================================
     # STEP 5: ACCESS STRUCTURED OUTPUT
     # ========================================================================
-    print_section("STEP 5: ACCESSING STRUCTURED OUTPUT", "Retrieving validated OptimizedSkillsSection object...")
-    
+    print_section(
+        "STEP 5: ACCESSING STRUCTURED OUTPUT",
+        "Retrieving validated OptimizedSkillsSection object...",
+    )
+
     print("\n[INFO] With output_pydantic, the result is automatically validated!")
     print("  - No manual JSON parsing needed")
     print("  - No manual validation needed")
     print("  - Direct access to typed Pydantic object")
-    
+
     try:
         # Access the validated Pydantic object directly
         optimized_section = result.pydantic
-        
+
         if not optimized_section:
             print("\n[ERROR] No output received from agent.")
             return
-            
+
     except AttributeError as e:
         logger.error(f"Error accessing structured output: {e}", exc_info=True)
         print(f"\n[ERROR] Could not access structured output: {e}")
@@ -348,28 +352,28 @@ def main():
         logger.error(f"Unexpected error processing output: {e}", exc_info=True)
         print(f"\n[ERROR] Unexpected error: {e}")
         return
-    
+
     # ========================================================================
     # STEP 6: DISPLAY AND VALIDATE RESULTS
     # ========================================================================
     print_section("STEP 6: OUTPUT PROCESSING", "Validating and displaying results...")
-    
+
     try:
         # Validate against Pydantic model
         print("\n[INFO] Validating against OptimizedSkillsSection Pydantic model...")
-        validated_section = validate_skills_output(optimized_section.model_dump(mode='json'))
-        
+        validated_section = validate_skills_output(optimized_section.model_dump(mode="json"))
+
         if validated_section:
             print("\n" + "=" * 80)
             print("SKILLS OPTIMIZATION SUCCESSFUL!")
             print("=" * 80)
             print("\n[VALIDATED] Output matches OptimizedSkillsSection model structure")
-            
+
             # Display key results
             print("\n" + "-" * 80)
             print("OPTIMIZED SKILLS SECTION")
             print("-" * 80)
-            
+
             print(f"\n  ATS Match Score: {optimized_section.ats_match_score}/100")
             if optimized_section.ats_match_score >= 80:
                 print("    Status: Excellent ATS Match ✓")
@@ -377,17 +381,17 @@ def main():
                 print("    Status: Good ATS Match")
             else:
                 print("    Status: Needs Improvement")
-            
-            print(f"\n  Optimization Notes:")
+
+            print("\n  Optimization Notes:")
             notes = optimized_section.optimization_notes or "Not provided"
             print(f"    {notes}")
-            
+
             print(f"\n  Original Skills Count: {len(original_skills)}")
             print(f"  Optimized Skills Count: {len(optimized_section.optimized_skills)}")
             print(f"  Skills Added: {len(optimized_section.added_skills)}")
-            
+
             if optimized_section.added_skills:
-                print(f"\n  INFERRED SKILLS (Added by AI):")
+                print("\n  INFERRED SKILLS (Added by AI):")
                 print("-" * 40)
                 for skill in optimized_section.added_skills:
                     print(f"\n    + {skill.skill_name}")
@@ -401,26 +405,28 @@ def main():
                             print(f"        {i}. {evidence}")
             else:
                 print("\n  No skills inferred (all skills were already present)")
-            
-            print(f"\n  FINAL CATEGORIZED SKILLS:")
+
+            print("\n  FINAL CATEGORIZED SKILLS:")
             print("-" * 40)
             if optimized_section.skill_categories:
                 for category, skills in optimized_section.skill_categories.items():
                     print(f"\n    [{category}]")
                     for skill_name in skills:
                         # Check if this is an added skill
-                        is_added = any(s.skill_name == skill_name for s in optimized_section.added_skills)
+                        is_added = any(
+                            s.skill_name == skill_name for s in optimized_section.added_skills
+                        )
                         marker = " ⭐ (inferred)" if is_added else ""
                         print(f"      • {skill_name}{marker}")
             else:
                 print("    No categories assigned")
-            
-            print(f"\n  PRIORITIZED SKILLS LIST:")
+
+            print("\n  PRIORITIZED SKILLS LIST:")
             print("-" * 40)
             # Extract skill names from Skill objects
             skill_names = [skill.skill_name for skill in optimized_section.optimized_skills]
             print(f"    {', '.join(skill_names)}")
-            
+
             print("\n" + "-" * 80)
             print("\n[SUCCESS] Skills section optimized and validated!")
             print("\n[INFO] The optimized skills section:")
@@ -429,16 +435,20 @@ def main():
             print("  - Is properly categorized for ATS")
             print("  - Maintains truthfulness (only skills with evidence)")
             print("  - Has high ATS keyword coverage")
-            
+
         else:
-            print("\n[ERROR] Validation failed. Output does not match OptimizedSkillsSection model.")
+            print(
+                "\n[ERROR] Validation failed. Output does not match OptimizedSkillsSection model."
+            )
             print("\n[DEBUG] Full output:")
-            print(json.dumps(optimized_section.model_dump(mode='json'), indent=2, ensure_ascii=False))
-            
+            print(
+                json.dumps(optimized_section.model_dump(mode="json"), indent=2, ensure_ascii=False)
+            )
+
     except Exception as e:
         logger.error(f"Error processing output: {e}", exc_info=True)
         print(f"\n[ERROR] Could not process output: {e}")
-    
+
     print("\n" + "=" * 80)
     print("EXAMPLE COMPLETE")
     print("=" * 80)

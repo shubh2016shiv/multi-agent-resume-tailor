@@ -1,6 +1,7 @@
 import json
 import re
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 # Low quality resume for a Backend/Cloud developer
 # This resume is intentionally vague and poorly formatted to demonstrate the agent's ability to extract and structure data.
@@ -80,15 +81,18 @@ As a Senior Backend Cloud Engineer, you will design and build robust, scalable m
 - Comprehensive health insurance.
 """
 
+
 def get_resume_md() -> str:
     """Returns the sample resume markdown string."""
     return RESUME_MD
+
 
 def get_job_desc_md() -> str:
     """Returns the sample job description markdown string."""
     return JOB_DESC_MD
 
-def parse_json_output(output: str) -> Dict[str, Any]:
+
+def parse_json_output(output: str) -> dict[str, Any]:
     """
     Parses JSON from agent output, handling markdown code blocks.
     """
@@ -97,17 +101,18 @@ def parse_json_output(output: str) -> Dict[str, Any]:
         json_str = json_str.split("```json")[1].split("```")[0].strip()
     elif "```" in json_str:
         json_str = json_str.split("```")[1].split("```")[0].strip()
-    
+
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
         # Try to find JSON object in the text
-        json_match = re.search(r'\{.*\}', json_str, re.DOTALL)
+        json_match = re.search(r"\{.*\}", json_str, re.DOTALL)
         if json_match:
             return json.loads(json_match.group())
         raise
 
-def validate_output(data: Dict[str, Any], validator_func: Callable[[Dict[str, Any]], Any]) -> bool:
+
+def validate_output(data: dict[str, Any], validator_func: Callable[[dict[str, Any]], Any]) -> bool:
     """
     Validates data using the provided validator function.
     Returns True if valid, False otherwise.

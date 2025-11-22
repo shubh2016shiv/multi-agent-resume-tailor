@@ -9,6 +9,8 @@ pydantic>=2.0.0
 pydantic-settings>=2.0.0
 pyyaml>=6.0
 tenacity>=8.2.0
+pybreaker>=1.0.0
+ratelimit>=2.2.1
 requests>=2.31.0
 structlog>=24.1.0
 

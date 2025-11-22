@@ -1,4 +1,5 @@
 repos:
+  # Ruff for linting and formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.4
     hooks:
@@ -7,6 +8,19 @@ repos:
         files: ^(src/|examples/)
       - id: ruff-format
         files: ^(src/|examples/)
+  
+  # pyscn for code quality analysis (CFG-based dead code, clone detection, complexity, coupling)
+  - repo: local
+    hooks:
+      - id: pyscn-check
+        name: pyscn check
+        entry: python ./.pre-commit-hooks/pyscn-check.py
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [commit]
+        types: [python]
+        verbose: true
 
 
 

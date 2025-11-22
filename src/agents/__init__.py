@@ -55,6 +55,18 @@ from src.agents.summary_writer_agent import (
     create_summary_writer_agent,
     validate_summary_output,
 )
+from src.agents.quality_assurance_agent import (
+    calculate_weighted_score,
+    check_formatting_standards,
+    check_grammar_quality,
+    check_qa_quality,
+    check_red_flags,
+    create_quality_assurance_agent,
+    evaluate_accuracy,
+    evaluate_ats_optimization,
+    evaluate_relevance,
+    validate_qa_output,
+)
 
 __all__ = [
     # Resume Extractor Agent
@@ -92,4 +104,15 @@ __all__ = [
     "assemble_resume_components",
     "generate_markdown_resume",
     "generate_json_resume",
+    # Quality Assurance Reviewer Agent
+    "create_quality_assurance_agent",
+    "validate_qa_output",
+    "check_qa_quality",
+    "evaluate_accuracy",
+    "evaluate_relevance",
+    "evaluate_ats_optimization",
+    "calculate_weighted_score",
+    "check_grammar_quality",
+    "check_formatting_standards",
+    "check_red_flags",
 ]

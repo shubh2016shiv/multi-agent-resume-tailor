@@ -20,7 +20,7 @@ WHY STRUCTURED MODELS FOR JOBS?
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ==============================================================================
 # 1. Enumerations for Standardization
@@ -95,6 +95,22 @@ class JobRequirement(BaseModel):
         le=30,
     )
 
+    # ===========================================================================
+    # ROBUSTNESS: Automatic Case Normalization for SkillImportance Enum
+    # ===========================================================================
+    # This validator ensures that LLM outputs like "Must-have", "MUST_HAVE",
+    # or "must-have" are all normalized to "must_have" for enum matching.
+    # This prevents intermittent validation errors caused by LLM output variation.
+    @field_validator("importance", mode="before")
+    @classmethod
+    def normalize_importance(cls, v):
+        """Normalize importance to snake_case for case-insensitive enum matching."""
+        if isinstance(v, str):
+            # Convert to lowercase and replace hyphens/spaces with underscores
+            normalized = v.lower().strip().replace("-", "_").replace(" ", "_")
+            return normalized
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -152,6 +168,22 @@ class JobDescription(BaseModel):
         default_factory=list,
         description="A list of high-priority keywords identified for ATS optimization.",
     )
+
+    # ===========================================================================
+    # ROBUSTNESS: Automatic Case Normalization for JobLevel Enum
+    # ===========================================================================
+    # This validator ensures that LLM outputs like "Senior", "SENIOR", "Mid Level",
+    # or "mid-level" are all normalized to the correct enum value format.
+    # This prevents intermittent validation errors caused by LLM output variation.
+    @field_validator("job_level", mode="before")
+    @classmethod
+    def normalize_job_level(cls, v):
+        """Normalize job level to lowercase with hyphens for case-insensitive enum matching."""
+        if isinstance(v, str):
+            # Convert to lowercase, strip whitespace, and normalize spaces to hyphens
+            normalized = v.lower().strip().replace(" ", "-")
+            return normalized
+        return v
 
     @property
     def must_have_skills(self) -> list[str]:

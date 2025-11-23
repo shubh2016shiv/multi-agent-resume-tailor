@@ -304,6 +304,7 @@ try:
         QualityReport,
         RelevanceMetrics,
     )
+    from src.observability import log_iteration_metrics, trace_tool
     # from src.data_models.job import JobDescription
     # from src.data_models.resume import Resume
 except ImportError:
@@ -322,6 +323,7 @@ except ImportError:
         QualityReport,
         RelevanceMetrics,
     )
+    from src.observability import log_iteration_metrics, trace_tool
 
 # Sub-stage 1.1.4: Logger initialization
 logger = get_logger(__name__)
@@ -689,6 +691,7 @@ def check_unsupported_skills(
 # ----------------------------------------------------------------------------
 
 
+@trace_tool
 def evaluate_accuracy(
     original_resume: dict[str, Any], tailored_resume: dict[str, Any]
 ) -> AccuracyMetrics:
@@ -910,6 +913,7 @@ def calculate_requirement_coverage(
 # ----------------------------------------------------------------------------
 
 
+@trace_tool
 def evaluate_relevance(
     tailored_resume: dict[str, Any], job_description: dict[str, Any]
 ) -> RelevanceMetrics:
@@ -1064,6 +1068,7 @@ def check_formatting_issues(tailored_resume: dict[str, Any]) -> list[str]:
 # ----------------------------------------------------------------------------
 
 
+@trace_tool
 def evaluate_ats_optimization(
     tailored_resume: dict[str, Any], job_description: dict[str, Any]
 ) -> ATSMetrics:
@@ -1320,6 +1325,7 @@ def check_formatting_standards(tailored_resume: dict[str, Any]) -> list[str]:
 
 
 @tool("Evaluate Resume Quality")
+@trace_tool
 def evaluate_resume_quality_tool(
     original_resume_json: str, tailored_resume_json: str, job_description_json: str
 ) -> str:
@@ -1473,6 +1479,21 @@ def evaluate_resume_quality_tool(
         logger.info(
             f"Quality evaluation complete. Overall score: {overall_score:.1f}/100, "
             f"Passed: {passed}"
+        )
+
+        # WEAVE OBSERVABILITY: Log quality metrics to Weave dashboard
+        log_iteration_metrics(
+            agent_name="quality_assurance",
+            iteration=1,
+            metrics={
+                "overall_quality_score": overall_score,
+                "accuracy_score": accuracy.accuracy_score,
+                "relevance_score": relevance.relevance_score,
+                "ats_score": ats_optimization.ats_score,
+                "passed_threshold": passed,
+                "exaggerated_claims_count": len(accuracy.exaggerated_claims),
+                "missed_opportunities_count": len(relevance.missed_opportunities),
+            },
         )
 
         # Sub-stage 7.4.3: Return comprehensive report

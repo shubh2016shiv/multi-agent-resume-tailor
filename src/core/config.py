@@ -260,6 +260,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
     gemini_api_key: str | None = Field(None, alias="GEMINI_API_KEY")
     serper_api_key: str | None = Field(None, alias="SERPER_API_KEY")
+    wandb_api_key: str | None = Field(None, alias="WANDB_API_KEY")
 
     # This model_config tells Pydantic how to load settings.
     model_config = SettingsConfigDict(

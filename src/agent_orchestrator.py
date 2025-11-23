@@ -61,6 +61,9 @@ from src.data_models.job import JobDescription
 # Data Models
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
+
+# Observability
+from src.observability import init_observability, trace_agent
 from src.tools.document_converter import convert_document_to_markdown
 
 logger = get_logger(__name__)
@@ -83,9 +86,14 @@ class ResumeTailorOrchestrator:
     Orchestrates the execution of the Resume Tailor multi-agent system.
     """
 
-    def __init__(self):
+    def __init__(self, enable_observability: bool = True):
         self.tasks_config = get_tasks_config()
         self.config = get_config()
+
+        # Initialize Weave observability
+        if enable_observability:
+            project_name = "resume-tailor"  # Fixed: ApplicationConfig doesn't have 'name' attribute
+            init_observability(project_name=project_name)
 
     def load_files_from_config(self) -> tuple[str, str]:
         """
@@ -130,6 +138,7 @@ class ResumeTailorOrchestrator:
         resume_text, jd_text = self.load_files_from_config()
         return self.orchestrate(resume_text, jd_text)
 
+    @trace_agent
     def orchestrate(self, resume_text: str, job_description_text: str) -> OrchestrationResult:
         """
         Main entry point to run the full resume tailoring workflow.
@@ -277,6 +286,7 @@ class ResumeTailorOrchestrator:
                 f"Agent {agent.role} did not return a valid {output_model.__name__} object."
             )
 
+    @trace_agent
     def _run_resume_extraction(self, text: str) -> Resume:
         agent = create_resume_extractor_agent()
         return self._create_and_run_crew(
@@ -286,6 +296,7 @@ class ResumeTailorOrchestrator:
             output_model=Resume,
         )
 
+    @trace_agent
     def _run_job_analysis(self, text: str) -> JobDescription:
         agent = create_job_analyzer_agent()
         return self._create_and_run_crew(
@@ -295,6 +306,7 @@ class ResumeTailorOrchestrator:
             output_model=JobDescription,
         )
 
+    @trace_agent
     def _run_gap_analysis(self, resume: Resume, job: JobDescription) -> AlignmentStrategy:
         agent = create_gap_analysis_agent()
         # Serialize inputs to JSON/Text for the prompt
@@ -306,6 +318,7 @@ class ResumeTailorOrchestrator:
             output_model=AlignmentStrategy,
         )
 
+    @trace_agent
     def _run_summary_writing(
         self, resume: Resume, job: JobDescription, strategy: AlignmentStrategy
     ) -> ProfessionalSummary:
@@ -322,6 +335,7 @@ class ResumeTailorOrchestrator:
             output_model=ProfessionalSummary,
         )
 
+    @trace_agent
     def _run_experience_optimization(
         self, resume: Resume, job: JobDescription, strategy: AlignmentStrategy
     ) -> OptimizedExperienceSection:
@@ -338,6 +352,7 @@ class ResumeTailorOrchestrator:
             output_model=OptimizedExperienceSection,
         )
 
+    @trace_agent
     def _run_skills_optimization(
         self, resume: Resume, job: JobDescription, strategy: AlignmentStrategy
     ) -> OptimizedSkillsSection:
@@ -354,6 +369,7 @@ class ResumeTailorOrchestrator:
             output_model=OptimizedSkillsSection,
         )
 
+    @trace_agent
     def _run_ats_assembly(
         self,
         summary: ProfessionalSummary,
@@ -381,6 +397,7 @@ class ResumeTailorOrchestrator:
             output_model=OptimizedResume,
         )
 
+    @trace_agent
     def _run_quality_assurance(self, resume: OptimizedResume, job: JobDescription) -> QualityReport:
         agent = create_quality_assurance_agent()
         context = (

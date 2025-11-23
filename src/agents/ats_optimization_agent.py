@@ -194,6 +194,7 @@ try:
         Resume,
         # Skill,
     )
+    from src.observability import trace_tool
 
     # from src.data_models.strategy import AlignmentStrategy
     from src.tools.ats_validation import (
@@ -220,6 +221,7 @@ except ImportError:
         Resume,
         # Skill,
     )
+    from src.observability import trace_tool
 
     # from src.data_models.strategy import AlignmentStrategy
     from src.tools.ats_validation import (
@@ -1297,6 +1299,7 @@ def check_ats_quality(optimized_resume: OptimizedResume) -> dict:
 
 
 @tool("Validate and Finalize Resume")
+@trace_tool
 def validate_and_finalize_resume(resume_json: str, job_description_json: str) -> str:
     """
     Validate, format, and finalize the resume for ATS compatibility.

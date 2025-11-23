@@ -24,3 +24,7 @@ docling>=1.0.0        # Advanced PDF/DOCX parsing (multi-column, tables)
 PyPDF2>=3.0.0         # Fallback PDF text extraction
 python-docx>=1.0.0    # Fallback DOCX text extraction
 
+# Observability & Monitoring
+weave>=0.50.0         # Weave for LLM agent tracing and observability
+wandb>=0.16.0         # Weights & Biases for experiment tracking
+

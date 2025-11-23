@@ -238,6 +238,7 @@ try:
     from src.data_models.job import JobDescription
     from src.data_models.resume import Resume
     from src.data_models.strategy import AlignmentStrategy
+    from src.observability import trace_tool
 except ImportError:
     # Fallback for when running this file directly
     import sys
@@ -249,6 +250,7 @@ except ImportError:
     from src.data_models.job import JobDescription
     from src.data_models.resume import Resume
     from src.data_models.strategy import AlignmentStrategy
+    from src.observability import trace_tool
 
 logger = get_logger(__name__)
 
@@ -385,6 +387,7 @@ def create_gap_analysis_agent() -> Agent:
 # This stage orchestrates all validation steps to ensure analysis output quality.
 
 
+@trace_tool
 def validate_analysis_output(output_data: dict) -> AlignmentStrategy | None:
     """
     DEPRECATED: This function is no longer needed with output_pydantic.
@@ -687,6 +690,7 @@ def check_analysis_quality(strategy: AlignmentStrategy) -> dict:
     return result
 
 
+@trace_tool
 def calculate_coverage_stats(strategy: AlignmentStrategy) -> dict:
     """
     Calculate additional statistics about the gap analysis.

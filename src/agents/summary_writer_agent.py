@@ -243,6 +243,7 @@ try:
     )
     from src.core.logger import get_logger
     from src.data_models.strategy import AlignmentStrategy
+    from src.observability import trace_tool
 except ImportError:
     # Fallback for when running this file directly
     import sys
@@ -254,6 +255,7 @@ except ImportError:
     )
     from src.core.logger import get_logger
     from src.data_models.strategy import AlignmentStrategy
+    from src.observability import trace_tool
 
 logger = get_logger(__name__)
 
@@ -422,7 +424,7 @@ def _get_default_config() -> dict:
             "You understand how to grab attention, convey value, and optimize for both "
             "human readers and ATS systems. You write with confidence, clarity, and authenticity."
         ),
-        "llm": "gpt-4o",
+        "llm": "gemini/gemini-2.5-flash",
         "temperature": 0.7,
         "verbose": True,
     }
@@ -589,6 +591,7 @@ def create_summary_writer_agent() -> Agent:
 # This stage orchestrates all validation steps to ensure summary output quality.
 
 
+@trace_tool
 def validate_summary_output(output_data: dict) -> ProfessionalSummary | None:
     """
     DEPRECATED: This function is no longer needed with output_pydantic.

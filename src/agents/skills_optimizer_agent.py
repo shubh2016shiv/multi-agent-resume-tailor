@@ -277,6 +277,7 @@ try:
     from src.data_models.job import JobDescription, SkillImportance
     from src.data_models.resume import Experience, OptimizedSkillsSection, Skill
     from src.data_models.strategy import AlignmentStrategy
+    from src.observability import trace_tool
 except ImportError:
     import sys
     from pathlib import Path
@@ -289,6 +290,7 @@ except ImportError:
     from src.data_models.job import JobDescription, SkillImportance
     from src.data_models.resume import Experience, OptimizedSkillsSection, Skill
     from src.data_models.strategy import AlignmentStrategy
+    from src.observability import trace_tool
 
 logger = get_logger(__name__)
 
@@ -1206,7 +1208,7 @@ def create_skills_optimizer_agent() -> Agent:
         role=config.get("role", "Skills Optimization Specialist"),
         goal=config.get("goal", "Optimize skills section for ATS and relevance"),
         backstory=config.get("backstory", "Expert in skill optimization"),
-        llm=config.get("llm", "openai/gpt-4"),
+        llm=config.get("llm", "gemini/gemini-2.5-flash"),
         temperature=0.3,  # Balanced temperature for consistent but flexible categorization
         verbose=config.get("verbose", True),
         allow_delegation=False,
@@ -1631,6 +1633,7 @@ def prioritize_skills(
     return prioritized
 
 
+@trace_tool
 def categorize_skills(
     skills: list[Skill], context: SkillInferenceContext, agent: Agent
 ) -> dict[str, list[str]]:

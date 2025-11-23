@@ -35,14 +35,12 @@ class SkillMatch(BaseModel):
     resume_skill: str = Field(
         ...,
         description="The specific skill identified in the candidate's resume.",
-        examples=["Django Framework"],
     )
 
     # The corresponding requirement from the job description.
     job_requirement: str = Field(
         ...,
         description="The requirement from the job posting that this skill matches.",
-        examples=["Experience with Python web frameworks"],
     )
 
     # A score indicating the quality of the match. This helps prioritize which
@@ -59,7 +57,6 @@ class SkillMatch(BaseModel):
     justification: str = Field(
         ...,
         description="A brief explanation of why this is considered a match, especially if it's not a direct 1:1 mapping.",
-        examples=["Django is a popular Python web framework, directly fulfilling the requirement."],
     )
 
     class Config:
@@ -89,7 +86,6 @@ class SkillGap(BaseModel):
     missing_skill: str = Field(
         ...,
         description="The skill required by the job but not found or emphasized in the resume.",
-        examples=["Kubernetes"],
     )
 
     # The importance of the missing skill, taken from the job analysis.
@@ -103,9 +99,6 @@ class SkillGap(BaseModel):
     suggestion: str = Field(
         ...,
         description="An actionable recommendation on how to address this gap.",
-        examples=[
-            "Review project experience for any container orchestration work that can be highlighted as a transferable skill."
-        ],
     )
 
     class Config:
@@ -144,9 +137,6 @@ class AlignmentStrategy(BaseModel):
     summary_of_strategy: str = Field(
         ...,
         description="A concise summary of the overall tailoring strategy.",
-        examples=[
-            "Emphasize leadership and cloud experience, while downplaying legacy system skills. Reframe project achievements to use keywords from the job description."
-        ],
     )
 
     # A list of all identified skill matches.
@@ -171,27 +161,18 @@ class AlignmentStrategy(BaseModel):
     professional_summary_guidance: str = Field(
         ...,
         description="Specific instructions for the Professional Summary Writer agent.",
-        examples=[
-            "Focus on the 5+ years of Python experience and the recent AWS certification. Mention leadership in the context of 'mentoring junior developers'."
-        ],
     )
 
     # Specific guidance for the agent that optimizes the work experience section.
     experience_guidance: str = Field(
         ...,
         description="Specific instructions for the Experience Section Optimizer agent.",
-        examples=[
-            "For the 'Innovate Corp' role, rewrite the first bullet point to include the keyword 'microservices'. For the 'Old Tech Co' role, condense it to two bullet points as it is less relevant."
-        ],
     )
 
     # Specific guidance for the agent that optimizes the skills section.
     skills_guidance: str = Field(
         ...,
         description="Specific instructions for the Skills Section Strategist agent.",
-        examples=[
-            "Create a 'Cloud Technologies' category and list AWS, Docker, and Kubernetes first. Remove 'Visual Basic' as it is not relevant."
-        ],
     )
 
     class Config:

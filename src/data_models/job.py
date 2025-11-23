@@ -79,7 +79,6 @@ class JobRequirement(BaseModel):
     requirement: str = Field(
         ...,
         description="The specific skill, technology, or competency required (e.g., 'Python', 'Project Management').",
-        examples=["Python"],
     )
 
     # Its importance level, as determined by the analysis agent.
@@ -120,13 +119,9 @@ class JobDescription(BaseModel):
     for all analysis and strategy generation.
     """
 
-    job_title: str = Field(
-        ..., description="The official job title.", examples=["Senior Backend Engineer"]
-    )
+    job_title: str = Field(..., description="The official job title.")
 
-    company_name: str = Field(
-        ..., description="The name of the hiring company.", examples=["Cloud Solutions Inc."]
-    )
+    company_name: str = Field(..., description="The name of the hiring company.")
 
     # Uses the `JobLevel` enum for standardized seniority assessment.
     job_level: JobLevel = Field(
@@ -141,9 +136,6 @@ class JobDescription(BaseModel):
     summary: str = Field(
         ...,
         description="A brief, 1-3 sentence overview of the position.",
-        examples=[
-            "Seeking a skilled backend engineer to build and maintain our cloud infrastructure."
-        ],
     )
 
     # The full, raw text of the job description for context.
@@ -159,7 +151,6 @@ class JobDescription(BaseModel):
     ats_keywords: list[str] = Field(
         default_factory=list,
         description="A list of high-priority keywords identified for ATS optimization.",
-        examples=["Python", "AWS", "Microservices", "API Design"],
     )
 
     @property

@@ -49,7 +49,6 @@ class Skill(BaseModel):
     skill_name: str = Field(
         ...,
         description="The name of the skill (e.g., 'Python', 'Docker', 'Team Leadership').",
-        examples=["Python", "Strategic Planning"],
     )
 
     # The category helps in grouping skills for better organization and display.
@@ -57,7 +56,6 @@ class Skill(BaseModel):
     category: str | None = Field(
         None,
         description="The category of the skill (e.g., 'Programming Language', 'Tool', 'Soft Skill').",
-        examples=["Technical", "Soft Skill"],
     )
 
     # Proficiency level provides a qualitative measure of expertise.
@@ -65,7 +63,6 @@ class Skill(BaseModel):
     proficiency_level: str | None = Field(
         None,
         description="The self-assessed proficiency level (e.g., 'Beginner', 'Intermediate', 'Expert').",
-        examples=["Expert"],
     )
 
     # Years of experience provides a quantitative measure.
@@ -76,7 +73,6 @@ class Skill(BaseModel):
         description="The number of years of experience with this skill.",
         ge=0,  # Must be a non-negative number.
         le=50,  # A reasonable upper limit.
-        examples=[5],
     )
 
     # === AI-FIRST SKILL INFERENCE FIELDS ===
@@ -86,15 +82,11 @@ class Skill(BaseModel):
     justification: str | None = Field(
         None,
         description="Explanation for why this skill was added or inferred, based on domain expertise.",
-        examples=[
-            "Inferred from Generative AI domain expertise - standard tool for building LLM applications"
-        ],
     )
 
     evidence: list[str] | None = Field(
         None,
         description="Direct quotes or references from experience section supporting this skill inference.",
-        examples=[["Built AI chatbots using Python", "Developed conversational AI assistants"]],
     )
 
     confidence_score: float | None = Field(
@@ -102,7 +94,6 @@ class Skill(BaseModel):
         ge=0.0,
         le=1.0,
         description="Confidence score (0-1) for inferred skills, based on evidence strength and domain relevance.",
-        examples=[0.85],
     )
 
     class Config:
@@ -134,12 +125,9 @@ class Experience(BaseModel):
     job_title: str = Field(
         ...,
         description="The official job title or position held.",
-        examples=["Senior Software Engineer"],
     )
 
-    company_name: str = Field(
-        ..., description="The name of the company.", examples=["Tech Innovations Inc."]
-    )
+    company_name: str = Field(..., description="The name of the company.")
 
     start_date: date = Field(
         ...,
@@ -159,14 +147,12 @@ class Experience(BaseModel):
     location: str | None = Field(
         None,
         description="The location of the job (e.g., 'San Francisco, CA', 'Remote').",
-        examples=["Remote"],
     )
 
     # A general description of the role and responsibilities.
     description: str = Field(
         ...,
         description="A summary of the role, responsibilities, and the team's scope.",
-        examples=["Led a team of 5 backend engineers developing a new microservices architecture."],
     )
 
     # Achievements are the most critical part of an experience entry.
@@ -174,7 +160,6 @@ class Experience(BaseModel):
     achievements: list[str] = Field(
         default_factory=list,
         description="A list of specific, quantifiable achievements. Each item should be a strong, action-oriented statement.",
-        examples=["Reduced API latency by 40% by optimizing database queries."],
     )
 
     # Linking skills to a specific experience helps agents verify the skills
@@ -182,7 +167,6 @@ class Experience(BaseModel):
     skills_used: list[str] = Field(
         default_factory=list,
         description="A list of specific skills that were demonstrated or utilized in this role.",
-        examples=["Python", "AWS", "FastAPI"],
     )
 
     @property
@@ -239,13 +223,11 @@ class Education(BaseModel):
     degree: str = Field(
         ...,
         description="The degree earned (e.g., 'Bachelor of Science', 'PhD').",
-        examples=["Bachelor of Science"],
     )
 
     field_of_study: str = Field(
         ...,
         description="The academic field or major (e.g., 'Computer Science').",
-        examples=["Computer Science"],
     )
 
     graduation_year: int = Field(
@@ -265,7 +247,6 @@ class Education(BaseModel):
     honors: str | None = Field(
         None,
         description="Any academic honors or distinctions (e.g., 'Summa Cum Laude').",
-        examples=["Cum Laude"],
     )
 
     class Config:
@@ -305,40 +286,21 @@ class OptimizedSkillsSection(BaseModel):
     skill_categories: dict[str, list[str]] = Field(
         default_factory=dict,
         description="Skills grouped into logical categories (e.g., 'Programming Languages', 'Cloud Platforms').",
-        examples=[
-            {
-                "Programming Languages": ["Python", "JavaScript"],
-                "Cloud Platforms": ["AWS", "Azure"],
-                "Frameworks & Libraries": ["React", "Django"],
-            }
-        ],
     )
 
     added_skills: list[Skill] = Field(
         default_factory=list,
         description="Newly inferred skills added based on domain expertise, with justification.",
-        examples=[
-            {
-                "skill_name": "LangChain",
-                "category": "AI Frameworks",
-                "proficiency_level": "intermediate",
-                "justification": "Inferred from Generative AI experience and Python expertise",
-            }
-        ],
     )
 
     removed_skills: list[str] = Field(
         default_factory=list,
         description="Skills removed from the original resume with reasons.",
-        examples=["Visual Basic", "COBOL"],
     )
 
     optimization_notes: str = Field(
         default="",
         description="Summary of optimization decisions and rationale.",
-        examples=[
-            "Prioritized AWS skills to match job requirements. Added LangChain based on Generative AI experience."
-        ],
     )
 
     ats_match_score: float = Field(

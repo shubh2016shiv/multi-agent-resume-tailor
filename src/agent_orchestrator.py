@@ -219,7 +219,7 @@ class ResumeTailorOrchestrator:
         qa_report = self._run_quality_assurance(optimized_resume, job_data)
 
         logger.info(
-            f"Stage 5 Complete: Quality Assurance finished (Score: {qa_report.overall_score})."
+            f"Stage 5 Complete: Quality Assurance finished (Score: {qa_report.overall_quality_score})."
         )
 
         return OrchestrationResult(
@@ -436,7 +436,7 @@ if __name__ == "__main__":
         print(f"Job Title: {result.job_description.job_title}")
         print(f"Company: {result.job_description.company_name}")
         print(f"\nAlignment Strategy Fit Score: {result.strategy.overall_fit_score}/100")
-        print(f"Quality Assurance Score: {result.qa_report.overall_score}/100")
+        print(f"Quality Assurance Score: {result.qa_report.overall_quality_score}/100")
         print(
             f"\nOptimized Resume ATS Score: {result.optimized_resume.ats_validation.overall_score}/100"
         )

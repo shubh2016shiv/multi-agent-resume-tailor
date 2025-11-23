@@ -1187,7 +1187,7 @@ def check_grammar_quality(tailored_resume: dict[str, Any]) -> list[str]:
     for pattern in RED_FLAG_PATTERNS["personal_pronouns"]:
         matches = re.findall(pattern, resume_text, re.IGNORECASE)
         if matches:
-            issues.append(f"Personal pronouns found: {', '.join(set(matches)[:3])}")
+            issues.append(f"Personal pronouns found: {', '.join(list(set(matches))[:3])}")
             break  # Report once
 
     # Check for clichés

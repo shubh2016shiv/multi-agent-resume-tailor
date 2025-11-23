@@ -45,9 +45,6 @@ class AccuracyMetrics(BaseModel):
     exaggerated_claims: list[str] = Field(
         default_factory=list,
         description="A list of claims in the tailored resume that are not supported by or exaggerate the original resume.",
-        examples=[
-            "Claiming 'expert' proficiency for a skill listed as 'intermediate' in the original."
-        ],
     )
 
     # A list of skills that were added to the tailored resume but were not present
@@ -55,9 +52,6 @@ class AccuracyMetrics(BaseModel):
     unsupported_skills: list[str] = Field(
         default_factory=list,
         description="A list of skills added to the tailored resume that could not be found or inferred from the original.",
-        examples=[
-            "Added 'Kubernetes' to the skills list when it was not mentioned anywhere in the original resume."
-        ],
     )
 
     # A brief explanation of the accuracy findings.
@@ -112,7 +106,6 @@ class RelevanceMetrics(BaseModel):
     missed_requirements: list[str] = Field(
         default_factory=list,
         description="A list of important job requirements that were not adequately addressed in the tailored resume.",
-        examples=["The job description asked for CI/CD experience, which was not highlighted."],
     )
 
     # A brief explanation of the relevance findings.
@@ -167,10 +160,6 @@ class ATSMetrics(BaseModel):
     formatting_issues: list[str] = Field(
         default_factory=list,
         description="A list of formatting problems that might cause issues for ATS parsers.",
-        examples=[
-            "Use of tables or columns in the experience section.",
-            "Uncommon section headers.",
-        ],
     )
 
     # A brief explanation of the ATS findings.
@@ -228,9 +217,6 @@ class QualityReport(BaseModel):
     feedback_for_improvement: str | None = Field(
         None,
         description="If quality check failed, this provides specific, actionable feedback for the next iteration.",
-        examples=[
-            "The accuracy score is too low. Re-run the Experience Optimizer agent with instructions to not exaggerate metrics."
-        ],
     )
 
     class Config:

@@ -217,6 +217,13 @@ class WorkflowConfig(BaseModel):
     quality_metrics: QualityMetricsConfig = Field(default_factory=QualityMetricsConfig)
 
 
+class FilePathsConfig(BaseModel):
+    """Configuration for input file paths."""
+
+    resume_path: str = "sample_documents/resume.pdf"
+    job_description_path: str = "sample_documents/job_description.txt"
+
+
 class ServicesConfig(BaseModel):
     """Configuration for external services."""
 
@@ -244,6 +251,7 @@ class Settings(BaseSettings):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
+    file_paths: FilePathsConfig = Field(default_factory=FilePathsConfig)
     services: ServicesConfig = Field(default_factory=ServicesConfig)
 
     # You can also have top-level settings here, which can be loaded from

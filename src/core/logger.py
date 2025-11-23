@@ -22,6 +22,7 @@ logger.error("task_failed", task_id="123", error="timeout")
 ```
 """
 
+import io
 import logging
 import sys
 from pathlib import Path
@@ -29,6 +30,23 @@ from pathlib import Path
 import structlog
 
 from .config import get_config
+
+# ==============================================================================
+# FIX #1: UTF-8 Encoding Enforcement for Windows Console
+# ==============================================================================
+# PROBLEM: Windows console uses cp1252 encoding by default, which cannot
+#          handle emoji characters (🚀, 🤖, ✅) used by CrewAI's event logging
+# ERROR: 'charmap' codec can't encode character '\U0001f680' in position 0
+# SOLUTION: Force UTF-8 encoding for stdout/stderr on Windows
+# IMPACT: Fixes ~20+ encoding errors per orchestrator run
+# ==============================================================================
+
+if sys.platform == "win32":
+    # Wrap stdout and stderr with UTF-8 encoding
+    # WHY: Ensures emoji and unicode characters are properly handled
+    # WHEN: Module import time (before any logging occurs)
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 _configured = False
 

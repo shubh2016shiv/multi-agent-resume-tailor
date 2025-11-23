@@ -138,6 +138,21 @@ workflow:
     max_bullet_points_per_experience: 8
 
 # ------------------------------------------------------------------------------
+# File Paths Configuration
+# ------------------------------------------------------------------------------
+# Paths to input documents for resume tailoring workflow.
+# These paths can be relative to the project root or absolute paths.
+# ------------------------------------------------------------------------------
+file_paths:
+  # Path to the candidate's resume file (PDF, DOCX, MD, or TXT format)
+  # Example: "sample_documents/resume.pdf" or "C:/path/to/resume.pdf"
+  resume_path: "sample_documents/5de9878acaf813644e37cbf8_5de98838caf81311687f9290.pdf"
+
+  # Path to the target job description file (TXT or MD format)
+  # Example: "sample_documents/job_description.txt" or "C:/path/to/jd.txt"
+  job_description_path: "sample_documents/sample_job_description.txt"
+
+# ------------------------------------------------------------------------------
 # External Services
 # ------------------------------------------------------------------------------
 # Configuration for any external services the application integrates with.

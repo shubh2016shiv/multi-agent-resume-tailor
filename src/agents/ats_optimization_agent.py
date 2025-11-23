@@ -179,6 +179,7 @@ import json
 import re
 
 from crewai import Agent
+from crewai.tools import tool
 from pydantic import BaseModel, Field, ValidationError
 
 # Handle imports for both package usage and direct script execution
@@ -670,6 +671,7 @@ def create_ats_optimization_agent() -> Agent:
             calculate_keyword_density,
             validate_ats_formatting,
             check_section_headers,
+            validate_and_finalize_resume,
         ]
 
         # Load centralized resilience configuration
@@ -1283,6 +1285,95 @@ def check_ats_quality(optimized_resume: OptimizedResume) -> dict:
     )
 
     return results
+
+
+# ==============================================================================
+# BLOCK 8: AGENT TOOLS
+# ==============================================================================
+# PURPOSE: Define specialized tools for the ATS agent to use
+# WHAT: Tools that encapsulate complex logic like validation and formatting
+# WHY: Offloads heavy processing from the LLM to Python code for reliability
+# ==============================================================================
+
+
+@tool("Validate and Finalize Resume")
+def validate_and_finalize_resume(resume_json: str, job_description_json: str) -> str:
+    """
+    Validate, format, and finalize the resume for ATS compatibility.
+
+    This tool takes the assembled resume and job description, performs all
+    ATS validation checks, generates the required Markdown and JSON formats,
+    and returns the complete OptimizedResume object.
+
+    Args:
+        resume_json: JSON string representing the assembled Resume object
+        job_description_json: JSON string representing the JobDescription object
+
+    Returns:
+        JSON string of the complete OptimizedResume object
+    """
+    try:
+        logger.info("Tool 'Validate and Finalize Resume' called")
+
+        # 1. Parse Inputs
+        try:
+            resume_dict = json.loads(resume_json)
+            resume = Resume(**resume_dict)
+        except (json.JSONDecodeError, ValidationError) as e:
+            return f"Error parsing resume_json: {str(e)}. Ensure it matches the Resume model structure."
+
+        try:
+            job_dict = json.loads(job_description_json)
+            job_description = JobDescription(**job_dict)
+        except (json.JSONDecodeError, ValidationError) as e:
+            return f"Error parsing job_description_json: {str(e)}. Ensure it matches the JobDescription model structure."
+
+        # 2. Generate Formats
+        # We need skills categories for markdown generation.
+        # Since we don't have them explicitly passed, we'll try to infer or use a default.
+        skills_categories = {}
+        if resume.skills:
+            for skill in resume.skills:
+                # Check if skill object has category attribute (it might not if it's a dict or different model)
+                # The Resume model uses Skill objects, which have category.
+                if hasattr(skill, "category") and skill.category:
+                    if skill.category not in skills_categories:
+                        skills_categories[skill.category] = []
+                    skills_categories[skill.category].append(skill.skill_name)
+
+        markdown_content = generate_markdown_resume(resume, skills_categories)
+        json_content = generate_json_resume(resume)
+
+        # 3. Validate ATS Compatibility
+        ats_validation = validate_ats_compatibility(resume, job_description, markdown_content)
+
+        # 4. Construct Final Output
+        optimized_resume = OptimizedResume(
+            resume=resume,
+            markdown_content=markdown_content,
+            json_content=json_content,
+            ats_validation=ats_validation,
+            optimization_summary="Resume optimized and validated via ATS Specialist Tool.",
+            components_assembled={
+                "professional_summary": bool(resume.professional_summary),
+                "work_experience": bool(resume.work_experience),
+                "skills": bool(resume.skills),
+                "education": bool(resume.education),
+                "certifications": bool(resume.certifications),
+            },
+            quality_metrics={
+                "ats_score": ats_validation.overall_score,
+                "keyword_density": ats_validation.keyword_report.keyword_density,
+                "keyword_coverage": ats_validation.keyword_report.keyword_coverage,
+                "total_sections": len(ats_validation.section_validations),
+            },
+        )
+
+        return optimized_resume.model_dump_json()
+
+    except Exception as e:
+        logger.error(f"Tool execution failed: {e}", exc_info=True)
+        return f"Critical error in validate_and_finalize_resume: {str(e)}"
 
 
 # ==============================================================================

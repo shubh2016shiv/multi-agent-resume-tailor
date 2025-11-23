@@ -24,9 +24,14 @@ analyze_job_description_task:
   # A detailed description of the agent's objective for this task.
   # It provides step-by-step instructions for the LLM.
   description: >
-    Analyze the provided job description file to extract and structure all relevant information.
+    Analyze the provided job description content to extract and structure all relevant information.
+    
+    IMPORTANT: The job description content is already provided in clean Markdown format in the
+    CONTEXT section below. DO NOT attempt to use file-parsing tools or load files. Simply analyze
+    the content that has been provided to you.
+    
     Your task is to:
-    1. Read and parse the job description file from the path provided in inputs.
+    1. Analyze the job description content from the CONTEXT section.
     2. Extract the job title, company name, and identify the seniority level.
     3. Identify all requirements and qualifications, categorizing each as:
        - Must-have (e.g., required, mandatory, essential)
@@ -37,8 +42,7 @@ analyze_job_description_task:
     5. Identify key responsibilities and what success looks like in the role.
     6. Extract company culture indicators from the language and tone used.
     7. Compile a comprehensive list of ATS keywords that are critical for the resume.
-    Use the `job_analyzer` tool to parse the file, but enhance the analysis with your
-    expertise in reading between the lines to identify implicit requirements.
+    Use your expertise in reading between the lines to identify implicit requirements.
     Output a structured `JobDescription` model with your complete analysis.
   
   # Defines the success criteria for the task. The agent will work until its
@@ -62,9 +66,14 @@ analyze_job_description_task:
 extract_resume_content_task:
   description: >
     Extract and structure the candidate's resume information using LLM-based extraction.
+    
+    IMPORTANT: The resume content is already provided in clean Markdown format in the
+    CONTEXT section below (converted from the original PDF/DOCX file). DO NOT attempt to
+    use file-parsing tools or load files. Simply analyze the content that has been provided to you.
+    
     Your task is to:
-    1. Use the `resume_extractor` tool to load and convert the resume file into clean Markdown.
-    2. Analyze the Markdown content and extract all information into a structured `Resume` model, including:
+    1. Analyze the resume Markdown content from the CONTEXT section.
+    2. Extract all information into a structured `Resume` model, including:
        - Personal information (name, email, phone, location).
        - The professional summary or objective.
        - All work experience entries with job titles, companies, dates, descriptions,
@@ -74,8 +83,6 @@ extract_resume_content_task:
     3. Identify patterns of career growth and areas of deep expertise.
     4. Calculate the total years of professional experience.
     5. Ensure the accuracy and completeness of all extracted data.
-    The `resume_extractor` tool handles PDF, DOCX, and text files. You will parse the
-    clean Markdown it returns to populate the `Resume` model accurately.
     Output a structured `Resume` model with the complete career history.
   expected_output: >
     A comprehensive JSON object representing a `Resume`. This object must include:
@@ -98,7 +105,21 @@ extract_resume_content_task:
 create_alignment_strategy_task:
   description: >
     Create a comprehensive strategy for aligning the resume with the job requirements.
-    Your task is to:
+    
+    CRITICAL: You MUST output a valid JSON object that includes ALL of the following required fields.
+    Missing any of these fields will cause validation errors.
+    
+    REQUIRED FIELDS (ALL MANDATORY):
+    1. overall_fit_score (float, 0-100): Numeric score representing overall compatibility
+    2. summary_of_strategy (string): High-level strategic summary (2-3 sentences)
+    3. professional_summary_guidance (string): Specific instructions for the Professional Summary Writer
+    4. experience_guidance (string): Specific instructions for the Experience Optimizer
+    5. skills_guidance (string): Specific instructions for the Skills Optimizer
+    6. identified_matches (list): List of SkillMatch objects (can be empty list if no matches)
+    7. identified_gaps (list): List of SkillGap objects (can be empty list if no gaps)
+    8. keywords_to_integrate (list): List of keyword strings (at least 15 keywords)
+    
+    YOUR ANALYSIS WORKFLOW:
     1. Compare the extracted job requirements against the candidate's experience and skills.
     2. Identify all skill matches, categorizing them as direct, transferable, or implicit.
     3. Calculate a match percentage for each requirement.
@@ -107,22 +128,103 @@ create_alignment_strategy_task:
        achievements, which skills to prioritize, and which keywords must be incorporated.
     6. Develop content guidance for each section of the resume (summary, experience, skills).
     7. Set a target keyword density and identify high-priority keywords for ATS optimization.
+    
+    FIELD-BY-FIELD GUIDANCE:
+    
+    - overall_fit_score: Calculate a numeric score (0-100) based on:
+      * Percentage of must-have requirements met (40% weight)
+      * Percentage of should-have requirements met (30% weight)
+      * Years of experience alignment (20% weight)
+      * Domain/industry match (10% weight)
+    
+    - summary_of_strategy: Write 2-3 sentences describing the core strategy, e.g.:
+      "Emphasize backend development and cloud infrastructure experience while integrating 
+      DevOps keywords. Reframe microservices projects to highlight scalability and cost savings.
+      Downplay frontend work and focus on system architecture achievements."
+    
+    - professional_summary_guidance: Provide specific instructions for the summary writer, e.g.:
+      "Lead with '5+ years of backend development experience'. Mention Go, PostgreSQL, and 
+      Kubernetes in the first sentence. Include a quantifiable achievement related to system 
+      scalability or cost reduction. End with alignment to the company's cloud-first mission."
+    
+    - experience_guidance: Provide specific instructions for each major role, e.g.:
+      "For the 'Senior Engineer at TechCorp' role: Rewrite the first bullet to emphasize 
+      microservices architecture using Go and Kafka. Add metrics showing system throughput 
+      improvements. For the 'Developer at StartupCo' role: Condense to 2-3 bullets focusing 
+      only on backend API development, remove frontend work."
+    
+    - skills_guidance: Provide specific instructions for skills organization, e.g.:
+      "Create a 'Backend Technologies' category with Go, Python, RESTful APIs listed first.
+      Add a 'Cloud & DevOps' category with AWS, Docker, Kubernetes. Remove jQuery and 
+      Bootstrap as they're not relevant. Ensure PostgreSQL and Kafka appear prominently."
+    
+    - identified_matches: List of objects with structure:
+      {
+        "resume_skill": "Django Framework",
+        "job_requirement": "Experience with Python web frameworks",
+        "match_score": 90.0,
+        "justification": "Django is a popular Python web framework, directly fulfilling the requirement."
+      }
+    
+    - identified_gaps: List of objects with structure:
+      {
+        "missing_skill": "Kubernetes",
+        "importance": "must_have",
+        "suggestion": "Review project experience for any container orchestration work that can be highlighted."
+      }
+    
+    - keywords_to_integrate: List of at least 15 high-priority keywords from the job description, e.g.:
+      ["Go", "RESTful APIs", "microservices", "PostgreSQL", "Kafka", "RabbitMQ", "Docker", 
+       "Kubernetes", "AWS", "cloud infrastructure", "CI/CD", "Agile", "scalability", "system design"]
+    
+    PRE-OUTPUT VALIDATION CHECKLIST:
+    Before outputting your JSON, verify:
+    ✓ overall_fit_score is a number between 0-100
+    ✓ summary_of_strategy is a non-empty string (2-3 sentences)
+    ✓ professional_summary_guidance is a non-empty string with specific instructions
+    ✓ experience_guidance is a non-empty string with specific instructions
+    ✓ skills_guidance is a non-empty string with specific instructions
+    ✓ identified_matches is a list (can be empty [])
+    ✓ identified_gaps is a list (can be empty [])
+    ✓ keywords_to_integrate is a list with at least 15 keywords
+    
     Be analytical but also creative in identifying matches. Many apparent gaps are simply
     differences in terminology. Remain honest about true gaps and suggest how to address them
-    without fabrication. Output a complete `AlignmentStrategy` that will guide all subsequent
-    content generation agents.
+    without fabrication.
   expected_output: >
-    A detailed JSON object representing an `AlignmentStrategy`. This object must include:
-    - An overall fit percentage (0-100).
-    - A list of matched skills with quality scores.
-    - A list of skill gaps with suggestions for addressing each.
-    - A focus statement for the professional summary.
-    - A prioritized list of experiences to highlight.
-    - A skills prioritization strategy.
-    - A list of high-priority keywords (at least 15).
-    - Recommendations for reframing achievements and changing emphasis.
-    The output must contain specific, actionable guidance that content writers can follow directly
-    and conform to the `AlignmentStrategy` model structure.
+    A complete JSON object conforming to the AlignmentStrategy model structure.
+    
+    EXACT STRUCTURE REQUIRED:
+    {
+      "overall_fit_score": 78.5,
+      "summary_of_strategy": "Emphasize backend development and cloud infrastructure experience while integrating DevOps keywords. Reframe microservices projects to highlight scalability achievements.",
+      "identified_matches": [
+        {
+          "resume_skill": "Python",
+          "job_requirement": "Backend development with Python or Go",
+          "match_score": 95.0,
+          "justification": "5+ years of Python backend development directly matches requirement."
+        }
+      ],
+      "identified_gaps": [
+        {
+          "missing_skill": "Kubernetes",
+          "importance": "must_have",
+          "suggestion": "Review containerization projects for any orchestration work that can be highlighted."
+        }
+      ],
+      "keywords_to_integrate": ["Go", "RESTful APIs", "microservices", "PostgreSQL", "Kafka", "Docker", "Kubernetes", "AWS", "CI/CD", "Agile", "scalability", "system design", "cloud infrastructure", "DevOps", "monitoring"],
+      "professional_summary_guidance": "Lead with '5+ years of backend development experience'. Mention Python, PostgreSQL, and cloud technologies in the first sentence. Include a quantifiable achievement related to system scalability.",
+      "experience_guidance": "For 'Senior Engineer at TechCorp': Rewrite bullets to emphasize microservices architecture and API development. Add metrics showing performance improvements. For 'Developer at StartupCo': Focus on backend work only.",
+      "skills_guidance": "Create 'Backend Technologies' category with Python, Go, RESTful APIs first. Add 'Cloud & DevOps' category with AWS, Docker, Kubernetes. Remove outdated frontend skills."
+    }
+    
+    VALIDATION REQUIREMENTS:
+    - All 8 fields must be present (no missing fields)
+    - overall_fit_score must be a number (0-100)
+    - All guidance fields must contain specific, actionable instructions
+    - keywords_to_integrate must have at least 15 keywords
+    - identified_matches and identified_gaps can be empty lists but must be present
   
   # This task depends on the completion of the two tasks above.
   # The output of these tasks will be available in this task's context.
@@ -562,34 +664,31 @@ ats_optimization_task:
   description: >
     Validate and optimize the complete assembled resume for ATS compatibility.
     Your task is to:
-    1. Assemble all content components (summary, experience, skills, education).
-    2. Verify that all must-have keywords from the job posting appear at least once.
-    3. Check that keyword density is optimal (2-5% overall) and not stuffed.
-    4. Validate formatting for ATS parsing (no tables, columns, or complex layouts).
-    5. Ensure standard section headers are used (e.g., "Experience", "Skills", "Education").
-    6. Generate the final Markdown and JSON outputs for the optimized resume.
+    1. Assemble all content components (summary, experience, skills, education) into a valid `Resume` structure.
+    2. Use the `validate_and_finalize_resume` tool to generate the final output.
     
-    OUTPUT REQUIREMENT:
-    Return a single, complete JSON object containing:
-    - The complete resume data
-    - The formatted markdown version
-    - The structured JSON version
-    - Comprehensive ATS validation results (scores, keyword analysis, formatting checks)
-    - An optimization summary
+    CRITICAL INSTRUCTION:
+    Do NOT attempt to generate the final `OptimizedResume` JSON yourself. It is too complex.
+    Instead, you must:
+    1. Create a valid `Resume` JSON object from the assembled components.
+    2. Get the `JobDescription` JSON from the context.
+    3. Call `validate_and_finalize_resume(resume_json=..., job_description_json=...)`.
+    4. Return the output of this tool call as your final answer.
     
-    Perform all validation checks internally. Do NOT call individual validation functions
-    as separate steps. Include all validation results within your final JSON response.
+    Perform all validation checks internally via the tool. Do NOT call individual validation functions
+    as separate steps.
   expected_output: >
-    A single, complete JSON object with the following structure:
-    - "resume": object with full resume data (name, email, experiences, education, skills)
+    The JSON output returned by the `validate_and_finalize_resume` tool.
+    This will be a single, complete JSON object with the following structure:
+    - "resume": object with full resume data
     - "markdown_content": string containing the formatted markdown resume
     - "json_content": string containing the structured JSON resume
-    - "ats_validation": object with overall_score, keyword analysis, formatting issues, recommendations
-    - "optimization_summary": string describing the optimization work performed
-    - "components_assembled": object tracking which sections were included
-    - "quality_metrics": object with numeric quality metrics
+    - "ats_validation": object with validation results
+    - "optimization_summary": string
+    - "components_assembled": object
+    - "quality_metrics": object
     
-    Output ONLY valid JSON. Do not add markdown formatting or explanatory text outside the JSON.
+    Output ONLY the valid JSON returned by the tool.
   context:
     - write_professional_summary_task
     - optimize_experience_section_task

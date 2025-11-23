@@ -4031,6 +4031,17 @@ wheels = [
 ]
 
 [[package]]
+name = "pyscn"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/46/0687212fd1999cbca5b16bb488e908eb73c3058b8a55cf6bfc9d66ea2b22/pyscn-1.3.0-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:edba02c06f377ad8c765c48da63db2fcc5cb74b282e1ed92cbbcfb7726e4d77b", size = 7670831, upload-time = "2025-11-06T13:42:26.764Z" },
+    { url = "https://files.pythonhosted.org/packages/16/93/460e6efb280d34c6ddbb18cd0d0c59ea96df302e4807f341fef3c1c09103/pyscn-1.3.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:61a9f1a564a6669828b2aa84810c48263130f59be5f2215652c68055ab900c86", size = 7157610, upload-time = "2025-11-06T13:42:29.376Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/65/7123c537bfbf81bfbcd5f59bbb1c9a24f83be6915095e60981b278dd3d14/pyscn-1.3.0-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:3f13914ab385def7d217a1eed328d4f579c762de216be4309e8a25812a7556a7", size = 7687562, upload-time = "2025-11-06T13:42:31.484Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/58/1e391476bdc8dd7e16f7df6a29d77a9f21ed522ed313ef21b747b83edc49/pyscn-1.3.0-py3-none-win_amd64.whl", hash = "sha256:4ca75f9f4945dddcab29ae8d26ed0eee155417f070a72c2278fed7baebfc478e", size = 7993756, upload-time = "2025-11-06T13:42:33.957Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4404,6 +4415,7 @@ dev = [
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pylint" },
+    { name = "pyscn" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -4447,6 +4459,7 @@ requires-dist = [
     { name = "pylint", marker = "extra == 'dev'", specifier = ">=2.17.0" },
     { name = "pypdf2", marker = "extra == 'document-processing'", specifier = ">=3.0.0" },
     { name = "pyrate-limiter", specifier = ">=3.0.0" },
+    { name = "pyscn", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },

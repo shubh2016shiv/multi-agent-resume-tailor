@@ -41,16 +41,11 @@ jobs:
           # Verify no remaining lint issues (replaces flake8 checks; use --output-format=github for annotations)
           uv run ruff check --output-format=github src/ examples/
 
-      - name: Install pyscn
-        run: |
-          # Install pyscn using pipx (recommended method)
-          pipx install pyscn || pip install pyscn
-
       - name: pyscn Code Quality Check
         run: |
-          # Run pyscn check for code quality analysis
+          # Run pyscn check for code quality analysis using uv
           # This checks complexity, dead code, dependencies, and clones
-          pyscn check . || echo "pyscn check completed with warnings"
+          uv run pyscn check . || echo "pyscn check completed with warnings"
         
       - name: pyscn Analysis Report (on failure)
         if: failure()

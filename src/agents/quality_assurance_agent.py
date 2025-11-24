@@ -437,33 +437,42 @@ def create_quality_assurance_agent() -> Agent:
         config = get_agents_config()
         agent_config = config.get("quality_assurance_reviewer", {})
 
-        # Sub-stage 2.1.2: Validate required fields (role, goal, backstory)
+        # Sub-stage 2.1.2: Validate required fields (role, goal, backstory, llm)
         if not agent_config:
             logger.warning("quality_assurance_reviewer not found in agents.yaml, using defaults")
             agent_config = _get_default_qa_config()
 
-        # Extract configuration with fallbacks
-        role = agent_config.get("role", "Resume Quality Auditor with Quantitative Metrics")
-        goal = agent_config.get(
-            "goal",
-            "Conduct comprehensive quality evaluation using quantitative metrics across "
-            "Accuracy (40%), Relevance (35%), and ATS Optimization (25%). "
-            "Pass threshold: 80/100. Provide actionable feedback if failed.",
-        )
-        backstory = agent_config.get(
-            "backstory",
-            "You are a meticulous quality analyst with expertise in quantitative evaluation "
-            "and professional ethics. Your 12 years of experience in resume review has taught "
-            "you that subjective assessment is insufficient - you need measurable metrics. "
-            "You are the final gatekeeper preventing dishonest resumes from being sent to employers.",
-        )
+        # STRICT VALIDATION - All required fields MUST exist in agents.yaml
+        required_fields = ["role", "goal", "backstory", "llm"]
+        missing_fields = [
+            f for f in required_fields if f not in agent_config or not agent_config.get(f)
+        ]
 
-        # Extract LLM configuration
-        llm = agent_config.get("llm", "gemini/gemini-2.5-flash")
+        if missing_fields:
+            raise RuntimeError(
+                f"FATAL: Missing or empty required field(s) in quality_assurance_reviewer config: {missing_fields}\n"
+                "Please add ALL required fields to src/config/agents.yaml:\n"
+                "  - role (agent's persona)\n"
+                "  - goal (agent's objective)\n"
+                "  - backstory (agent's context)\n"
+                "  - llm (model to use, e.g., 'gemini/gemini-2.5-flash-lite')"
+            )
+
+        # Extract configuration - NO FALLBACKS, all validated above
+        role = agent_config["role"]
+        goal = agent_config["goal"]
+        backstory = agent_config["backstory"]
+        llm_model_config = agent_config["llm"]
+
         temperature = agent_config.get("temperature", 0.2)  # Low for objectivity
         verbose = agent_config.get("verbose", True)
 
-        logger.info(f"Creating Quality Assurance Reviewer agent with LLM: {llm}")
+        # Explicitly create LLM object to ensure correct model is used
+        from crewai import LLM
+
+        llm_instance = LLM(model=llm_model_config)
+
+        logger.info(f"Creating Quality Assurance Reviewer agent with LLM: {llm_model_config}")
 
         # Sub-stage 2.1.3: Error handling with graceful degradation
         # Stage 2.3: Agent Initialization
@@ -472,7 +481,7 @@ def create_quality_assurance_agent() -> Agent:
             role=role,
             goal=goal,
             backstory=backstory,
-            llm=llm,
+            llm=llm_instance,
             temperature=temperature,
             verbose=verbose,
             allow_delegation=False,  # QA agent works independently
@@ -495,11 +504,12 @@ def _get_default_qa_config() -> dict[str, Any]:
     """
     Get default configuration for Quality Assurance Reviewer agent.
 
-    This fallback configuration ensures the agent can be created even if
-    agents.yaml is missing or incomplete.
+    IMPORTANT: This fallback should NEVER be used in production.
+    The 'llm' field is intentionally OMITTED to force configuration via agents.yaml.
+    If this function is called and llm is missing, agent creation will fail with a clear error.
 
     Returns:
-        Dict[str, Any]: Default agent configuration
+        Dict[str, Any]: Default agent configuration (WITHOUT llm field)
     """
     return {
         "role": "Resume Quality Auditor with Quantitative Metrics",
@@ -525,7 +535,7 @@ def _get_default_qa_config() -> dict[str, Any]:
             "Your reviews are constructive and specific. When you identify issues, you explain "
             "the problem, why it's problematic, and how to fix it."
         ),
-        "llm": "gemini/gemini-2.5-flash",
+        # NO 'llm' field - MUST come from agents.yaml
         "temperature": 0.2,
         "verbose": True,
     }
@@ -1324,6 +1334,114 @@ def check_formatting_standards(tailored_resume: dict[str, Any]) -> list[str]:
 # ----------------------------------------------------------------------------
 
 
+def _safe_parse_json(json_str: str, param_name: str) -> dict[str, Any]:
+    """
+    Safely parse JSON string, handling double-encoding and syntax errors.
+
+    This function attempts multiple parsing strategies:
+    1. Direct JSON parsing
+    2. If that fails, try parsing as if it's a double-encoded string
+    3. If that fails, try to extract JSON from embedded text
+    4. If that fails, try to fix common JSON syntax errors
+    5. Provide detailed error messages for debugging
+
+    Args:
+        json_str: The JSON string to parse
+        param_name: Name of the parameter (for error messages)
+
+    Returns:
+        Parsed dictionary
+
+    Raises:
+        json.JSONDecodeError: If all parsing attempts fail
+    """
+    if not json_str or not isinstance(json_str, str):
+        raise ValueError(f"{param_name} must be a non-empty string")
+
+    # Strategy 1: Try direct parsing
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e1:
+        logger.debug(f"Direct JSON parse failed for {param_name}, trying alternative strategies...")
+
+        # Strategy 2: Try parsing as if it's double-encoded (JSON string inside JSON string)
+        try:
+            # If the string starts and ends with quotes, it might be double-encoded
+            if json_str.startswith('"') and json_str.endswith('"'):
+                # Remove outer quotes and unescape
+                unescaped = json_str[1:-1].encode().decode("unicode_escape")
+                return json.loads(unescaped)
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e2:
+            logger.debug(f"Double-decode attempt failed for {param_name}: {e2}")
+
+        # Strategy 3: Try to extract JSON from embedded text (e.g., if JSON is in a markdown code block or text)
+        try:
+            # Look for JSON object pattern: { ... }
+            json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", json_str, re.DOTALL)
+            if json_match:
+                extracted_json = json_match.group(0)
+                return json.loads(extracted_json)
+        except (json.JSONDecodeError, AttributeError) as e3:
+            logger.debug(f"JSON extraction attempt failed for {param_name}: {e3}")
+
+        # Strategy 4: Try to fix common JSON syntax errors
+        try:
+            # Fix common issues: trailing commas, etc.
+            fixed_json = json_str
+
+            # Remove trailing commas before closing braces/brackets (but be careful with strings)
+            # This regex looks for comma followed by whitespace and closing brace/bracket
+            fixed_json = re.sub(r",(\s*[}\]])", r"\1", fixed_json)
+
+            # Fix common typo: confidence_120score -> confidence_score
+            fixed_json = fixed_json.replace("confidence_120score", "confidence_score")
+
+            # Try parsing the fixed version
+            return json.loads(fixed_json)
+        except json.JSONDecodeError as e4:
+            logger.debug(f"Fixed JSON parse failed for {param_name}: {e4}")
+
+        # Strategy 5: Provide detailed error information
+        error_pos = e1.pos if hasattr(e1, "pos") else None
+        error_msg = str(e1)
+
+        # Extract context around the error position
+        context_start = max(0, (error_pos or 0) - 100)
+        context_end = min(len(json_str), (error_pos or 0) + 100)
+        context = json_str[context_start:context_end]
+
+        logger.error(f"JSON parsing failed for {param_name}")
+        logger.error(f"Error: {error_msg}")
+        logger.error(f"Error position: {error_pos}")
+        logger.error(f"Context around error: ...{context}...")
+        logger.error(f"Full JSON length: {len(json_str)} characters")
+
+        # Check for common issues
+        if "confidence_120score" in json_str:
+            logger.error("Found 'confidence_120score' - should be 'confidence_score'")
+        if json_str.count("{") != json_str.count("}"):
+            logger.error(
+                f"Unmatched braces: {{ count: {json_str.count('{')}, }} count: {json_str.count('}')}"
+            )
+        if json_str.count("[") != json_str.count("]"):
+            logger.error(
+                f"Unmatched brackets: [ count: {json_str.count('[')}, ] count: {json_str.count(']')}"
+            )
+
+        # Check for double-encoding indicators
+        if json_str.count('\\"') > json_str.count('"') / 2:
+            logger.error("Possible double-encoding detected: excessive escaped quotes")
+
+        raise json.JSONDecodeError(
+            f"Failed to parse {param_name} JSON after multiple attempts. "
+            f"Original error: {error_msg}. "
+            f"Error at position {error_pos}. "
+            f"Check logs for context around the error position.",
+            json_str,
+            error_pos or 0,
+        ) from e1
+
+
 @tool("Evaluate Resume Quality")
 @trace_tool
 def evaluate_resume_quality_tool(
@@ -1362,9 +1480,10 @@ def evaluate_resume_quality_tool(
         # Sub-stage 7.1.2: Input parsing (JSON strings to Python objects)
         logger.info("Quality evaluation tool invoked")
 
-        original_resume = json.loads(original_resume_json)
-        tailored_resume = json.loads(tailored_resume_json)
-        job_description = json.loads(job_description_json)
+        # Use safe JSON parsing that handles double-encoding and syntax errors
+        original_resume = _safe_parse_json(original_resume_json, "original_resume_json")
+        tailored_resume = _safe_parse_json(tailored_resume_json, "tailored_resume_json")
+        job_description = _safe_parse_json(job_description_json, "job_description_json")
 
         logger.info("Parsed input data successfully")
 
@@ -1477,8 +1596,7 @@ def evaluate_resume_quality_tool(
         result_json = quality_report.model_dump_json(indent=2)
 
         logger.info(
-            f"Quality evaluation complete. Overall score: {overall_score:.1f}/100, "
-            f"Passed: {passed}"
+            f"Quality evaluation complete. Overall score: {overall_score:.1f}/100, Passed: {passed}"
         )
 
         # WEAVE OBSERVABILITY: Log quality metrics to Weave dashboard
@@ -1492,7 +1610,7 @@ def evaluate_resume_quality_tool(
                 "ats_score": ats_optimization.ats_score,
                 "passed_threshold": passed,
                 "exaggerated_claims_count": len(accuracy.exaggerated_claims),
-                "missed_opportunities_count": len(relevance.missed_opportunities),
+                "missed_opportunities_count": len(relevance.missed_requirements),
             },
         )
 

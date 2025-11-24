@@ -308,11 +308,12 @@ def _get_default_config() -> dict:
     """
     Provide default configuration as a fallback.
 
-    This ensures the agent can still be created even if the YAML config
-    is unavailable or corrupted. These defaults are basic but functional.
+    IMPORTANT: This fallback should NEVER be used in production.
+    The 'llm' field is intentionally OMITTED to force configuration via agents.yaml.
+    If this function is called and llm is missing, agent creation will fail with a clear error.
 
     Returns:
-        Dictionary with default agent configuration
+        Dictionary with default agent configuration (WITHOUT llm field)
     """
     return {
         "role": "Gap Analysis Specialist",
@@ -325,7 +326,7 @@ def _get_default_config() -> dict:
             "identifying alignment between candidates and roles, recognizing both "
             "obvious matches and subtle gaps that could impact success."
         ),
-        "llm": "gemini/gemini-2.5-flash",
+        # NO 'llm' field - MUST come from agents.yaml
         "temperature": 0.3,
         "verbose": True,
     }
@@ -347,12 +348,33 @@ def create_gap_analysis_agent() -> Agent:
 
         logger.info("Creating Gap Analysis Specialist agent...")
 
+        # STRICT VALIDATION - All required fields MUST exist in agents.yaml
+        required_fields = ["role", "goal", "backstory", "llm"]
+        missing_fields = [f for f in required_fields if f not in config or not config.get(f)]
+
+        if missing_fields:
+            raise RuntimeError(
+                f"FATAL: Missing or empty required field(s) in gap_analysis_specialist config: {missing_fields}\n"
+                "Please add ALL required fields to src/config/agents.yaml:\n"
+                "  - role (agent's persona)\n"
+                "  - goal (agent's objective)\n"
+                "  - backstory (agent's context)\n"
+                "  - llm (model to use, e.g., 'gemini/gemini-2.5-flash-lite')"
+            )
+
+        # Explicitly create LLM object to ensure correct model is used
+        from crewai import LLM
+
+        llm_config = config["llm"]  # No .get() with default
+        llm_instance = LLM(model=llm_config)
+
         agent = Agent(
             role=config["role"],
             goal=config["goal"],
             backstory=config["backstory"],
             allow_delegation=False,
             verbose=True,
+            llm=llm_instance,
             # Resilience Parameters (Layer 1: CrewAI Native)
             max_retry_limit=agent_defaults.max_retry_limit,
             max_rpm=agent_defaults.max_rpm,

@@ -304,11 +304,18 @@ def create_job_analyzer_agent() -> Agent:
         # Load configuration
         config = _load_agent_config()
 
-        # Extract LLM settings - NO FALLBACK
-        if "llm" not in config:
-            raise ValueError(
-                "FATAL: Missing 'llm' field in job_description_analyst config.\n"
-                "Please add 'llm' field to src/config/agents.yaml"
+        # STRICT VALIDATION - All required fields MUST exist in agents.yaml
+        required_fields = ["role", "goal", "backstory", "llm"]
+        missing_fields = [f for f in required_fields if f not in config or not config.get(f)]
+
+        if missing_fields:
+            raise RuntimeError(
+                f"FATAL: Missing or empty required field(s) in job_description_analyst config: {missing_fields}\n"
+                "Please add ALL required fields to src/config/agents.yaml:\n"
+                "  - role (agent's persona)\n"
+                "  - goal (agent's objective)\n"
+                "  - backstory (agent's context)\n"
+                "  - llm (model to use, e.g., 'gemini/gemini-2.5-flash-lite')"
             )
 
         # Explicitly create LLM object to ensure correct model is used
@@ -318,9 +325,9 @@ def create_job_analyzer_agent() -> Agent:
         llm_instance = LLM(model=llm_config)
 
         agent = Agent(
-            role=config.get("role", "Job Description Analyzer"),
-            goal=config.get("goal", "Analyze job descriptions and extract key requirements"),
-            backstory=config.get("backstory", "Expert in analyzing job descriptions"),
+            role=config["role"],  # No fallback
+            goal=config["goal"],  # No fallback
+            backstory=config["backstory"],  # No fallback
             # NO TOOLS: Content is provided directly in CONTEXT by orchestrator
             llm=llm_instance,
         )

@@ -20,6 +20,24 @@
 # amounts of text but don't require deep creative reasoning.
 # ============================================================================
 
+# ------------------------------------------------------------------------------
+# JOB DESCRIPTION ANALYST
+# ------------------------------------------------------------------------------
+# This agent serves as the entry point for understanding what employers are truly
+# seeking in candidates. Its primary responsibility is to dissect job postings with
+# surgical precision, extracting not just the obvious requirements listed in bullet
+# points, but also the subtle signals embedded in language choices, tone, and structure.
+# The agent reads between the lines to identify implicit expectations that employers
+# may not explicitly state but definitely evaluate during screening. It categorizes
+# requirements by criticality, distinguishing between absolute must-haves that will
+# eliminate candidates if missing, and nice-to-haves that provide competitive advantage.
+# This agent also identifies the keywords that applicant tracking systems will scan for,
+# ensuring that downstream agents have the intelligence needed to optimize for both
+# automated screening and human review. By providing this comprehensive analysis, it
+# enables all subsequent agents to make informed decisions about how to position the
+# candidate's experience and skills in the most strategically relevant way.
+# ------------------------------------------------------------------------------
+
 job_description_analyst:
   # The role defines the agent's persona. It's the "who" they are.
   role: "Senior Job Requirements Analyst"
@@ -50,11 +68,29 @@ job_description_analyst:
 
   # LLM configuration specific to this agent. This can override global settings.
   # We use a model optimized for cost and speed for this analytical task.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   # Low temperature for factual, deterministic analysis.
   temperature: 0.2
   # Enables detailed logging for this agent's actions.
   verbose: true
+
+# ------------------------------------------------------------------------------
+# RESUME CONTENT EXTRACTOR
+# ------------------------------------------------------------------------------
+# This agent functions as an intelligent parser that transforms unstructured resume
+# text into rich, structured data that can be programmatically analyzed and optimized.
+# Unlike simple text extraction, this agent understands context and semantics, recognizing
+# that a bullet point about "leading a team" implies leadership skills even if not
+# explicitly labeled as such. It identifies achievements buried in job descriptions,
+# extracts quantifiable metrics that demonstrate impact, and categorizes skills into
+# technical, domain-specific, and transferable buckets. The agent also recognizes career
+# progression patterns, identifying themes of growth and specialization that can be
+# leveraged in strategic positioning. By converting free-form resume content into
+# structured data models, this agent enables precise comparison against job requirements
+# and facilitates targeted optimization. It ensures that no valuable information is lost
+# in translation and that every achievement, skill, and experience is captured in a format
+# that subsequent agents can analyze and enhance.
+# ------------------------------------------------------------------------------
 
 resume_content_extractor:
   role: "Resume Data Extraction Specialist"
@@ -77,11 +113,30 @@ resume_content_extractor:
     information in ways that enable strategic comparison and optimization. You pay special
     attention to achievements that demonstrate impact, skills that indicate depth of expertise,
     and experiences that show career progression.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.2
   verbose: true
 
-gap_alignment_strategist:
+# ------------------------------------------------------------------------------
+# GAP ANALYSIS SPECIALIST
+# ------------------------------------------------------------------------------
+# This agent serves as the strategic brain of the system, performing the critical task
+# of comparing what the candidate has against what the employer wants, then creating a
+# comprehensive game plan for bridging the gap. It doesn't just identify mismatches; it
+# recognizes opportunities for reframing existing experience to better align with job
+# requirements. The agent understands that many apparent gaps are actually terminology
+# mismatches or emphasis problems rather than true skill deficiencies. It creates a
+# detailed alignment strategy that guides every downstream content generation decision,
+# specifying which keywords to integrate naturally, which achievements to feature
+# prominently, how to reorder skills for maximum relevance, and where honest gaps exist
+# that require acknowledgment or creative bridging through transferable skills. This
+# agent is committed to truthfulness, never suggesting fabrication, but excelling at
+# helping candidates tell their professional story in the most compelling and relevant
+# way for each specific opportunity. Its strategic guidance ensures that all subsequent
+# content generation is focused, coherent, and maximally aligned with the target role.
+# ------------------------------------------------------------------------------
+
+gap_analysis_specialist:
   role: "Career Alignment Strategist"
   goal: >
     Compare job requirements against resume content to create a comprehensive alignment
@@ -105,7 +160,7 @@ gap_alignment_strategist:
     You are committed to truthfulness - you never suggest fabricating experience, but you
     excel at helping people tell their professional story in the most compelling, relevant way
     for each specific opportunity.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.3
   verbose: true
 
@@ -116,6 +171,25 @@ gap_alignment_strategist:
 # and creative model like Gemini 2.5 Flash to ensure the generated text is high-quality,
 # professional, and engaging.
 # ============================================================================
+
+# ------------------------------------------------------------------------------
+# PROFESSIONAL SUMMARY WRITER
+# ------------------------------------------------------------------------------
+# This agent crafts the critical opening paragraph that determines whether a resume
+# gets read or discarded within the first six seconds of recruiter review. It operates
+# at the intersection of marketing copywriting and professional credibility, creating
+# summaries that must simultaneously pass algorithmic screening through keyword presence
+# and capture human attention through compelling narrative. The agent generates multiple
+# distinct drafts using different strategic frameworks, then selects the version that
+# best balances keyword optimization with authentic voice and engagement. It understands
+# that professional summaries must accomplish several goals at once: immediately demonstrate
+# fit for the target role, highlight the most impressive and differentiating achievements,
+# integrate critical keywords naturally without sounding robotic, and match the tone and
+# seniority level of the position. This agent never uses generic phrases or clichés,
+# ensuring every word either matches a job requirement, demonstrates value, or strengthens
+# credibility. By distilling complex careers into clear, compelling narratives, it creates
+# the essential first impression that motivates reviewers to continue reading the full resume.
+# ------------------------------------------------------------------------------
 
 professional_summary_writer:
   role: "Executive Summary Specialist"
@@ -146,10 +220,30 @@ professional_summary_writer:
     a job requirement, demonstrating value, or strengthening credibility. You write in active
     voice, lead with strengths, and ensure the summary makes the reader want to continue
     reviewing the full resume.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   # Higher temperature for more creative and nuanced writing.
   temperature: 0.5
   verbose: true
+
+# ------------------------------------------------------------------------------
+# EXPERIENCE SECTION OPTIMIZER
+# ------------------------------------------------------------------------------
+# This agent transforms job descriptions into achievement narratives through an iterative
+# refinement process that ensures consistently high-quality output. Unlike agents that
+# generate content once and hope for the best, this agent follows a disciplined improvement
+# cycle: generate initial bullets, evaluate them objectively using quality scoring tools,
+# analyze the specific weaknesses identified in the critique, regenerate bullets addressing
+# each issue, and repeat until quality thresholds are met or iteration limits are reached.
+# The agent excels at reframing responsibilities to emphasize outcomes over tasks, finding
+# and incorporating keywords naturally, quantifying achievements with specific metrics,
+# using strong action verbs that convey leadership and results, and structuring bullets
+# by relevance to the target role. It maintains complete truthfulness, never fabricating
+# achievements or exaggerating scope, but helps professionals present their work compellingly
+# by transforming generic task descriptions into impact-focused achievement statements.
+# The iterative approach with objective evaluation ensures that experience bullets meet
+# professional standards for specificity, impact, and relevance, while the iteration
+# history provides transparency into the improvement process.
+# ------------------------------------------------------------------------------
 
 experience_section_optimizer:
   role: "Career Narrative Specialist"
@@ -194,12 +288,31 @@ experience_section_optimizer:
     exaggerate scope, but you help professionals present their work compellingly by
     transforming "Managed team" into "Led cross-functional team of 8 to deliver project
     2 weeks ahead of schedule, reducing costs by 15%."
-  llm: gemini/gemini-2.0-flash  # Optimal for iterative workflows: fast (5-15s), cheap, reliable JSON
+  llm: gemini/gemini-2.5-flash-lite  # Optimal for iterative workflows: fast (5-15s), cheap, reliable JSON
   temperature: 0.5
   verbose: true
   # SAFETY LIMITS: Prevent infinite loops (SURGICAL FIX - 2025-11-24)
   max_iter: 10  # Maximum iterations - allows 2-3 iterations per experience entry
   max_execution_time: 180  # 3 minutes timeout - prevents runaway execution
+
+# ------------------------------------------------------------------------------
+# SKILLS SECTION STRATEGIST
+# ------------------------------------------------------------------------------
+# This agent optimizes the skills section to serve its dual purpose of passing automated
+# screening algorithms and providing human reviewers with a quick, scannable inventory of
+# capabilities. It understands that skills sections are often the primary target for
+# applicant tracking system keyword matching, making strategic ordering and terminology
+# choices critical for resume visibility. The agent reorders skills to prioritize must-have
+# requirements from the job posting first, then should-haves, then additional relevant
+# skills that strengthen candidacy. It groups related skills logically into categories
+# that make sense for the target role and industry, uses exact terminology from the job
+# description where accurate to maximize keyword matching, and ensures every listed skill
+# is verifiable through evidence in the experience section. The agent is meticulous about
+# consistency, never adding skills that aren't demonstrated in work history, but ensuring
+# every verifiable skill is captured and positioned appropriately. By optimizing both the
+# content and structure of the skills section, this agent maximizes the chances of passing
+# automated screening while making it easy for human reviewers to quickly assess technical fit.
+# ------------------------------------------------------------------------------
 
 skills_section_strategist:
   role: "Skills Optimization Specialist"
@@ -228,7 +341,7 @@ skills_section_strategist:
     the job posting first, then should-haves, then additional relevant skills that strengthen
     candidacy. You are meticulous about terminology. You never add skills not evidenced in
     experience, but you ensure every verifiable skill is captured and prioritized appropriately.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.4
   verbose: true
   # OPTIMIZATION 7: Output length constraints to reduce token usage
@@ -241,6 +354,25 @@ skills_section_strategist:
 # These final agents validate the generated content. We can again use a fast,
 # cost-effective model as the task is more analytical than creative.
 # ============================================================================
+
+# ------------------------------------------------------------------------------
+# ATS OPTIMIZATION SPECIALIST
+# ------------------------------------------------------------------------------
+# This agent serves as the technical validator that ensures the resume will successfully
+# navigate applicant tracking systems without parsing errors or keyword matching failures.
+# It brings deep technical knowledge of how these systems parse different file formats,
+# extract structured data, match keywords, and rank candidates. The agent runs systematic
+# compatibility checks: verifying that every must-have keyword from the job posting appears
+# at least once, ensuring keyword density falls in the optimal range that signals relevance
+# without triggering keyword stuffing penalties, validating that section headers use standard
+# terminology that ATS systems reliably recognize, confirming no tables or complex formatting
+# that breaks parsing, and testing that contact information is easily extractable. It also
+# assembles all optimized components into the final resume structure, generating both
+# human-readable and machine-readable formats. This agent acts as the final technical
+# gatekeeper before resume delivery, catching formatting issues, missing keywords, or
+# structural problems that could cause the resume to be rejected by automated systems
+# before any human ever sees it.
+# ------------------------------------------------------------------------------
 
 ats_optimization_specialist:
   role: "Applicant Tracking System Optimizer"
@@ -273,9 +405,29 @@ ats_optimization_specialist:
     IMPORTANT: You are a "finalizer" agent. Your job is to assemble the complete,
     production-ready resume with all metadata. Output everything at once in a single
     comprehensive response.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.1
   verbose: true
+
+# ------------------------------------------------------------------------------
+# QUALITY ASSURANCE REVIEWER
+# ------------------------------------------------------------------------------
+# This agent functions as the final ethical and quality checkpoint, conducting comprehensive
+# evaluation using quantitative metrics across three critical dimensions: accuracy, relevance,
+# and optimization. It verifies that all claims in the tailored resume are truthful and
+# supported by the original resume, using semantic understanding to detect exaggerations,
+# unsupported skills, or inflated metrics. The agent ensures that all critical job requirements
+# are addressed effectively, identifying missed opportunities where relevant experience wasn't
+# highlighted. It validates keyword coverage and format compatibility without keyword stuffing.
+# Unlike subjective reviews, this agent employs data-driven methodology with measurable metrics
+# and weighted scoring that produces an overall quality score. Resumes must achieve a minimum
+# threshold to pass, and failures trigger specific, actionable feedback on what needs improvement.
+# This agent takes its role as ethical gatekeeper seriously, preventing dishonest resumes from
+# being sent to employers because exaggerated claims damage candidate credibility and professional
+# reputation. By providing constructive, specific feedback when issues are identified, it ensures
+# that the final resume meets professional standards for truthfulness, relevance, and technical
+# optimization.
+# ------------------------------------------------------------------------------
 
 quality_assurance_reviewer:
   role: "Resume Quality Auditor with Quantitative Metrics"
@@ -302,6 +454,6 @@ quality_assurance_reviewer:
     Your reviews are constructive and specific. When you identify issues, you explain the problem,
     why it's problematic, and how to fix it. You use the `evaluate_resume_quality` tool to
     generate quantitative scores, then interpret the results to provide actionable feedback.
-  llm: gemini/gemini-2.0-flash
+  llm: gemini/gemini-2.5-flash-lite
   temperature: 0.2
   verbose: true

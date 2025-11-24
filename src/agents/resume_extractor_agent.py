@@ -137,7 +137,7 @@ try:
     from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.resume import Resume
-    from src.tools.resume_parser import parse_resume
+    # from src.tools.resume_parser import parse_resume  # Unused import
 except ImportError:
     # Fallback for when running this file directly
     import sys
@@ -147,7 +147,6 @@ except ImportError:
     from src.core.config import get_agents_config, get_config
     from src.core.logger import get_logger
     from src.data_models.resume import Resume
-    from src.tools.resume_parser import parse_resume
 
 logger = get_logger(__name__)
 
@@ -200,7 +199,7 @@ def _load_agent_config() -> dict:
     try:
         # SUB-STAGE 1.2.1: Load Configuration from YAML
         agents_config = get_agents_config()
-        config = agents_config.get("resume_extractor", {})
+        config = agents_config.get("resume_content_extractor", {})
 
         # SUB-STAGE 1.2.2: Validate Required Fields
         required_fields = ["role", "goal", "backstory"]
@@ -229,53 +228,21 @@ def _load_agent_config() -> dict:
 
 def _get_default_config() -> dict:
     """
-    Provide default configuration as a fallback.
+    NO DEFAULTS - Configuration must come from agents.yaml.
 
-    STAGE: 1.3 - Default Configuration Fallback
-    PURPOSE: Ensure agent can function even without configuration files
-
-    SUB-STAGES:
-    -----------
-    1.3.1: Define Default Agent Identity
-        - Sets role: "Resume Extraction Specialist"
-        - Defines clear goal for the agent's purpose
-        - Creates backstory that explains agent's expertise
-
-    1.3.2: Set Default LLM Configuration
-        - Model: "gemini/gemini-2.5-flash" (fast, cost-effective)
-        - Temperature: 0.0 (deterministic, factual extraction)
-        - Ensures consistent, accurate data extraction
-
-    1.3.3: Configure Default Behavior
-        - Verbose: True (detailed logging for debugging)
-        - Provides transparency into agent operations
-
-    Returns:
-        dict: Complete default configuration dictionary
-
-    Design Notes:
-        - Defaults are production-ready, not just placeholders
-        - Temperature 0.0 ensures consistent extraction (no creativity needed)
-        - Verbose mode helps with debugging and monitoring
+    Raises:
+        RuntimeError: Always raises to force configuration fix
     """
-    # SUB-STAGE 1.3.1: Define Default Agent Identity
-    return {
-        "role": "Resume Extraction Specialist",
-        "goal": (
-            "Extract all relevant information from the resume file and structure it "
-            "into the canonical Resume data model."
-        ),
-        "backstory": (
-            "You are an expert data extraction specialist with deep knowledge of resume formats. "
-            "You can parse complex documents and identify key details like skills, experience, "
-            "and education with high accuracy."
-        ),
-        # SUB-STAGE 1.3.2: Set Default LLM Configuration
-        "llm": "gemini/gemini-2.5-flash",
-        "temperature": 0.0,  # Deterministic extraction, no creativity needed
-        # SUB-STAGE 1.3.3: Configure Default Behavior
-        "verbose": True,  # Detailed logging for debugging
-    }
+    raise RuntimeError(
+        "FATAL: Resume Content Extractor agent configuration is missing from agents.yaml.\n"
+        "Please add the 'resume_content_extractor' section to src/config/agents.yaml with all required fields:\n"
+        "  - role\n"
+        "  - goal\n"
+        "  - backstory\n"
+        "  - llm (e.g., 'gemini/gemini-2.0-flash')\n"
+        "  - temperature\n"
+        "  - verbose"
+    )
 
 
 # ==============================================================================
@@ -342,9 +309,20 @@ def create_resume_extractor_agent() -> Agent:
         # SUB-STAGE 2.1.1: Load agent-specific configuration
         config = _load_agent_config()
 
-        # SUB-STAGE 2.1.2: Extract LLM settings
-        # llm_model = config.get("llm", "gemini/gemini-2.5-flash")  # Unused variable - kept for potential future refactoring
-        # temperature = config.get("temperature", 0.0)  # Unused variable - kept for potential future refactoring
+        # STRICT VALIDATION - All required fields MUST exist in agents.yaml
+        required_fields = ["role", "goal", "backstory", "llm"]
+        missing_fields = [f for f in required_fields if f not in config or not config.get(f)]
+
+        if missing_fields:
+            raise RuntimeError(
+                f"FATAL: Missing or empty required field(s) in resume_content_extractor config: {missing_fields}\n"
+                "Please add ALL required fields to src/config/agents.yaml:\n"
+                "  - role (agent's persona)\n"
+                "  - goal (agent's objective)\n"
+                "  - backstory (agent's context)\n"
+                "  - llm (model to use, e.g., 'gemini/gemini-2.5-flash-lite')"
+            )
+
         verbose = config.get("verbose", True)
 
         # SUB-STAGE 2.1.3: Load application-wide resilience settings
@@ -358,12 +336,19 @@ def create_resume_extractor_agent() -> Agent:
         # SUB-STAGE 2.2.1: Set agent identity from configuration
         # SUB-STAGE 2.2.2: Configure behavior (verbose logging, no delegation)
         # SUB-STAGE 2.2.3: Initialize CrewAI Agent object
+
+        # Explicitly create LLM object to ensure correct model is used
+        from crewai import LLM
+
+        llm_config = config["llm"]  # No .get() with default
+        llm_instance = LLM(model=llm_config)
+
         agent = Agent(
-            role=config.get("role", "Resume Extractor"),
-            goal=config.get("goal", "Extract structured data from resumes"),
-            backstory=config.get("backstory", "Expert in resume parsing"),
-            # SUB-STAGE 2.3.2: Assign tool to agent
-            tools=[parse_resume],  # parse_resume tool imported at module level
+            role=config["role"],  # No fallback
+            goal=config["goal"],  # No fallback
+            backstory=config["backstory"],  # No fallback
+            # NO TOOLS: Content is provided directly in CONTEXT by orchestrator
+            llm=llm_instance,
             verbose=verbose,
             allow_delegation=False,  # Single responsibility - no delegation needed
             # ==================================================================

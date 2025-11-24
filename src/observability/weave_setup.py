@@ -74,6 +74,7 @@ INTEGRATION NOTES:
 """
 
 import functools
+import inspect
 import os
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -265,6 +266,30 @@ def trace_agent(func: F) -> F:
             def traced_wrapper(*args, **kwargs):
                 return func(*args, **kwargs)
 
+            # Remove all annotations to prevent Weave from introspecting UnionType
+            # This avoids the "'types.UnionType' object has no attribute '__name__'" error
+            traced_wrapper.__annotations__ = {}
+
+            # Create a signature without annotations to prevent introspection issues
+            try:
+                sig = inspect.signature(func)
+                # Create a new signature with empty annotations
+                params = []
+                for param in sig.parameters.values():
+                    # Create parameter without annotation
+                    new_param = inspect.Parameter(
+                        param.name,
+                        param.kind,
+                        default=param.default,
+                        annotation=inspect.Parameter.empty,
+                    )
+                    params.append(new_param)
+                new_sig = inspect.Signature(params, return_annotation=inspect.Signature.empty)
+                traced_wrapper.__signature__ = new_sig
+            except (ValueError, TypeError):
+                # If signature introspection fails, just proceed without it
+                pass
+
             # Use Weave's op decorator with explicit name to avoid signature introspection
             traced_func = weave.op(name=func.__name__)(traced_wrapper)
             result = traced_func(*args, **kwargs)
@@ -334,6 +359,30 @@ def trace_tool(func: F) -> F:
             # This wrapper will be traced by Weave instead of the original function
             def traced_wrapper(*args, **kwargs):
                 return func(*args, **kwargs)
+
+            # Remove all annotations to prevent Weave from introspecting UnionType
+            # This avoids the "'types.UnionType' object has no attribute '__name__'" error
+            traced_wrapper.__annotations__ = {}
+
+            # Create a signature without annotations to prevent introspection issues
+            try:
+                sig = inspect.signature(func)
+                # Create a new signature with empty annotations
+                params = []
+                for param in sig.parameters.values():
+                    # Create parameter without annotation
+                    new_param = inspect.Parameter(
+                        param.name,
+                        param.kind,
+                        default=param.default,
+                        annotation=inspect.Parameter.empty,
+                    )
+                    params.append(new_param)
+                new_sig = inspect.Signature(params, return_annotation=inspect.Signature.empty)
+                traced_wrapper.__signature__ = new_sig
+            except (ValueError, TypeError):
+                # If signature introspection fails, just proceed without it
+                pass
 
             # Use Weave's op decorator with explicit name to avoid signature introspection
             traced_func = weave.op(name=func.__name__)(traced_wrapper)

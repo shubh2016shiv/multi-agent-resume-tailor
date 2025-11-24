@@ -528,11 +528,18 @@ def create_summary_writer_agent() -> Agent:
         # Load configuration
         config = _load_agent_config()
 
-        # Extract LLM settings - NO FALLBACK
-        if "llm" not in config:
-            raise ValueError(
-                "FATAL: Missing 'llm' field in professional_summary_writer config.\n"
-                "Please add 'llm' field to src/config/agents.yaml"
+        # STRICT VALIDATION - All required fields MUST exist in agents.yaml
+        required_fields = ["role", "goal", "backstory", "llm"]
+        missing_fields = [f for f in required_fields if f not in config or not config.get(f)]
+
+        if missing_fields:
+            raise RuntimeError(
+                f"FATAL: Missing or empty required field(s) in professional_summary_writer config: {missing_fields}\n"
+                "Please add ALL required fields to src/config/agents.yaml:\n"
+                "  - role (agent's persona)\n"
+                "  - goal (agent's objective)\n"
+                "  - backstory (agent's context)\n"
+                "  - llm (model to use, e.g., 'gemini/gemini-2.5-flash-lite')"
             )
 
         llm_model_config = config["llm"]
@@ -555,9 +562,9 @@ def create_summary_writer_agent() -> Agent:
         # self-critique internally as part of its reasoning process, then output
         # the final structured result with critique embedded in each draft.
         agent = Agent(
-            role=config["role"],
-            goal=config["goal"],
-            backstory=config["backstory"],
+            role=config["role"],  # No fallback
+            goal=config["goal"],  # No fallback
+            backstory=config["backstory"],  # No fallback
             tools=[],  # No tools - agent outputs structured data directly
             llm=llm_instance,
             temperature=temperature,

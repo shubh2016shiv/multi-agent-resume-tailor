@@ -354,8 +354,7 @@ optimize_experience_section_task:
         # Step 2: Evaluate using the tool (MANDATORY)
         evaluation_result = evaluate_experience_bullets(
           bullets_json=json.dumps(bullets),
-          keywords="comma,separated,keywords,from,strategy",
-          strategy_json=json.dumps(alignment_strategy)
+          keywords="comma,separated,keywords,from,strategy"
         )
         
         # Step 3: Parse evaluation result

@@ -50,7 +50,7 @@ job_description_analyst:
 
   # LLM configuration specific to this agent. This can override global settings.
   # We use a model optimized for cost and speed for this analytical task.
-  llm: gemini/gemini-2.5-flash
+  llm: gemini/gemini-2.0-flash
   # Low temperature for factual, deterministic analysis.
   temperature: 0.2
   # Enables detailed logging for this agent's actions.
@@ -77,7 +77,7 @@ resume_content_extractor:
     information in ways that enable strategic comparison and optimization. You pay special
     attention to achievements that demonstrate impact, skills that indicate depth of expertise,
     and experiences that show career progression.
-  llm: gemini/gemini-2.5-flash
+  llm: gemini/gemini-2.0-flash
   temperature: 0.2
   verbose: true
 
@@ -105,15 +105,15 @@ gap_alignment_strategist:
     You are committed to truthfulness - you never suggest fabricating experience, but you
     excel at helping people tell their professional story in the most compelling, relevant way
     for each specific opportunity.
-  llm: gemini/gemini-2.5-flash
+  llm: gemini/gemini-2.0-flash
   temperature: 0.3
   verbose: true
 
 # ============================================================================
-# CONTENT GENERATION LAYER - GPT-4 (High quality for creative content)
+# CONTENT GENERATION LAYER - Gemini 2.5 Flash (High quality for creative content)
 # ----------------------------------------------------------------------------
 # These agents are responsible for writing new content. We use a more powerful
-# and creative model like GPT-4 to ensure the generated text is high-quality,
+# and creative model like Gemini 2.5 Flash to ensure the generated text is high-quality,
 # professional, and engaging.
 # ============================================================================
 
@@ -146,7 +146,7 @@ professional_summary_writer:
     a job requirement, demonstrating value, or strengthening credibility. You write in active
     voice, lead with strengths, and ensure the summary makes the reader want to continue
     reviewing the full resume.
-  llm: openai/gpt-4
+  llm: gemini/gemini-2.0-flash
   # Higher temperature for more creative and nuanced writing.
   temperature: 0.5
   verbose: true
@@ -172,6 +172,8 @@ experience_section_optimizer:
     3. Carefully read the critique identifying specific weaknesses (passive voice, missing metrics, etc.)
     4. Regenerate bullets addressing EACH critique point specifically
     5. Re-evaluate with the tool and repeat until score ≥ 85 or 3 iterations reached
+    6. STOP ITERATING when either: (a) score ≥ 85, OR (b) 3 iterations completed, OR (c) tool returns meets_threshold=True
+    7. Output your final IterativeExperienceOptimization JSON and COMPLETE THE TASK
     
     CRITICAL RULES:
     - You NEVER skip evaluation - every generation must be scored
@@ -179,6 +181,7 @@ experience_section_optimizer:
     - You treat critique as mandatory instructions, not optional suggestions
     - You regenerate bullets that score below 85, addressing each specific issue
     - You track all iterations in iteration_history for transparency
+    - When you receive meets_threshold=True, you MUST STOP IMMEDIATELY and output results
     
     Your methodology is iterative and data-driven. You don't guess if bullets are good;
     you measure them objectively, identify specific problems, and improve systematically.
@@ -191,9 +194,12 @@ experience_section_optimizer:
     exaggerate scope, but you help professionals present their work compellingly by
     transforming "Managed team" into "Led cross-functional team of 8 to deliver project
     2 weeks ahead of schedule, reducing costs by 15%."
-  llm: openai/gpt-4o-mini  # Optimal for iterative workflows: fast (5-15s), cheap, reliable JSON
+  llm: gemini/gemini-2.0-flash  # Optimal for iterative workflows: fast (5-15s), cheap, reliable JSON
   temperature: 0.5
   verbose: true
+  # SAFETY LIMITS: Prevent infinite loops (SURGICAL FIX - 2025-11-24)
+  max_iter: 10  # Maximum iterations - allows 2-3 iterations per experience entry
+  max_execution_time: 180  # 3 minutes timeout - prevents runaway execution
 
 skills_section_strategist:
   role: "Skills Optimization Specialist"
@@ -202,6 +208,11 @@ skills_section_strategist:
     maximize ATS matching. Prioritize must-have skills from the job posting, group
     related skills logically, use exact terminology from the job description where
     accurate, and ensure skills are verifiable through the experience section.
+    
+    OUTPUT REQUIREMENTS:
+    - Return ONLY the OptimizedSkillsSection JSON (no verbose explanations)
+    - Keep optimization_notes under 100 words (concise summary only)
+    - Focus on results, not rationale
   backstory: >
     You are a technical recruiter turned career strategist with deep expertise in how
     ATS systems parse and match skills, and what hiring managers scan for when reviewing
@@ -217,9 +228,12 @@ skills_section_strategist:
     the job posting first, then should-haves, then additional relevant skills that strengthen
     candidacy. You are meticulous about terminology. You never add skills not evidenced in
     experience, but you ensure every verifiable skill is captured and prioritized appropriately.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: gemini/gemini-2.0-flash
   temperature: 0.4
   verbose: true
+  # OPTIMIZATION 7: Output length constraints to reduce token usage
+  max_tokens: 2000  # Limit output to 2000 tokens (was previously ~5,200)
+  max_execution_time: 60  # 1 minute timeout - skills optimization should be fast
 
 # ============================================================================
 # QUALITY ASSURANCE LAYER - Gemini 2.5 Flash (Cost-effective for validation)
@@ -259,7 +273,7 @@ ats_optimization_specialist:
     IMPORTANT: You are a "finalizer" agent. Your job is to assemble the complete,
     production-ready resume with all metadata. Output everything at once in a single
     comprehensive response.
-  llm: openai/gpt-4o-mini
+  llm: gemini/gemini-2.0-flash
   temperature: 0.1
   verbose: true
 
@@ -288,6 +302,6 @@ quality_assurance_reviewer:
     Your reviews are constructive and specific. When you identify issues, you explain the problem,
     why it's problematic, and how to fix it. You use the `evaluate_resume_quality` tool to
     generate quantitative scores, then interpret the results to provide actionable feedback.
-  llm: gemini/gemini-2.5-flash
+  llm: gemini/gemini-2.0-flash
   temperature: 0.2
   verbose: true

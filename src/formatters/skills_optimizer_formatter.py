@@ -30,6 +30,7 @@ Design Philosophy:
 
 from typing import Any
 
+from src.core.config import get_config
 from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
@@ -37,6 +38,7 @@ from src.data_models.strategy import AlignmentStrategy
 from src.formatters.base_formatter import FormatType, estimate_tokens, format_data
 
 logger = get_logger(__name__)
+config = get_config()
 
 
 # ==============================================================================
@@ -78,20 +80,25 @@ def _extract_skills_for_optimization(resume: Resume) -> dict[str, Any]:
     skills_list = []
 
     for skill in resume.skills:
+        # OPTIMIZATION 1: Only include essential fields for skills optimization
+        # Removed: justification, evidence, confidence_score, years_of_experience
+        # These fields are only used by Resume Extractor for AI-inferred skills
+        # Skills Optimizer only needs: name, proficiency, and optional category
         skill_entry = {
             "skill_name": skill.skill_name,
-            "proficiency_level": skill.proficiency_level
-            if skill.proficiency_level
-            else "Not Specified",
+            "proficiency_level": skill.proficiency_level or "Not Specified",
         }
 
-        # Include category if available for better organization
+        # Include category only if it exists (don't force "Not Specified")
         if skill.category:
             skill_entry["category"] = skill.category
 
         skills_list.append(skill_entry)
 
-    logger.debug(f"Extracted {len(skills_list)} skills from resume for optimization")
+    logger.debug(
+        f"Extracted {len(skills_list)} skills from resume for optimization "
+        f"(optimized format: name + proficiency + optional category)"
+    )
 
     return {"skills": skills_list}
 
@@ -99,6 +106,48 @@ def _extract_skills_for_optimization(resume: Resume) -> dict[str, Any]:
 # ==============================================================================
 # JOB DESCRIPTION DATA EXTRACTION FOR SKILLS OPTIMIZATION
 # ==============================================================================
+
+
+def _condense_requirement_text(requirement_text: str, max_length: int = 100) -> str:
+    """
+    Condense verbose job requirement text to reduce token usage.
+
+    OPTIMIZATION 5: This function implements smart condensing that:
+    1. Truncates very long requirements (>max_length chars)
+    2. Preserves key skill names and importance indicators
+    3. Adds ellipsis to indicate truncation
+
+    This is controlled by the `enable_condensed_formatting` feature flag.
+    When disabled, the full text is returned unchanged for easier debugging.
+
+    Args:
+        requirement_text: The full job requirement text
+        max_length: Maximum character length (default: 100)
+
+    Returns:
+        Condensed or original text based on feature flag
+
+    Example:
+        Input:  "5+ years of Python development experience with modern frameworks
+                 like Django, Flask, or FastAPI. Must have experience building
+                 RESTful APIs and microservices architectures."
+        Output: "5+ years Python (Django/Flask/FastAPI) - RESTful APIs, microservices..."
+    """
+    # If condensing is disabled, return original text
+    if not config.feature_flags.enable_condensed_formatting:
+        logger.debug("Condensed formatting disabled - returning full requirement text")
+        return requirement_text
+
+    # If text is already short enough, no need to condense
+    if len(requirement_text) <= max_length:
+        return requirement_text
+
+    # Condense by truncating and adding ellipsis
+    condensed = requirement_text[:max_length].rsplit(" ", 1)[0] + "..."
+
+    logger.debug(f"Condensed requirement from {len(requirement_text)} to {len(condensed)} chars")
+
+    return condensed
 
 
 def _extract_job_targets_for_alignment(job_description: JobDescription) -> dict[str, Any]:
@@ -127,19 +176,26 @@ def _extract_job_targets_for_alignment(job_description: JobDescription) -> dict[
     """
     requirements_list = []
 
+    # OPTIMIZATION 5: Filter to only must_have and should_have requirements
+    # nice_to_have requirements add tokens but low value for skills optimization
     for req in job_description.requirements:
-        requirement_entry = {
-            "requirement": req.requirement,
-            "importance": req.importance,
-        }
+        # Only include high-priority requirements
+        if req.importance in ["must_have", "should_have"]:
+            # Condense requirement text if feature flag enabled
+            condensed_text = _condense_requirement_text(req.requirement)
 
-        # Include category if available for better grouping
-        if hasattr(req, "category") and req.category:
-            requirement_entry["category"] = req.category
+            requirement_entry = {
+                "requirement": condensed_text,
+                "importance": req.importance,
+            }
+            # Skip category - importance level is sufficient
+            requirements_list.append(requirement_entry)
 
-        requirements_list.append(requirement_entry)
-
-    logger.debug(f"Extracted {len(requirements_list)} requirements for skills targeting")
+    logger.debug(
+        f"Extracted {len(requirements_list)} requirements for skills targeting "
+        f"(filtered to must_have + should_have only, "
+        f"condensed={config.feature_flags.enable_condensed_formatting})"
+    )
 
     # Extract ATS keywords (simple list of strings)
     ats_keywords = job_description.ats_keywords if job_description.ats_keywords else []
@@ -189,32 +245,44 @@ def _extract_strategy_for_context(strategy: AlignmentStrategy) -> dict[str, Any]
     if strategy.identified_gaps:
         gaps_list = []
         for gap in strategy.identified_gaps:
+            # OPTIMIZATION 4: Compress gap data to essential fields only
+            # Removed: suggestion (verbose, for human review)
+            # Keep: missing_skill (what's missing) + importance (priority)
             gap_entry = {
                 "missing_skill": gap.missing_skill,
                 "importance": gap.importance,
             }
-            if gap.suggestion:
-                gap_entry["suggestion"] = gap.suggestion
+            # Skip suggestion field entirely to reduce tokens
             gaps_list.append(gap_entry)
 
         strategy_data["identified_gaps"] = gaps_list
-        logger.debug(f"Extracted {len(gaps_list)} skill gaps from strategy")
+        logger.debug(
+            f"Extracted {len(gaps_list)} skill gaps from strategy "
+            f"(optimized format: skill + importance only)"
+        )
 
     # Extract identified matches - to know what to keep and emphasize
     if strategy.identified_matches:
         matches_list = []
         for match in strategy.identified_matches:
+            # OPTIMIZATION 3: Compress match data to essential fields only
+            # Removed: job_requirement (redundant with requirements section)
+            # Removed: justification (for human review, not agent processing)
+            # Keep: resume_skill (what matched) + match_score (priority)
             match_entry = {
                 "resume_skill": match.resume_skill,
-                "job_requirement": match.job_requirement,
-                "match_score": match.match_score,
+                "match_score": int(match.match_score),  # No decimals needed
             }
             matches_list.append(match_entry)
 
         strategy_data["identified_matches"] = matches_list
-        logger.debug(f"Extracted {len(matches_list)} matched skills from strategy")
+        logger.debug(
+            f"Extracted {len(matches_list)} matched skills from strategy "
+            f"(optimized format: skill + score only)"
+        )
 
-    # Extract keywords to integrate
+    # OPTIMIZATION 8: Deduplicate keywords between strategy and job description
+    # This will be merged with job.ats_keywords in the main function
     if strategy.keywords_to_integrate:
         strategy_data["keywords_to_integrate"] = strategy.keywords_to_integrate
         logger.debug(f"Extracted {len(strategy.keywords_to_integrate)} keywords to integrate")
@@ -291,6 +359,27 @@ def format_skills_optimizer_context(
     # STEP 3: Extract strategy gaps and recommendations
     # ==============================================================================
     strategy_data = _extract_strategy_for_context(strategy)
+
+    # ==============================================================================
+    # OPTIMIZATION 8: Deduplicate keywords (merge strategy + job keywords)
+    # ==============================================================================
+    if config.feature_flags.enable_condensed_formatting:
+        # Merge and deduplicate keywords from both sources
+        strategy_keywords = strategy_data.get("keywords_to_integrate", [])
+        job_keywords = job_targets_data.get("ats_keywords", [])
+
+        # Create unified, deduplicated keyword list
+        all_keywords = list(set(strategy_keywords + job_keywords))
+
+        # Replace both sources with the unified list
+        job_targets_data["ats_keywords"] = all_keywords
+        # Remove redundant keywords from strategy to save tokens
+        strategy_data.pop("keywords_to_integrate", None)
+
+        logger.debug(
+            f"Deduplicated keywords: {len(strategy_keywords)} (strategy) + "
+            f"{len(job_keywords)} (job) → {len(all_keywords)} unique"
+        )
 
     # ==============================================================================
     # STEP 4: Combine into structured input for Skills Optimizer Agent

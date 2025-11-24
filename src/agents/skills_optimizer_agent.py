@@ -1111,11 +1111,11 @@ def _infer_skill_categories(
             "tensorflow",
             "pytorch",
             "scikit-learn",
-            "openai",
-            "claude",
             "machine learning",
             "ml",
             "ai",
+            "generative ai",
+            "llm",
         ],
         "Cloud Platforms": ["aws", "azure", "gcp", "google cloud", "cloud"],
         "DevOps": ["docker", "kubernetes", "jenkins", "ci/cd", "terraform", "ansible"],
@@ -1204,13 +1204,29 @@ def create_skills_optimizer_agent() -> Agent:
 
     logger.info("Creating Skills Optimizer agent...")
 
+    # Extract LLM settings - NO FALLBACK
+    if "llm" not in config:
+        raise ValueError(
+            "FATAL: Missing 'llm' field in skills_section_strategist config.\n"
+            "Please add 'llm' field to src/config/agents.yaml"
+        )
+
+    llm_model_config = config["llm"]
+    temperature = config.get("temperature", 0.0)
+    verbose = config.get("verbose", True)
+
+    # Explicitly create LLM object to ensure correct model is used
+    from crewai import LLM
+
+    llm_instance = LLM(model=llm_model_config)
+
     agent = Agent(
         role=config.get("role", "Skills Optimization Specialist"),
         goal=config.get("goal", "Optimize skills section for ATS and relevance"),
         backstory=config.get("backstory", "Expert in skill optimization"),
-        llm=config.get("llm", "gemini/gemini-2.5-flash"),
-        temperature=0.3,  # Balanced temperature for consistent but flexible categorization
-        verbose=config.get("verbose", True),
+        llm=llm_instance,
+        temperature=temperature,
+        verbose=verbose,
         allow_delegation=False,
         # Resilience Parameters (Layer 1: CrewAI Native)
         max_retry_limit=agent_defaults.max_retry_limit,

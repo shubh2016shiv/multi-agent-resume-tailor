@@ -46,8 +46,6 @@ from src.agents.experience_optimizer_agent import (
 from src.agents.gap_analysis_agent import create_gap_analysis_agent
 from src.agents.job_analyzer_agent import create_job_analyzer_agent
 from src.agents.quality_assurance_agent import create_quality_assurance_agent
-
-# Agent Imports & Specific Models
 from src.agents.resume_extractor_agent import create_resume_extractor_agent
 from src.agents.skills_optimizer_agent import create_skills_optimizer_agent
 from src.agents.summary_writer_agent import ProfessionalSummary, create_summary_writer_agent
@@ -55,12 +53,19 @@ from src.agents.summary_writer_agent import ProfessionalSummary, create_summary_
 # Core Imports
 from src.core.config import get_config, get_tasks_config
 from src.core.logger import get_logger
+from src.core.token_counter import get_token_counter
 from src.data_models.evaluation import QualityReport
 from src.data_models.job import JobDescription
 
 # Data Models
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
+from src.formatters.ats_optimization_formatter import format_ats_optimization_context
+from src.formatters.experience_optimizer_formatter import format_experience_optimizer_context
+from src.formatters.gap_analysis_formatter import format_gap_analysis_context
+from src.formatters.professional_summary_formatter import format_professional_summary_context
+from src.formatters.quality_assurance_formatter import format_quality_assurance_context
+from src.formatters.skills_optimizer_formatter import format_skills_optimizer_context
 
 # Observability
 from src.observability import init_observability, trace_agent
@@ -225,10 +230,19 @@ class ResumeTailorOrchestrator:
         # - Depends on the final assembled resume.
         logger.info("STAGE 5: Running Quality Assurance (Sequential)...")
 
-        qa_report = self._run_quality_assurance(optimized_resume, job_data)
+        qa_report = self._run_quality_assurance(optimized_resume, resume_data, job_data)
 
         logger.info(
             f"Stage 5 Complete: Quality Assurance finished (Score: {qa_report.overall_quality_score})."
+        )
+
+        # Log orchestration completion with summary
+        logger.info("=" * 80)
+        logger.info("ORCHESTRATION COMPLETE - All agents executed successfully")
+        logger.info("=" * 80)
+        logger.info(
+            "Token usage has been tracked for all agent executions. "
+            "Check logs for detailed per-agent token counts and costs."
         )
 
         return OrchestrationResult(
@@ -253,6 +267,7 @@ class ResumeTailorOrchestrator:
     ) -> T:
         """
         Generic helper to instantiate a Crew, create a Task, and run it.
+        Includes automatic token tracking for LLM usage monitoring.
         """
         # Get task config
         task_config = self.tasks_config.get(task_name, {})
@@ -265,8 +280,9 @@ class ResumeTailorOrchestrator:
             base_expected = expected_output_override
 
         # Create Task
+        full_description = f"{base_desc}\n\nCONTEXT:\n{description_params}"
         task = Task(
-            description=f"{base_desc}\n\nCONTEXT:\n{description_params}",
+            description=full_description,
             expected_output=base_expected,
             agent=agent,
             output_pydantic=output_model,
@@ -275,8 +291,34 @@ class ResumeTailorOrchestrator:
         # Create Crew
         crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=True)
 
+        # Track token usage
+        counter = get_token_counter()
+        agent_name = agent.role
+        model = getattr(agent.llm, "model", "unknown") if hasattr(agent, "llm") else "unknown"
+
+        # Estimate input tokens
+        input_tokens = counter.count_tokens(full_description, model)
+        logger.info(
+            f"{agent_name} - Starting execution",
+            agent=agent_name,
+            model=model,
+            estimated_input_tokens=input_tokens,
+        )
+
         # Execute
         result = crew.kickoff()
+
+        # Estimate output tokens from result
+        output_text = str(result.pydantic) if hasattr(result, "pydantic") else str(result)
+        output_tokens = counter.count_tokens(output_text, model)
+
+        # Log complete token usage with cost
+        counter.log_token_usage(
+            agent_name=agent_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=model,
+        )
 
         # Access Typed Output
         if hasattr(result, "pydantic") and result.pydantic:
@@ -307,10 +349,13 @@ class ResumeTailorOrchestrator:
         )
 
     @trace_agent
-    def _run_gap_analysis(self, resume: Resume, job: JobDescription) -> AlignmentStrategy:
+    def _run_gap_analysis(
+        self, resume: Resume, job: JobDescription, format_type: str = "toon"
+    ) -> AlignmentStrategy:
         agent = create_gap_analysis_agent()
-        # Serialize inputs to JSON/Text for the prompt
-        context = f"RESUME DATA:\n{resume.model_dump_json()}\n\nJOB DATA:\n{job.model_dump_json()}"
+        context = format_gap_analysis_context(
+            resume=resume, job_description=job, format_type=format_type
+        )
         return self._create_and_run_crew(
             agent=agent,
             task_name="gap_analysis_task",
@@ -320,13 +365,18 @@ class ResumeTailorOrchestrator:
 
     @trace_agent
     def _run_summary_writing(
-        self, resume: Resume, job: JobDescription, strategy: AlignmentStrategy
+        self,
+        resume: Resume,
+        job: JobDescription,
+        strategy: AlignmentStrategy,
+        format_type: str = "toon",
     ) -> ProfessionalSummary:
         agent = create_summary_writer_agent()
-        context = (
-            f"RESUME DATA:\n{resume.model_dump_json()}\n\n"
-            f"JOB DATA:\n{job.model_dump_json()}\n\n"
-            f"STRATEGY:\n{strategy.model_dump_json()}"
+        context = format_professional_summary_context(
+            resume=resume,
+            job_description=job,
+            strategy=strategy,
+            format_type=format_type,
         )
         return self._create_and_run_crew(
             agent=agent,
@@ -337,13 +387,20 @@ class ResumeTailorOrchestrator:
 
     @trace_agent
     def _run_experience_optimization(
-        self, resume: Resume, job: JobDescription, strategy: AlignmentStrategy
+        self,
+        resume: Resume,
+        job: JobDescription,
+        strategy: AlignmentStrategy,
+        format_type: str = "toon",
     ) -> OptimizedExperienceSection:
         agent = create_experience_optimizer_agent()
-        context = (
-            f"RESUME WORK EXPERIENCE:\n{resume.model_dump_json(include={'work_experience'})}\n\n"
-            f"JOB REQUIREMENTS:\n{job.model_dump_json(include={'requirements', 'ats_keywords'})}\n\n"
-            f"STRATEGY GAPS & MATCHES:\n{strategy.model_dump_json()}"
+        # Use Experience Optimizer formatter to reduce token usage by filtering to optimization-required fields
+        # format_type: "toon" for token reduction, "markdown" for readability
+        context = format_experience_optimizer_context(
+            resume=resume,
+            job_description=job,
+            strategy=strategy,
+            format_type=format_type,
         )
         return self._create_and_run_crew(
             agent=agent,
@@ -354,13 +411,20 @@ class ResumeTailorOrchestrator:
 
     @trace_agent
     def _run_skills_optimization(
-        self, resume: Resume, job: JobDescription, strategy: AlignmentStrategy
+        self,
+        resume: Resume,
+        job: JobDescription,
+        strategy: AlignmentStrategy,
+        format_type: str = "toon",
     ) -> OptimizedSkillsSection:
         agent = create_skills_optimizer_agent()
-        context = (
-            f"CURRENT SKILLS:\n{resume.model_dump_json(include={'skills'})}\n\n"
-            f"JOB TARGETS:\n{job.model_dump_json(include={'requirements', 'ats_keywords'})}\n\n"
-            f"STRATEGY:\n{strategy.model_dump_json()}"
+        # Use Skills Optimizer formatter to reduce token usage by filtering to optimization-required fields
+        # format_type: "toon" for token reduction, "markdown" for readability
+        context = format_skills_optimizer_context(
+            resume=resume,
+            job_description=job,
+            strategy=strategy,
+            format_type=format_type,
         )
         return self._create_and_run_crew(
             agent=agent,
@@ -377,32 +441,44 @@ class ResumeTailorOrchestrator:
         skills: OptimizedSkillsSection,
         original_resume: Resume,
         job: JobDescription,
+        format_type: str = "toon",
     ) -> OptimizedResume:
         agent = create_ats_optimization_agent()
 
-        # We need to combine all parts.
-        # The ATS agent expects specific inputs.
-        context = (
-            f"OPTIMIZED SUMMARY:\n{summary.model_dump_json()}\n\n"
-            f"OPTIMIZED EXPERIENCE:\n{experience.model_dump_json()}\n\n"
-            f"OPTIMIZED SKILLS:\n{skills.model_dump_json()}\n\n"
-            f"ORIGINAL RESUME (For Education/Contact):\n{original_resume.model_dump_json()}\n\n"
-            f"TARGET JOB:\n{job.model_dump_json()}"
+        # Use ATS Optimization formatter to reduce token usage by filtering to assembly-required fields
+        # format_type: "toon" for token reduction, "markdown" for readability
+        context = format_ats_optimization_context(
+            professional_summary=summary,
+            optimized_experience=experience,
+            optimized_skills=skills,
+            original_resume=original_resume,
+            job_description=job,
+            format_type=format_type,
         )
 
         return self._create_and_run_crew(
             agent=agent,
-            task_name="compile_resume_task",  # Verify this task name in config if possible, or generic
+            task_name="compile_resume_task",
             description_params=context,
             output_model=OptimizedResume,
         )
 
     @trace_agent
-    def _run_quality_assurance(self, resume: OptimizedResume, job: JobDescription) -> QualityReport:
+    def _run_quality_assurance(
+        self,
+        resume: OptimizedResume,
+        original_resume: Resume,
+        job: JobDescription,
+        format_type: str = "toon",
+    ) -> QualityReport:
         agent = create_quality_assurance_agent()
-        context = (
-            f"FINAL RESUME:\n{resume.model_dump_json()}\n\n"
-            f"JOB DESCRIPTION:\n{job.model_dump_json()}"
+        # Use QA formatter to reduce token usage by filtering redundant fields
+        # format_type: "toon" for token reduction, "markdown" for readability
+        context = format_quality_assurance_context(
+            optimized_resume=resume,
+            original_resume=original_resume,
+            job=job,
+            format_type=format_type,
         )
         return self._create_and_run_crew(
             agent=agent,

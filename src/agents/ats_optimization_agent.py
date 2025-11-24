@@ -583,48 +583,25 @@ def _load_agent_config() -> dict:
 
 def _get_default_config() -> dict:
     """
-    Provide default configuration as a fallback.
+    NO DEFAULTS - Configuration must come from agents.yaml.
 
-    This ensures the agent can still be created even if the YAML config
-    is unavailable or corrupted. These defaults are basic but functional.
+    This function should never be called in production. If it is called,
+    it means the agent configuration is missing from agents.yaml, which
+    is a critical error that should stop the orchestrator.
 
-    Returns:
-        Dictionary with default agent configuration
+    Raises:
+        RuntimeError: Always raises to force configuration fix
     """
-    return {
-        "role": "ATS Optimization Specialist",
-        "goal": (
-            "Validate and optimize the resume for maximum ATS compatibility. Verify all critical "
-            "keywords from the job description are present, check that keyword density is optimal "
-            "(not stuffing), validate formatting meets ATS standards, ensure section headers "
-            "use standard conventions, and identify any elements that may cause parsing issues.\n\n"
-            "CRITICAL: You must output a SINGLE, complete JSON object with all resume data, "
-            "validation results, and optimized content. Do not make multiple separate outputs. "
-            "Perform all validation internally and include everything in one final response."
-        ),
-        "backstory": (
-            "You are an ATS systems expert with a technical background in HR technology platforms. "
-            "Having worked with major ATS vendors and analyzed thousands of resume parsing "
-            "scenarios, you understand exactly how these systems work and what causes failures. "
-            "Your expertise includes:\n"
-            "- Technical knowledge of how ATS parse different file formats and structures\n"
-            "- Understanding of keyword matching algorithms and ranking systems\n"
-            "- Pattern recognition for ATS-incompatible formatting elements\n"
-            "- Standard section header conventions across different ATS platforms\n"
-            "- Insight into optimal keyword density (enough to match, not enough to be flagged)\n\n"
-            "Your methodology is technical and precise. You run systematic checks: verify every "
-            "must-have keyword from the job posting appears at least once, ensure keyword density "
-            "falls in the 2-5% range, validate section headers use standard terminology, "
-            "confirm no tables or complex formatting that breaks parsing, and test that contact "
-            "information is easily extractable.\n\n"
-            "IMPORTANT: You are a 'finalizer' agent. Your job is to assemble the complete, "
-            "production-ready resume with all metadata. Output everything at once in a single "
-            "comprehensive response."
-        ),
-        "llm": "gemini/gemini-2.5-flash",
-        "temperature": 0.2,
-        "verbose": True,
-    }
+    raise RuntimeError(
+        "FATAL: ATS Optimization Specialist agent configuration is missing from agents.yaml.\n"
+        "Please add the 'ats_optimization_specialist' section to src/config/agents.yaml with all required fields:\n"
+        "  - role\n"
+        "  - goal\n"
+        "  - backstory\n"
+        "  - llm (e.g., 'gemini/gemini-2.0-flash')\n"
+        "  - temperature\n"
+        "  - verbose"
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -663,10 +640,21 @@ def create_ats_optimization_agent() -> Agent:
         # Load configuration
         config = _load_agent_config()
 
-        # Extract LLM settings
-        llm_model = config.get("llm", "gemini/gemini-2.5-flash")
+        # Extract LLM settings - NO FALLBACK, must be in config
+        if "llm" not in config:
+            raise ValueError(
+                "FATAL: Missing 'llm' field in ats_optimization_specialist config.\n"
+                "Please add 'llm' field to src/config/agents.yaml"
+            )
+
+        llm_model_config = config["llm"]  # No .get() with default
         temperature = config.get("temperature", 0.2)
         verbose = config.get("verbose", True)
+
+        # Explicitly create LLM object to ensure correct model is used
+        from crewai import LLM
+
+        llm_instance = LLM(model=llm_model_config)
 
         # Initialize tools
         tools = [
@@ -686,7 +674,7 @@ def create_ats_optimization_agent() -> Agent:
             goal=config["goal"],
             backstory=config["backstory"],
             tools=tools,
-            llm=llm_model,
+            llm=llm_instance,
             temperature=temperature,
             verbose=verbose,
             allow_delegation=False,  # This agent works independently
@@ -700,7 +688,7 @@ def create_ats_optimization_agent() -> Agent:
 
         logger.info(
             f"Successfully created agent: {config['role']}, "
-            f"using LLM: {llm_model}, temperature: {temperature}, "
+            f"using LLM: {llm_model_config}, temperature: {temperature}, "
             f"tools: {len(tools)}, resilience: max_retry={agent_defaults.max_retry_limit}"
         )
 

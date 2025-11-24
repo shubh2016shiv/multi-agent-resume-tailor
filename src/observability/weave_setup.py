@@ -259,8 +259,14 @@ def trace_agent(func: F) -> F:
             return func(*args, **kwargs)
 
         try:
-            # Use Weave's op decorator to trace the function
-            traced_func = weave.op()(func)
+            # Create a simple wrapper function without type annotations to avoid
+            # Weave's introspection issues with Union types (Python 3.10+ | syntax)
+            # This wrapper will be traced by Weave instead of the original function
+            def traced_wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            # Use Weave's op decorator with explicit name to avoid signature introspection
+            traced_func = weave.op(name=func.__name__)(traced_wrapper)
             result = traced_func(*args, **kwargs)
 
             logger.debug(
@@ -323,8 +329,14 @@ def trace_tool(func: F) -> F:
             return func(*args, **kwargs)
 
         try:
-            # Use Weave's op decorator to trace the function
-            traced_func = weave.op()(func)
+            # Create a simple wrapper function without type annotations to avoid
+            # Weave's introspection issues with Union types (Python 3.10+ | syntax)
+            # This wrapper will be traced by Weave instead of the original function
+            def traced_wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+
+            # Use Weave's op decorator with explicit name to avoid signature introspection
+            traced_func = weave.op(name=func.__name__)(traced_wrapper)
             result = traced_func(*args, **kwargs)
 
             logger.debug(

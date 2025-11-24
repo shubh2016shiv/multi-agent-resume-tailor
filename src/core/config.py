@@ -96,6 +96,22 @@ class FeatureFlags(BaseModel):
     enable_web_search: bool = False
     enable_human_in_the_loop: bool = False
 
+    # Token Optimization Feature Flags
+    # ================================
+    # These flags control aggressive token reduction strategies in formatters.
+    # Enable for production to reduce costs; disable for debugging to see full data.
+
+    enable_condensed_formatting: bool = Field(
+        default=True,
+        description=(
+            "Enable aggressive token optimization in formatters. "
+            "When True: Condenses verbose job requirements, deduplicates keywords, "
+            "and uses ultra-compact TOON format to reduce token usage by ~20-30%. "
+            "When False: Sends full, unfiltered data for easier debugging. "
+            "Recommended: True for production (cost savings), False for development (easier debugging)."
+        ),
+    )
+
 
 class LLMGoogleConfig(BaseModel):
     """Configuration specific to Google's LLM models."""

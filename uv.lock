@@ -4396,16 +4396,20 @@ source = { editable = "." }
 dependencies = [
     { name = "crewai" },
     { name = "crewai-tools" },
+    { name = "docling" },
     { name = "pybreaker" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pypdf2" },
     { name = "pyrate-limiter" },
+    { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "ratelimit" },
     { name = "requests" },
     { name = "structlog" },
     { name = "tenacity" },
+    { name = "toonify" },
 ]
 
 [package.optional-dependencies]
@@ -4444,6 +4448,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "crewai", extras = ["google-genai"], specifier = ">=0.1.0" },
     { name = "crewai-tools", specifier = ">=0.1.0" },
+    { name = "docling", specifier = ">=1.0.0" },
     { name = "docling", marker = "extra == 'document-processing'", specifier = ">=1.0.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.12.0" },
     { name = "mineru", marker = "extra == 'document-processing'", specifier = ">=0.1.0" },
@@ -4457,6 +4462,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "pylint", marker = "extra == 'dev'", specifier = ">=2.17.0" },
+    { name = "pypdf2", specifier = ">=3.0.0" },
     { name = "pypdf2", marker = "extra == 'document-processing'", specifier = ">=3.0.0" },
     { name = "pyrate-limiter", specifier = ">=3.0.0" },
     { name = "pyscn", marker = "extra == 'dev'", specifier = ">=1.0.0" },
@@ -4464,6 +4470,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.11.0" },
+    { name = "python-docx", specifier = ">=1.0.0" },
     { name = "python-docx", marker = "extra == 'document-processing'", specifier = ">=1.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -4472,6 +4479,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.0.280" },
     { name = "structlog", specifier = ">=25.0.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
+    { name = "toonify", specifier = "==1.4.0" },
 ]
 provides-extras = ["dev", "llm", "document-processing", "docs"]
 
@@ -5100,6 +5108,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cc/18/0bbf3884e9eaa38819ebe46a7bd25dcd56b67434402b66a58c4b8e552575/tomlkit-0.13.3.tar.gz", hash = "sha256:430cf247ee57df2b94ee3fbe588e71d362a941ebb545dec29b53961d61add2a1", size = 185207, upload-time = "2025-06-05T07:13:44.947Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/75/8539d011f6be8e29f339c42e633aae3cb73bffa95dd0f9adec09b9c58e85/tomlkit-0.13.3-py3-none-any.whl", hash = "sha256:c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0", size = 38901, upload-time = "2025-06-05T07:13:43.546Z" },
+]
+
+[[package]]
+name = "toonify"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tiktoken" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b2/90/ca42b9fe0d8cc90c69ca62dd788100119c8186474a52ef9e850f33f59212/toonify-1.4.0.tar.gz", hash = "sha256:fdef2754607fe0695e7243a4b0b56f8bee1d41fd98a9cd673409760d39e4220d", size = 22394, upload-time = "2025-11-13T00:13:14.372Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/15/4022bde2fda1662ac8a97d2d1aa916f10dad83a2cd7edab31b8e35a6175f/toonify-1.4.0-py3-none-any.whl", hash = "sha256:8053c376342b63356bad570c94d8b40eb8d6374815292542a0adc974c9c2912d", size = 21445, upload-time = "2025-11-13T00:13:11.743Z" },
 ]
 
 [[package]]

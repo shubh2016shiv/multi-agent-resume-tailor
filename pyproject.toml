@@ -49,6 +49,7 @@ dependencies = [
     "ratelimit>=2.2.1",
     "pyrate-limiter>=3.0.0",
     "requests>=2.31.0",
+    "toonify==1.4.0",        # TOON (Token-Oriented Object Notation) format for LLM optimization
     "docling>=1.0.0",        # Advanced PDF/DOCX parsing (multi-column, tables)
     "PyPDF2>=3.0.0",         # Fallback PDF text extraction
     "python-docx>=1.0.0",    # Fallback DOCX text extraction

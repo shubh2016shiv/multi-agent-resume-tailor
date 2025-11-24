@@ -403,31 +403,21 @@ def _load_agent_config() -> dict:
 
 def _get_default_config() -> dict:
     """
-    Provide default configuration as a fallback.
+    NO DEFAULTS - Configuration must come from agents.yaml.
 
-    This ensures the agent can still be created even if the YAML config
-    is unavailable or corrupted. These defaults are basic but functional.
-
-    Returns:
-        Dictionary with default agent configuration
+    Raises:
+        RuntimeError: Always raises to force configuration fix
     """
-    return {
-        "role": "Professional Summary Content Writer",
-        "goal": (
-            "Craft compelling, keyword-optimized professional summaries that highlight "
-            "the candidate's strongest qualifications and alignment with the target role. "
-            "Follow strategic guidance and integrate required keywords naturally."
-        ),
-        "backstory": (
-            "You are an expert resume writer and career strategist with a talent for "
-            "distilling complex career narratives into powerful, concise summaries. "
-            "You understand how to grab attention, convey value, and optimize for both "
-            "human readers and ATS systems. You write with confidence, clarity, and authenticity."
-        ),
-        "llm": "gemini/gemini-2.5-flash",
-        "temperature": 0.7,
-        "verbose": True,
-    }
+    raise RuntimeError(
+        "FATAL: Professional Summary Writer agent configuration is missing from agents.yaml.\n"
+        "Please add the 'professional_summary_writer' section to src/config/agents.yaml with all required fields:\n"
+        "  - role\n"
+        "  - goal\n"
+        "  - backstory\n"
+        "  - llm (e.g., 'gemini/gemini-2.0-flash')\n"
+        "  - temperature\n"
+        "  - verbose"
+    )
 
 
 # ==============================================================================
@@ -529,7 +519,7 @@ def create_summary_writer_agent() -> Agent:
         - Uses configuration from agents.yaml (with fallback to defaults)
         - Uses DraftEvaluationTool for self-critique
         - Higher temperature (0.7) for creative, engaging content
-        - Uses GPT-4o for superior writing quality
+        - Uses Gemini 2.5 Flash for superior writing quality
         - Enables verbose mode for detailed logging
     """
     try:
@@ -538,10 +528,21 @@ def create_summary_writer_agent() -> Agent:
         # Load configuration
         config = _load_agent_config()
 
-        # Extract LLM settings
-        llm_model = config.get("llm", "gemini/gemini-2.5-flash")
+        # Extract LLM settings - NO FALLBACK
+        if "llm" not in config:
+            raise ValueError(
+                "FATAL: Missing 'llm' field in professional_summary_writer config.\n"
+                "Please add 'llm' field to src/config/agents.yaml"
+            )
+
+        llm_model_config = config["llm"]
         temperature = config.get("temperature", 0.7)
         verbose = config.get("verbose", True)
+
+        # Explicitly create LLM object to ensure correct model is used
+        from crewai import LLM
+
+        llm_instance = LLM(model=llm_model_config)
 
         # Load centralized resilience configuration
         # app_config = get_config()  # Unused variable - kept for potential future refactoring
@@ -558,7 +559,7 @@ def create_summary_writer_agent() -> Agent:
             goal=config["goal"],
             backstory=config["backstory"],
             tools=[],  # No tools - agent outputs structured data directly
-            llm=llm_model,
+            llm=llm_instance,
             temperature=temperature,
             verbose=verbose,
             allow_delegation=False,  # This agent works independently
@@ -567,7 +568,7 @@ def create_summary_writer_agent() -> Agent:
 
         logger.info(
             f"Successfully created agent: {config['role']}, "
-            f"using LLM: {llm_model}, temperature: {temperature}"
+            f"using LLM: {llm_model_config}, temperature: {temperature}"
         )
 
         return agent

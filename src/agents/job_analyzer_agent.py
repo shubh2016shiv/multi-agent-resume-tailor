@@ -170,7 +170,7 @@ try:
     )
     from src.core.logger import get_logger
     from src.data_models.job import JobDescription, SkillImportance
-    from src.tools.job_analyzer import parse_job_description
+    # from src.tools.job_analyzer import parse_job_description  # Unused import
 except ImportError:
     # Fallback for when running this file directly
     import sys
@@ -182,7 +182,6 @@ except ImportError:
     )
     from src.core.logger import get_logger
     from src.data_models.job import JobDescription, SkillImportance
-    from src.tools.job_analyzer import parse_job_description
 
 logger = get_logger(__name__)
 
@@ -244,29 +243,21 @@ def _load_agent_config() -> dict:
 
 def _get_default_config() -> dict:
     """
-    Provide default configuration as a fallback.
+    NO DEFAULTS - Configuration must come from agents.yaml.
 
-    This ensures the agent can still be created even if the YAML config
-    is unavailable or corrupted. These defaults are basic but functional.
-
-    Returns:
-        Dictionary with default agent configuration
+    Raises:
+        RuntimeError: Always raises to force configuration fix
     """
-    return {
-        "role": "Job Requirements Analysis Specialist",
-        "goal": (
-            "Thoroughly analyze job descriptions to extract and structure all "
-            "requirements, qualifications, and expectations using the JobDescription data model."
-        ),
-        "backstory": (
-            "You are an expert recruiter and job market analyst. You understand what "
-            "employers really mean in job postings, can distinguish must-haves from "
-            "nice-to-haves, and identify the core competencies needed for success."
-        ),
-        "llm": "gemini/gemini-2.5-flash",
-        "temperature": 0.2,
-        "verbose": True,
-    }
+    raise RuntimeError(
+        "FATAL: Job Description Analyst agent configuration is missing from agents.yaml.\n"
+        "Please add the 'job_description_analyst' section to src/config/agents.yaml with all required fields:\n"
+        "  - role\n"
+        "  - goal\n"
+        "  - backstory\n"
+        "  - llm (e.g., 'gemini/gemini-2.0-flash')\n"
+        "  - temperature\n"
+        "  - verbose"
+    )
 
 
 # ==============================================================================
@@ -313,21 +304,25 @@ def create_job_analyzer_agent() -> Agent:
         # Load configuration
         config = _load_agent_config()
 
-        # Extract LLM settings
-        # llm_model = config.get("llm", "gemini/gemini-2.5-flash")  # Unused variable - kept for potential future refactoring
-        # temperature = config.get("temperature", 0.2)  # Unused variable - kept for potential future refactoring
-        # verbose = config.get("verbose", True)  # Unused variable - kept for potential future refactoring
+        # Extract LLM settings - NO FALLBACK
+        if "llm" not in config:
+            raise ValueError(
+                "FATAL: Missing 'llm' field in job_description_analyst config.\n"
+                "Please add 'llm' field to src/config/agents.yaml"
+            )
 
-        # Create the agent
-        # Load centralized resilience configuration
-        # app_config = get_config()  # Unused variable - kept for potential future refactoring
-        # agent_defaults = app_config.llm.agent_defaults  # Unused variable - kept for potential future refactoring
+        # Explicitly create LLM object to ensure correct model is used
+        from crewai import LLM
+
+        llm_config = config["llm"]  # No .get() with default
+        llm_instance = LLM(model=llm_config)
 
         agent = Agent(
             role=config.get("role", "Job Description Analyzer"),
             goal=config.get("goal", "Analyze job descriptions and extract key requirements"),
             backstory=config.get("backstory", "Expert in analyzing job descriptions"),
-            tools=[parse_job_description],  # Assign the job analyzer tool
+            # NO TOOLS: Content is provided directly in CONTEXT by orchestrator
+            llm=llm_instance,
         )
 
         return agent

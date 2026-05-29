@@ -7,10 +7,10 @@ name = "resume-tailor-crew"
 version = "0.1.0"
 description = "Enterprise-grade CrewAI system for intelligent resume tailoring based on job descriptions"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
 authors = [
-    { name = "Resume Tailor Team", email = "team@resumetailor.dev" }
+    { name = "Shubham Singh", email = "shubh2014shiv@gmail.com" }
 ]
 keywords = [
     "crewai",
@@ -29,16 +29,14 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business",
     "Topic :: Text Processing",
 ]
 
 dependencies = [
-    "crewai[google-genai]>=0.1.0",
-    "crewai-tools>=0.1.0",
+    "crewai>=0.1.0",
+    "openai>=1.0.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
@@ -46,77 +44,29 @@ dependencies = [
     "structlog>=25.0.0",
     "tenacity>=8.2.0",
     "pybreaker>=1.0.0",
+    "aiobreaker>=0.5.0",
     "ratelimit>=2.2.1",
-    "pyrate-limiter>=3.0.0",
-    "requests>=2.31.0",
-    "toonify==1.4.0",        # TOON (Token-Oriented Object Notation) format for LLM optimization
-    "docling>=1.0.0",        # Advanced PDF/DOCX parsing (multi-column, tables)
-    "PyPDF2>=3.0.0",         # Fallback PDF text extraction
-    "python-docx>=1.0.0",    # Fallback DOCX text extraction
+    "redis>=5.0.0",
+    "langsmith>=0.1.0",  # LLM agent observability & tracing
+    "markitdown>=0.1.0",    # PDF/DOCX/PPTX/XLSX → Markdown for LLM pipelines
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-mock>=3.11.0",
-    "black>=23.0.0",
-    "ruff>=0.0.280",
-    "mypy>=1.5.0",
-    "pylint>=2.17.0",
-    "isort>=5.12.0",
-    "pre-commit>=3.3.0",
-    "pyscn>=1.0.0",  # Code quality analyzer (complexity, dead code, clones, dependencies)
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+    "ruff>=0.5.0",
+    "pyright>=1.1.0",
 ]
-
-llm = [
-    "openai>=1.0.0",
-    "anthropic>=0.7.0",
-]
-
-document-processing = [
-    "docling>=1.0.0",        # Tier 1: Advanced PDF parsing (multi-column, tables)
-    "mineru>=0.1.0",         # Tier 2: Fallback PDF/DOCX processor
-    "PyPDF2>=3.0.0",         # Tier 3: Basic PDF text extraction
-    "python-docx>=1.0.0",    # Tier 3: Basic DOCX text extraction
-]
-
-docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.2.0",
-    "mkdocstrings>=0.23.0",
-]
-
-[project.urls]
-Repository = "https://github.com/your-org/resume-tailor-crew"
-Documentation = "https://resume-tailor-crew.readthedocs.io"
-"Issue Tracker" = "https://github.com/your-org/resume-tailor-crew/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agents", "src/config", "src/core", "src/data_models", "src/tools"]
-
-[tool.black]
-line-length = 100
-target-version = ["py310", "py311", "py312"]
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
+packages = ["src/agents", "src/config", "src/core", "src/data_models", "src/formatters", "src/observability", "src/tools"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -131,7 +81,6 @@ select = [
 ignore = [
     "E501",   # line too long (handled by ruff format)
     "C901",   # function is too complex
-    "B905",   # zip() without an explicit strict= parameter (Python 3.10+)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -143,28 +92,14 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
-[tool.isort]
-profile = "black"
-line_length = 100
-skip_gitignore = true
-known_first_party = ["resume_tailor_crew"]
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
 
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-strict_optional = true
-
-[[tool.mypy.overrides]]
-module = "crewai.*"
-ignore_missing_imports = true
+[[tool.pyright.executionEnvironments]]
+root = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -179,7 +114,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/resume_tailor_crew"]
+source = ["src"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -195,23 +130,3 @@ exclude_lines = [
     "if TYPE_CHECKING:",
 ]
 precision = 2
-
-# pyscn configuration for code quality analysis
-[tool.pyscn]
-# Complexity thresholds
-[complexity]
-max_complexity = 15  # Functions with complexity > 15 will be flagged
-
-# Dead code detection
-[dead_code]
-min_severity = "warning"  # "error" | "warning" | "info"
-
-# Dependency analysis
-[deps]
-allow_circular_deps = false  # Fail on circular dependencies
-max_cycles = 0  # Maximum allowed circular dependency cycles
-
-# Output configuration
-[output]
-directory = "reports"  # Where to save analysis reports
-

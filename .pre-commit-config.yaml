@@ -1,30 +1,13 @@
 repos:
-  # Ruff for linting and formatting
-  # Only runs on src/, examples/agents/, and tests/ directories
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.11.0
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^(src/|examples/agents/|tests/)
       - id: ruff-format
-        files: ^(src/|examples/agents/|tests/)
-  
-  # pyscn for code quality analysis (CFG-based dead code, clone detection, complexity, coupling)
-  # Uses uv to run pyscn from project dependencies
-  # Checks only src/, examples/agents/, and tests/ directories
-  # - repo: local
-  #   hooks:
-  #     - id: pyscn-check
-  #       name: pyscn check
-  #       entry: python ./.pre-commit-hooks/pyscn-check.py
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: false
-  #       stages: [pre-commit]
-  #       types: [python]
-  #       verbose: true
 
-
-
-
+  - repo: https://github.com/pre-commit/mirrors-pyright
+    rev: v1.1.400
+    hooks:
+      - id: pyright
+        args: [--project=pyproject.toml]

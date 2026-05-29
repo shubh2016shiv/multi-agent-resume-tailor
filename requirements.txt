@@ -1,34 +1,27 @@
-# Resume Tailor Crew - Production Dependencies
-# Generated from pyproject.toml for compatibility
+# Resume Tailor Crew - Core Dependencies
+# Mirror of pyproject.toml for pip compatibility
 
-# Core dependencies
+# Core
 crewai>=0.1.0
-crewai-tools>=0.1.0
+openai>=1.0.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 pyyaml>=6.0
+structlog>=25.0.0
+
+# Resilience
 tenacity>=8.2.0
 pybreaker>=1.0.0
+aiobreaker>=0.5.0
 ratelimit>=2.2.1
-requests>=2.31.0
-structlog>=24.1.0
 
-# LLM Provider (select one or more based on your needs)
-openai>=1.0.0
-anthropic>=0.7.0
-google-generativeai>=0.3.0
+# Memory & Caching
+redis>=5.0.0
 
-# Data Formatting
-toonify==1.4.0        # TOON (Token-Oriented Object Notation) format for LLM optimization
+# Document Processing (PDF, DOCX → Markdown for LLMs)
+markitdown>=0.1.0
 
-# Document Processing
-docling>=1.0.0        # Advanced PDF/DOCX parsing (multi-column, tables)
-PyPDF2>=3.0.0         # Fallback PDF text extraction
-python-docx>=1.0.0    # Fallback DOCX text extraction
-
-# Observability & Monitoring
-weave>=0.50.0         # Weave for LLM agent tracing and observability
-wandb>=0.16.0         # Weights & Biases for experiment tracking
-litellm>=1.0.0        # Multi-provider LLM interface with token counting and cost tracking
-
+# Observability
+langsmith>=0.1.0
+litellm>=1.0.0        # Token counting + cost tracking across providers

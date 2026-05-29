@@ -46,11 +46,11 @@ application:
 llm:
   # Default LLM provider.
   # Options: "openai", "anthropic", "ollama", "google"
-  provider: "openai"
+  provider: "google"
 
   # Default model to use for agents that don't specify one.
   # Examples: "gpt-4", "gpt-4-turbo-preview", "claude-3-opus-20240229"
-  model: "gpt-4"
+  model: "gemini/gemini-2.5-flash"
 
   # Default temperature for LLM responses.
   # Lower values (e.g., 0.2) are more deterministic and factual.

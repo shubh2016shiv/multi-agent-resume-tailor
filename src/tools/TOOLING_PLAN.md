@@ -61,25 +61,47 @@ domain-neutral ergonomics (e.g. a bullet over ~35 words is a paragraph).
 
 ## 3. The universal return contract
 
-Defined once in `foundation/`, used by every tool.
+Defined once in `shared/`, used by every tool.
 
 ```
 ReviewComment
-  message       : str    # what was noticed, in plain language
-  quoted_text   : str    # the exact bullet/line from the resume it points at
-  severity      : enum   # blocker | major | minor | suggestion
-  confidence    : enum   # high | medium | low   (judgment tools must set this)
-  suggestion    : str    # concrete recommended fix
+  engine_id        : str        # which engine produced this — for analytics + tracing
+  message          : str        # what was noticed, in plain language
+  quoted_text      : str        # human-readable excerpt of the line it points at
+  location         : Location   # STRUCTURED anchor, see below — not a brittle string match
+  severity         : enum       # blocker | major | minor | suggestion
+  confidence       : enum       # high | medium | low   (judgment tools must set this)
+  advice           : str        # what to change and why
+  proposed_rewrite : str | None # optional concrete replacement text
+
+Location
+  section          : enum       # summary | experience | skills | education | ...
+  bullet_index     : int | None # which bullet within the section, when applicable
+  character_span   : [int, int] | None  # exact offsets for reliable UI highlighting
 
 ReviewResult
-  comments      : list[ReviewComment]
-  summary       : str    # optional one-line verdict
-  score         : float  # optional, only where a numeric gate is meaningful
+  comments         : list[ReviewComment]
+  summary          : str        # optional one-line verdict
+  score            : float      # optional, only where a numeric gate is meaningful
 ```
 
 - Mechanical tools always return `confidence = high` (measurement is certain).
 - Judgment tools must populate `confidence` honestly; low-confidence comments are
   advisory, high-confidence comments can gate the iterative loops.
+- **`location` over `quoted_text` for anchoring.** A raw quote is brittle — if the
+  model misquotes by a comma, the UI can't highlight it. `quoted_text` stays for
+  human readability; `location` (section + index or character span) is the
+  reliable anchor the frontend and the rewrite engine actually use.
+- **`engine_id`** lets every comment be traced back to the exact engine (and, via
+  the harness, the prompt version and token cost) that produced it.
+
+### Schema enforcement is mandatory for judgment tools
+
+`shared/llm_reviewer.py` does not trust the model to return well-formed output. It
+enforces the `ReviewComment` schema at the boundary (constrained decoding /
+structured-output validation, e.g. Instructor- or Outlines-style). On a schema
+violation it **retries, then fails loudly** — it never passes malformed data to
+the orchestrator. This is what makes "the model is the expert" safe in production.
 
 ---
 
@@ -89,16 +111,17 @@ ReviewResult
 src/tools/
 ├── __init__.py                          # public surface: re-exports agent-facing tools only
 │
-├── foundation/                          # shared kernel (only what 2+ tools need)
+├── shared/                              # shared kernel (only what 2+ tools need)
 │   ├── review_comment.py                # ReviewComment + ReviewResult: the universal return shape
 │   └── llm_reviewer.py                  # shared harness: ask the model a rubric question,
 │                                        #   get ReviewComments back with quotes + confidence
 │   # resume_rules.py  and  text_helpers.py  are added ONLY when a second tool
 │   # actually shares them — not pre-declared.
 │
-├── document_ingestion/                  # raw files → trustworthy structured input
+├── document_ingestion/                  # raw files → trustworthy, privacy-safe structured input
 │   ├── document_converter.py            # [mechanics] PDF/DOCX/TXT/MD → clean Markdown
 │   ├── extraction_quality_auditor.py    # [mechanics] did conversion lose sections / drop text?
+│   ├── pii_redactor.py                  # [mechanics] mask name/email/phone/address BEFORE any LLM call
 │   ├── resume_section_extractor.py      # [judgment]  Markdown → structured Resume
 │   └── job_requirement_extractor.py     # [judgment]  Markdown → structured JobDescription
 │
@@ -108,7 +131,8 @@ src/tools/
 │   ├── quantification_auditor.py        # [hybrid]    detect missing numbers + suggest metric type
 │   ├── language_quality_auditor.py      # [judgment]  duty-language → achievement; hollow phrasing
 │   ├── action_verb_advisor.py           # [judgment]  precise, domain-true verb (not fake power words)
-│   └── summary_quality_auditor.py       # [hybrid]    length/first-person (mech) + generic/value (judgment)
+│   ├── summary_quality_auditor.py       # [hybrid]    length/first-person (mech) + generic/value (judgment)
+│   └── bias_inclusivity_auditor.py      # [hybrid]    gender/age-coded language (HR-compliance) — see §9
 │
 ├── job_matching/                        # "how well does this resume answer THIS job?" (JD required)
 │   ├── keyword_coverage_analyzer.py     # [mechanics] JD keyword presence + coverage
@@ -118,10 +142,13 @@ src/tools/
 │   ├── formatting_validator.py          # [mechanics] tables/columns/tabs/images/risky chars
 │   └── section_header_validator.py      # [mechanics] ATS-readable standard section names
 │
-└── truthfulness/                        # trust layer: "is it still honest after rewriting?"
-    ├── skills_evidence_validator.py     # [judgment]  every listed skill backed by experience
-    ├── claim_inflation_detector.py      # [judgment]  rewrite stronger than the source evidence
-    └── tailoring_fidelity_comparator.py # [judgment]  original vs revised: adds / losses / exaggerations
+├── truthfulness/                        # trust layer: "is it still honest after rewriting?"
+│   ├── skills_evidence_validator.py     # [judgment]  every listed skill backed by experience
+│   ├── claim_inflation_detector.py      # [judgment]  rewrite stronger than the source evidence
+│   └── tailoring_fidelity_comparator.py # [judgment]  original vs revised: adds / losses / exaggerations
+│
+└── document_rendering/                  # structured data → a finished, ATS-safe document
+    └── resume_renderer.py               # [mechanics] improved Resume → ATS-safe PDF/DOCX via template
 ```
 
 Each sub-package answers exactly one resume-review question. If a package can't be
@@ -137,7 +164,8 @@ described in one sentence, it shouldn't be a package.
 |---|---|---|---|
 | `document_converter` | mechanics | Reliably turn any PDF/DOCX/TXT/MD into clean Markdown. | Orchestrator runs it first, before any agent. |
 | `extraction_quality_auditor` | mechanics | Bad conversion (missing sections, suspiciously little text, lost layout) silently poisons everything downstream. Catch it early. | Runs right after conversion; flags low-quality extraction so the user can re-upload. |
-| `resume_section_extractor` | judgment | Turn raw resume Markdown into a structured `Resume` (summary, experience, skills, education). | Backs the Resume Extractor agent. |
+| `pii_redactor` | mechanics | A resume is sensitive PII. Names, emails, phones, and addresses must be masked **before** any text reaches an external LLM. | Runs after conversion, before extraction. Replaces PII with stable placeholders and returns a mapping; the **orchestrator** holds that mapping and rehydrates the final document (rehydration is state, not a tool — see §10). |
+| `resume_section_extractor` | judgment | Turn raw resume Markdown into a structured `Resume` (summary, experience, skills, education). | Backs the Resume Extractor agent — on redacted text. |
 | `job_requirement_extractor` | judgment | Turn a JD into structured requirements: role, seniority, must-haves, keywords, responsibilities, implicit expectations. | Backs the Job Analyzer agent. **Only runs when a JD is supplied.** |
 
 ### `resume_diagnostics/` — make the resume genuinely good in its own field
@@ -150,6 +178,7 @@ described in one sentence, it shouldn't be a package.
 | `language_quality_auditor` | judgment | Duty language ("responsible for", "worked on") instead of achievement; hollow filler. Domain-aware — what's hollow in nursing ≠ in software. | Rewrites guidance: reframe duties as achievements, strip empty phrasing. |
 | `action_verb_advisor` | judgment | People can't decide between "built / developed / architected"; LLMs spit out nonsense like "spearheaded." Verb depends on the field ("proved", "litigated", "fine-tuned"). | Given what the person actually did, returns the verb that *accurately* describes their contribution. |
 | `summary_quality_auditor` | hybrid | Summaries are too long, written in first person, generic ("results-oriented professional"), or just repeat the bullets. | Checks length + first-person mechanically; judges generic-ness and whether a value proposition is present. |
+| `bias_inclusivity_auditor` | hybrid | HR/B2B buyers legally need resumes scrubbed of gender-coded ("ninja", "dominate") and age-biased ("digital native") language. | Flags coded terms against a research-backed lexicon, then uses the model to judge whether the usage is actually biased in context ("dominate the market" ≠ a person trait). See the curated-list caveat in §9. |
 
 ### `job_matching/` — answer a specific job (JD required)
 
@@ -172,6 +201,19 @@ described in one sentence, it shouldn't be a package.
 | `skills_evidence_validator` | judgment | Listed skills with zero supporting experience get candidates exposed in interviews (and flagged by ATS). | For each listed skill, confirm it appears in real experience; flag unsupported ones. |
 | `claim_inflation_detector` | judgment | The moment an LLM rewrites a bullet it can overstate the source. This guards every rewrite — **JD or not**. | Compares each revised claim against its source evidence; flags overshoot. |
 | `tailoring_fidelity_comparator` | judgment | After revision: did we invent something unsupported, drop something important, or exaggerate? | Diffs original vs revised resume for additions / losses / exaggerations. |
+
+**Gating policy (avoids infinite Optimizer↔QA loops).** A too-strict truthfulness
+layer will block good rewrites and cause the Optimizer and QA agents to ping-pong
+forever. So truthfulness comments gate by **confidence**, not presence:
+`high`-confidence inflation **blocks** and forces a revision; `medium`/`low`
+comments are surfaced to the **user** as advisory flags rather than blocking the
+pipeline. This is the human-in-the-loop escape valve.
+
+### `document_rendering/` — produce the finished artifact
+
+| Engine | Type | Why it exists | How it's used |
+|---|---|---|---|
+| `resume_renderer` | mechanics | The pipeline ends at structured data / Markdown, but the user wants a polished, ATS-safe PDF or DOCX. | Maps the improved `Resume` into a typographic template (LaTeX / React-PDF / docxtemplater) and emits the final file. Runs last, after rehydration. |
 
 ---
 
@@ -250,7 +292,7 @@ value.
   `_auditor`, `_validator`, `_advisor`, `_analyzer`, `_matcher`, `_detector`,
   `_comparator`, `_extractor`. A developer reads `claim_inflation_detector.py`
   and knows the question it answers before opening it.
-- **Foundation files:** named for literal content — `review_comment.py` holds the
+- **Shared files:** named for literal content — `review_comment.py` holds the
   comment/result shapes; `llm_reviewer.py` holds the model-call harness.
 - **Functions inside agent-facing tools** match their `@tool` display name in
   snake_case.
@@ -261,18 +303,43 @@ value.
 
 - **No curated knowledge files** (`cliche_phrases.json`, verb taxonomies). The
   model is the cross-domain expert; freezing its knowledge breaks domain coverage.
+  - **The one justified exception: the bias lexicon** in `bias_inclusivity_auditor`.
+    Unlike clichés (domain-specific, infinite), gender/age-coded terms are a
+    *finite, research-backed, domain-invariant* set with legal grounding. It is
+    still **model-augmented** — the lexicon only flags candidates; the model
+    judges whether the usage is actually biased in context. A list alone would
+    false-positive on "dominate the market."
 - **No thin dead-code wrappers.** The earlier `resume_parser.py` / `job_analyzer.py`
   `@tool` wrappers were bypassed by the orchestrator and are not reproduced here.
-- **No premature foundation files.** `resume_rules.py` and `text_helpers.py`
+- **No premature shared files.** `resume_rules.py` and `text_helpers.py`
   appear only once a second tool genuinely shares them.
 - **No one-CrewAI-tool-per-helper.** Engines group into ~10 agent-facing tools.
 
 ---
 
-## 10. Suggested build order
+## 10. Enterprise layers that live OUTSIDE `src/tools/`
 
-1. **Contract first:** `foundation/review_comment.py`, then
-   `foundation/llm_reviewer.py`. Nothing else can be consistent until these exist.
+These are real enterprise requirements, but they are **cross-cutting platform
+concerns, not tools**. Putting them in the tools tree would repeat the
+over-scaffolding mistake. They are recorded here so the boundary is explicit and
+the tool contract exposes the right hooks for them.
+
+| Concern | Where it lives | Hook the tools layer provides |
+|---|---|---|
+| **PII rehydration & version state** | Orchestrator / state store | `pii_redactor` returns a placeholder→value map and `tailoring_fidelity_comparator` takes `(original, revised)` as inputs. The orchestrator owns the redaction map and the V1/V2 resume history; tools stay stateless. |
+| **Observability / LLMOps** (distributed tracing, prompt-version + token-cost per call) | `src/observability/` (already present — Weave) | `engine_id` on every `ReviewComment` and a single choke point (`shared/llm_reviewer.py`) where traces are emitted, so each comment is traceable to its LLM call. |
+| **Automated evals** (golden datasets, accuracy/drift measurement of judgment tools) | `evals/` (companion to `tests/`), run in CI | Each judgment engine is a pure unit returning `ReviewResult`, so it can be scored against a labeled fixture with no agent or orchestrator. Every judgment engine ships with its own golden set. |
+| **Durable execution** (retries, timeouts, rate-limit recovery across the pipeline) | Orchestration layer (state machine / durable engine), not agent memory | Tools are pure and idempotent — safe to re-run on retry. Durability is the orchestrator's responsibility. |
+
+The principle: **tools are stateless, pure, and traceable; the platform around
+them owns state, durability, tracing, and evaluation.**
+
+---
+
+## 11. Suggested build order
+
+1. **Contract first:** `shared/review_comment.py`, then
+   `shared/llm_reviewer.py`. Nothing else can be consistent until these exist.
 2. **Ingestion:** `document_converter` → `extraction_quality_auditor` →
    the two extractors. Without trustworthy input, every downstream tool is noise.
 3. **Mode A core:** `resume_diagnostics/` then `ats_compliance/` then

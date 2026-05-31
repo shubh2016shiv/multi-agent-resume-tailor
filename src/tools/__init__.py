@@ -1,43 +1,36 @@
 """
-Agent Tools Package
-------------------
+Agent Tools Package — public surface re-exported for agent use.
 
-This package contains all the tools that agents can use to interact with the
-external world, process documents, and manipulate data.
-
-WHY TOOLS?
-- Separation of Concerns: Tools are independent, testable units
-- Reusability: Multiple agents can use the same tool
-- Maintainability: Easy to update, debug, and extend
-- Type Safety: Clear input/output contracts
+Agents import from here, not from sub-packages directly.
 """
 
-from .ats_validation import (
-    calculate_keyword_density,
+from .ats_compliance import (
     check_section_headers,
     get_incompatible_patterns,
-    get_optimal_keyword_density_range,
     get_standard_headers,
     validate_ats_formatting,
 )
-from .document_converter import (
+from .document_ingestion import (
     convert_document_to_markdown,
-    get_available_converters,
     get_supported_formats,
     is_format_supported,
 )
+from .job_matching import (
+    calculate_keyword_density,
+    get_optimal_keyword_density_range,
+)
 
 __all__ = [
-    # Document Converter Tools
+    # Document ingestion
     "convert_document_to_markdown",
     "get_supported_formats",
     "is_format_supported",
-    "get_available_converters",
-    # ATS Validation Tools
-    "calculate_keyword_density",
+    # ATS compliance
     "validate_ats_formatting",
     "check_section_headers",
-    "get_optimal_keyword_density_range",
-    "get_standard_headers",
     "get_incompatible_patterns",
+    "get_standard_headers",
+    # Job matching (keyword coverage)
+    "calculate_keyword_density",
+    "get_optimal_keyword_density_range",
 ]

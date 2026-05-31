@@ -49,7 +49,7 @@ domain-neutral ergonomics (e.g. a bullet over ~35 words is a paragraph).
    can weigh findings instead of blindly trusting them.
 3. **Two levels** — *engines* (small, pure, independently testable units) sit
    beneath *agent-facing tools* (coarse expert instruments an agent actually
-   calls). An agent receives ~10 tools, not ~17 micro-functions, so orchestration
+   calls). An agent receives ~10 tools, not ~19 micro-functions, so orchestration
    never leaks into the agent's prompt.
 4. **Two modes** — the system improves a resume **with or without** a job
    description. The JD is an *enrichment that sharpens* the review, never a
@@ -112,7 +112,7 @@ src/tools/
 ├── __init__.py                          # public surface: re-exports agent-facing tools only
 │
 ├── shared/                              # shared kernel (only what 2+ tools need)
-│   ├── review_comment.py                # ReviewComment + ReviewResult: the universal return shape
+│   ├── tool_contract.py                 # ReviewComment + ReviewResult: the universal return shape
 │   └── llm_reviewer.py                  # shared harness: ask the model a rubric question,
 │                                        #   get ReviewComments back with quotes + confidence
 │   # resume_rules.py  and  text_helpers.py  are added ONLY when a second tool
@@ -132,8 +132,7 @@ src/tools/
 │   ├── language_quality_auditor.py      # [judgment]  duty-language → achievement; hollow phrasing
 │   ├── action_verb_advisor.py           # [judgment]  precise, domain-true verb (not fake power words)
 │   ├── summary_quality_auditor.py       # [hybrid]    length/first-person (mech) + generic/value (judgment)
-│   └── bias_inclusivity_auditor.py      # [hybrid]    gender/age-coded language (HR-compliance) — see §9
-│
+
 ├── job_matching/                        # "how well does this resume answer THIS job?" (JD required)
 │   ├── keyword_coverage_analyzer.py     # [mechanics] JD keyword presence + coverage
 │   └── requirements_matcher.py          # [hybrid]    resume evidence vs job requirements (semantic)
@@ -178,7 +177,7 @@ described in one sentence, it shouldn't be a package.
 | `language_quality_auditor` | judgment | Duty language ("responsible for", "worked on") instead of achievement; hollow filler. Domain-aware — what's hollow in nursing ≠ in software. | Rewrites guidance: reframe duties as achievements, strip empty phrasing. |
 | `action_verb_advisor` | judgment | People can't decide between "built / developed / architected"; LLMs spit out nonsense like "spearheaded." Verb depends on the field ("proved", "litigated", "fine-tuned"). | Given what the person actually did, returns the verb that *accurately* describes their contribution. |
 | `summary_quality_auditor` | hybrid | Summaries are too long, written in first person, generic ("results-oriented professional"), or just repeat the bullets. | Checks length + first-person mechanically; judges generic-ness and whether a value proposition is present. |
-| `bias_inclusivity_auditor` | hybrid | HR/B2B buyers legally need resumes scrubbed of gender-coded ("ninja", "dominate") and age-biased ("digital native") language. | Flags coded terms against a research-backed lexicon, then uses the model to judge whether the usage is actually biased in context ("dominate the market" ≠ a person trait). See the curated-list caveat in §9. |
+
 
 ### `job_matching/` — answer a specific job (JD required)
 
@@ -247,7 +246,7 @@ refinement loop (draft → review → revise) on an objective basis.
 Most people improving a resume do **not** have one specific JD in hand. They have
 a domain and a career. The tool split makes both flows first-class.
 
-**14 of 17 engines need no JD at all.** Only `job_matching/` (plus the JD
+**16 of 19 engines need no JD at all.** Only `job_matching/` (plus the JD
 extractor) is gated on a job description. The `truthfulness/` layer is
 mode-independent — it guards any rewrite, because an LLM can overshoot whether or
 not a JD is present.
@@ -292,8 +291,8 @@ value.
   `_auditor`, `_validator`, `_advisor`, `_analyzer`, `_matcher`, `_detector`,
   `_comparator`, `_extractor`. A developer reads `claim_inflation_detector.py`
   and knows the question it answers before opening it.
-- **Shared files:** named for literal content — `review_comment.py` holds the
-  comment/result shapes; `llm_reviewer.py` holds the model-call harness.
+- **Shared files:** named for intent — `tool_contract.py` holds the
+  universal return contract (`ReviewComment` + `ReviewResult`); `llm_reviewer.py` holds the model-call harness.
 - **Functions inside agent-facing tools** match their `@tool` display name in
   snake_case.
 
@@ -303,12 +302,7 @@ value.
 
 - **No curated knowledge files** (`cliche_phrases.json`, verb taxonomies). The
   model is the cross-domain expert; freezing its knowledge breaks domain coverage.
-  - **The one justified exception: the bias lexicon** in `bias_inclusivity_auditor`.
-    Unlike clichés (domain-specific, infinite), gender/age-coded terms are a
-    *finite, research-backed, domain-invariant* set with legal grounding. It is
-    still **model-augmented** — the lexicon only flags candidates; the model
-    judges whether the usage is actually biased in context. A list alone would
-    false-positive on "dominate the market."
+
 - **No thin dead-code wrappers.** The earlier `resume_parser.py` / `job_analyzer.py`
   `@tool` wrappers were bypassed by the orchestrator and are not reproduced here.
 - **No premature shared files.** `resume_rules.py` and `text_helpers.py`
@@ -338,7 +332,7 @@ them owns state, durability, tracing, and evaluation.**
 
 ## 11. Suggested build order
 
-1. **Contract first:** `shared/review_comment.py`, then
+1. **Contract first:** `shared/tool_contract.py`, then
    `shared/llm_reviewer.py`. Nothing else can be consistent until these exist.
 2. **Ingestion:** `document_converter` → `extraction_quality_auditor` →
    the two extractors. Without trustworthy input, every downstream tool is noise.

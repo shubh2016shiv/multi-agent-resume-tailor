@@ -2,6 +2,16 @@
 # Keep this file lean. Every line loads every session. Trim ruthlessly.
 # Domain rules in .claude/rules/<path>/  |  Full protocol in docs/
 
+## Graphify — Knowledge Graph Navigation
+- graphify map exists at `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json`
+- Prefer `graphify query "<question>"` over `grep` or reading files one-by-one for codebase navigation
+- Query examples:
+  `graphify query "how is token refresh handled"`
+  `graphify query "which agents use UserRepository"`
+  `graphify query "what calls the experience optimizer"`
+- Read GRAPH_REPORT.md at session start for architecture overview (optional, if HANDOFF.md absent)
+- Update graph after structural changes: `graphify . --update` (tree-sitter only, zero API calls)
+
 ## Project Identity
 - **Language/Runtime:** Python 3.12
 - **Framework:** CrewAI multi-agent orchestration

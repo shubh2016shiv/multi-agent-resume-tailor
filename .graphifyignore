@@ -1,0 +1,13 @@
+# Only index Python source files — no docs, PDFs, images, or other media
+# Graphify will skip everything below and only extract .py files
+
+# Exclude everything first
+*
+
+# Then whitelist only Python source
+!src/**
+!tests/**
+
+# But still exclude cache dirs within those paths
+__pycache__/
+*.pyc

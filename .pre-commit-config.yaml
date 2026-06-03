@@ -1,13 +1,16 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.0
+    rev: v0.11.8
     hooks:
       - id: ruff
+        name: ruff (lint + auto-fix)
         args: [--fix]
       - id: ruff-format
+        name: ruff (format)
 
-  - repo: https://github.com/pre-commit/mirrors-pyright
-    rev: v1.1.400
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.402
     hooks:
       - id: pyright
-        args: [--project=pyproject.toml]
+        name: pyright (type-check)
+        args: [--pythonpath, ".venv/bin/python"]

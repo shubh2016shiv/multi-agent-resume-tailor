@@ -14,13 +14,44 @@ Three steps. Once per project. After that, everything is automatic.
 
 ### Step 1: Build the initial knowledge graph
 
+Two options. For token savings alone, Option A is sufficient.
+
+**Option A: Code-only (no API key needed)**
+
 ```bash
-graphify .
+uv run graphify update . --no-cluster
 ```
 
-Parses every `.py` file under `src/` and `tests/` using tree-sitter. Zero API calls, zero
-API keys. Produces `graphify-out/` — commit this directory so every clone inherits the
-pre-built map. First run: 30–90 seconds; subsequent runs are incremental via SHA256 cache.
+Runs only tree-sitter AST extraction. Zero API calls. Produces `graph.json` — the
+queryable graph agents use for navigation. Skips `GRAPH_REPORT.md` and `graph.html`.
+
+- `update` is the **no-LLM** command — it re-extracts code files using only tree-sitter.
+  Works for both initial builds and incremental updates.
+- `--no-cluster` skips Leiden community detection (just writes raw extraction edges).
+  Drop this flag if you want community labels (still no API key needed).
+- **Do NOT use `extract`** for code-only builds — `extract` is the headless full pipeline
+  (AST + semantic LLM) and always requires an API key or `--backend` flag.
+
+**This alone is enough for token savings.** The agent queries `graph.json` instead
+of reading files blindly. The report and visualization are optional.
+
+**Option B: Full build (needs API key)**
+
+```bash
+graphify .
+# or equivalently:
+graphify extract . --backend claude
+```
+
+Full pipeline: AST + semantic LLM (community naming, report, visualization). Produces
+all three output files. Needs `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`
+in your environment.
+
+Start with Option A. You can generate the report later from inside your IDE (Claude Code,
+Codex, etc.) where the model API is provided automatically via `/graphify .`.
+
+Commit `graphify-out/` after building. First run: 30–90s; later runs are incremental
+via SHA256 cache per file.
 
 ### Step 2: Wire graphify into your coding assistant
 
@@ -58,6 +89,11 @@ Both approaches produce the same result. Choose automatic for simplicity, manual
 ### Step 3: Auto-rebuild the graph on every git commit
 
 ```bash
+uv run graphify hook install
+```
+
+If graphify is installed globally (via `uv tool install graphifyy`), omit `uv run`:
+```bash
 graphify hook install
 ```
 
@@ -65,25 +101,71 @@ Installs a post-commit hook in `.git/hooks/`. Every `git commit` triggers an inc
 AST extraction (SHA256-cached, under a second for typical commits). Also installs a merge
 driver for `graph.json` to prevent conflict markers when two branches modify the graph.
 
+**Important: the hook only rebuilds the AST graph (`graph.json`) — it does NOT regenerate
+the LLM-based report (`GRAPH_REPORT.md`).** This is intentional: AST extraction costs
+zero API calls and completes in under a second; regenerating the report with an LLM on
+every commit would be slow and expensive. See Step 4 below for report updates.
+
 This step is **per-machine** because `.git/hooks/` is not tracked by version control.
 Every developer runs it once after cloning:
 
 ```bash
 git clone <repo>
 uv sync --group graphify
-graphify hook install
+uv run graphify hook install
 ```
+
+### Step 4: Generate the human-readable report (Phase 2, optional)
+
+The code-only build from Step 1 (Option A) produces `graph.json` — sufficient for
+token savings. The human-readable report (`GRAPH_REPORT.md`), HTML visualization, and
+community labels require an LLM call. Run this when you want the architecture summary:
+
+**From the CLI (needs API key):**
+```bash
+# Source your .env first, then run the full build
+set -a && source .env && set +a
+graphify .
+
+# Or pass the key inline (choose your provider)
+ANTHROPIC_API_KEY=sk-ant-... graphify .
+OPENAI_API_KEY=sk-... graphify .
+GEMINI_API_KEY=... graphify .
+
+# Or use the extract command with explicit backend
+graphify extract . --backend claude     # uses ANTHROPIC_API_KEY
+graphify extract . --backend openai     # uses OPENAI_API_KEY
+graphify extract . --backend gemini     # uses GEMINI_API_KEY
+```
+
+Graphify auto-detects which provider to use based on available environment variables
+(priority: `GEMINI_API_KEY` → `ANTHROPIC_API_KEY` → `OPENAI_API_KEY` →
+`DEEPSEEK_API_KEY`). It uses the provider'''s default model unless overridden:
+```bash
+graphify extract . --backend openai --model gpt-4o
+```
+
+**From inside your IDE (no API key needed):**
+Inside Claude Code, Codex, or Cursor, simply type `/graphify .` — the IDE session
+provides the model API automatically. This is the simplest path to a full build.
+
+**The git hooks (Step 3) do NOT auto-update the report.** The hooks rebuild only the AST
+graph (`graph.json`). To refresh the report after code changes, run one of the above
+commands manually. A good cadence: regenerate the report after major architectural changes
+(splitting a module, adding/removing agents), not on every commit.
 
 ### Summary
 
 | Step | Command | Frequency | Committed? |
 |---|---|---|---|
-| 1 | `graphify .` | Once; `--update` after major restructures | Output (`graphify-out/`) yes |
+| 1 | `uv run graphify update . --no-cluster` | Once; `uv run graphify update .` after restructures | Output (`graphify-out/`) yes |
 | 2 | `graphify claude install` (or manual) | Once per project | Modified config files yes |
-| 3 | `graphify hook install` | Once per machine after clone | No — hooks are per-machine |
+| 3 | `uv run graphify hook install` | Once per machine after clone | No — hooks are per-machine |
+| 4 | `graphify .` (full build with API key) | Occasionally, after major architecture changes | Output (`graphify-out/`) is updated and recommitted |
 
-After setup: every `git commit` silently rebuilds the graph. The agent queries the graph
-instead of reading files blindly. Zero ongoing effort.
+After setup: every `git commit` silently rebuilds the AST graph. The agent queries it
+instead of reading files blindly. Regenerate the report when you want updated architecture
+docs. Zero ongoing effort.
 
 ---
 
@@ -233,7 +315,7 @@ For the Resume Tailor project's code-only configuration, none of these extras ar
 
 ## 5. Configuring What Gets Indexed — The Graphifyignore File
 
-The `.graphifyignore` file in the project root controls which files graphify includes in its extraction. The syntax is identical to `.gitignore`, including support for `!` negation patterns that re-include previously excluded paths.
+The `.graphifyignore` file in the project root controls which files graphify includes in its extraction. The syntax is similar to `.gitignore` — but **`!` negation patterns are not supported** by the `update` command (the no-LLM path). Use exclude-only patterns instead of blanket-exclude-then-whitelist.
 
 ### The Decision for Code-Only Indexing
 
@@ -245,24 +327,44 @@ Second, the project contains sample documents (PDFs, DOCX files) that are binary
 
 Third, the project has numerous root-level test scripts (`test_*.py`, `validate_*.py`, `verify_*.py`) that are exploratory or one-off in nature. They are not imported by the main source tree and do not represent the project's architecture. Including them would add noise to the graph without adding signal.
 
-The resulting `.graphifyignore` uses a whitelist approach: exclude everything with `*`, then re-include only `src/**` and `tests/**`. This produces a clean graph focused entirely on the project's actual source code.
+The resulting `.graphifyignore` uses an exclude-only approach: list every non-source directory and file type to skip. While this is more verbose than a whitelist, it works reliably with the `update` command.
 
 ### Pattern Reference
 
 ```
-# Exclude everything first
-*
-
-# Re-include only the directories that matter
-!src/**
-!tests/**
-
-# Exclude cache directories within included paths
+# Exclude non-source directories
 __pycache__/
-*.pyc
+.git/
+.venv/
+graphify-out/
+docs/
+raw/
+scripts/
+.claude/
+
+# Exclude non-Python files at project root
+*.md
+*.txt
+*.toml
+*.lock
+*.yaml
+*.yml
+*.json
+*.cfg
+.env*
+.graphifyignore
+.gitignore
+Dockerfile
+Makefile
+LICENSE
 ```
 
-This pattern can be adapted for any project. For a monorepo with multiple services, you might whitelist each service directory individually. For a project where documentation is tightly coupled to code (e.g., a library with docstring-driven API docs), you might include the `docs/` directory and install the appropriate extras for Markdown extraction.
+> **Why not `!` negation?** The `!` prefix (re-include) works in `.gitignore` but is not
+> supported by graphify's `update` command. A blanket `*` exclude followed by `!src/**`
+> results in zero files being found. If you need whitelist-style patterns, use the
+> `extract` command instead (requires API key). For no-LLM builds, use exclude-only.
+
+This pattern can be adapted for any project. For a monorepo with multiple services, you might add each non-source directory individually. For a project where documentation is tightly coupled to code (e.g., a library with docstring-driven API docs), you might include the `docs/` directory and install the appropriate extras for Markdown extraction.
 
 ---
 
@@ -734,9 +836,9 @@ jobs:
         run: uv sync --group graphify
       - name: Check graph freshness
         run: |
-          uv run graphify . --update --no-viz
+          uv run graphify update . --no-cluster
           if ! git diff --quiet graphify-out/graph.json; then
-            echo "::error::graphify-out/ is out of date. Run: graphify . --update && git add graphify-out/ && git commit"
+            echo "::error::graphify-out/ is out of date. Run: graphify update . --no-cluster && git add graphify-out/ && git commit"
             exit 1
           fi
 ```

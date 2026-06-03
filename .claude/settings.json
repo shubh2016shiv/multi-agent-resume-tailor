@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ ! -f HANDOFF.md ]; then echo \"BLOCKED: Write HANDOFF.md before compacting. Use the template in AGENTS.md. Include: what was done, current state, files modified, next action.\"; exit 2; fi'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "If any source files were modified, added, or deleted during this session, write HANDOFF.md now following the exact template in AGENTS.md. Include every section: Completed, Current state, Files modified table, and Next action."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cmd=$(echo \"$CLAUDE_TOOL_INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); case \"$cmd\" in *\"pytest tests/ \"*|*\"pytest tests \"*) echo \"STOP: Do not run the full test suite. Target a specific test: uv run pytest tests/test_<name>.py -x -v\"; exit 2 ;; *\"cat src/\"*) echo \"STOP: Do not cat entire source files. Use targeted reads or sed -n line ranges.\"; exit 2 ;; *) exit 0 ;; esac'"
+          }
+        ]
+      }
+    ]
+  }
+}

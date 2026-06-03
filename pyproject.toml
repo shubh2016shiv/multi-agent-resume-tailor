@@ -65,6 +65,17 @@ dev = [
     "pre-commit>=4.0.0",
 ]
 
+# uv-only dependency groups (PEP 735) — separate from main project deps
+[dependency-groups]
+graphify = [
+    "graphifyy>=0.8.0",
+    # Optional extras (uncomment if needed):
+    # "graphifyy[leiden]",   # Leiden community detection (Python < 3.13 — works on 3.12)
+    # "graphifyy[pdf]",      # PDF extraction
+    # "graphifyy[office]",   # .docx / .xlsx support
+    # "graphifyy[mcp]",      # MCP server for tool-based agent access
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/agents", "src/config", "src/core", "src/data_models", "src/formatters", "src/observability", "src/tools"]
 

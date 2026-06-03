@@ -10,6 +10,17 @@ import unicodedata
 
 from crewai.tools import tool
 
+from src.tools.review_contract.review_models import (
+    Confidence,
+    Location,
+    ReviewComment,
+    ReviewResult,
+    Section,
+    Severity,
+)
+
+ENGINE_ID = "formatting_validator"
+
 # Structural patterns that break ATS parsing. Box-drawing and other exotic
 # symbols are handled by _find_problematic_characters via unicode category.
 INCOMPATIBLE_PATTERNS = [
@@ -37,6 +48,28 @@ def validate_ats_formatting(resume_text: str) -> str:
         return "ATS Formatting Validation:\n=========================\nError: empty input"
     issues = _find_formatting_issues(resume_text)
     return _build_validation_report(issues)
+
+
+def audit_ats_formatting(resume_text: str) -> ReviewResult:
+    """Engine surface: same checks as validate_ats_formatting, as a ReviewResult.
+
+    Args:
+        resume_text: Complete resume content as plain text or Markdown.
+
+    Returns:
+        A ReviewResult. An empty comment list means no formatting issues were
+        found. Each issue becomes a document-level (Section.OTHER) comment, since
+        these problems break parsing for the whole document, not one section.
+    """
+    if not resume_text.strip():
+        return ReviewResult(comments=[], summary="Empty input: nothing to audit")
+    comments = [_make_finding(issue) for issue in _find_formatting_issues(resume_text)]
+    summary = (
+        "No ATS formatting issues detected"
+        if not comments
+        else f"{len(comments)} ATS formatting issue(s)"
+    )
+    return ReviewResult(comments=comments, summary=summary)
 
 
 def get_incompatible_patterns() -> list[str]:
@@ -129,6 +162,23 @@ def _find_masked_hyperlinks(resume_text: str) -> list[str]:
         if display_text.lower() not in url.lower():
             issues.append(f"Masked link: '{display_text}' hides URL '{url}' - show the full URL")
     return issues
+
+
+def _make_finding(issue: str) -> ReviewComment:
+    """Build a document-level formatting comment (mechanical, so HIGH confidence).
+
+    Formatting issues break ATS parsing across the whole document, so they anchor
+    to Section.OTHER with no excerpt; the detection message carries the specifics.
+    """
+    return ReviewComment(
+        engine_id=ENGINE_ID,
+        message=issue,
+        quoted_text="",
+        location=Location(section=Section.OTHER),
+        severity=Severity.MAJOR,
+        confidence=Confidence.HIGH,
+        advice="Remove the flagged element so an ATS parser can read the resume.",
+    )
 
 
 def _build_validation_report(issues: list[str]) -> str:

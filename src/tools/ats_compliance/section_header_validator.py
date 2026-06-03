@@ -7,6 +7,17 @@ import re
 
 from crewai.tools import tool
 
+from src.tools.review_contract.review_models import (
+    Confidence,
+    Location,
+    ReviewComment,
+    ReviewResult,
+    Section,
+    Severity,
+)
+
+ENGINE_ID = "section_header_validator"
+
 # Standard section names by category. These are domain-neutral resume
 # conventions (TOOLING_PLAN section 36 permits freezing ergonomics like this),
 # not curated professional knowledge.
@@ -44,14 +55,52 @@ def check_section_headers(resume_text: str) -> str:
         Validation report string grouping sections into present, missing
         essential (flagged), and missing optional (informational).
     """
+    present, missing_essential, missing_optional = _classify_sections(resume_text)
+    return _build_header_report(present, missing_essential, missing_optional)
+
+
+def audit_section_headers(resume_text: str) -> ReviewResult:
+    """Engine surface: same checks as check_section_headers, as a ReviewResult.
+
+    Args:
+        resume_text: Complete resume content as text or Markdown.
+
+    Returns:
+        A ReviewResult. Missing essential sections become MAJOR comments; missing
+        optional sections become SUGGESTION comments. An empty comment list means
+        every essential section is present under a recognized name.
+    """
+    _, missing_essential, missing_optional = _classify_sections(resume_text)
+    comments = [
+        _make_finding(section_type, recommended, Severity.MAJOR)
+        for section_type, recommended in missing_essential
+    ]
+    comments += [
+        _make_finding(section_type, recommended, Severity.SUGGESTION)
+        for section_type, recommended in missing_optional
+    ]
+    summary = (
+        "All essential sections present under ATS-recognized names"
+        if not missing_essential
+        else f"{len(missing_essential)} essential section(s) missing"
+    )
+    return ReviewResult(comments=comments, summary=summary)
+
+
+def _classify_sections(
+    resume_text: str,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
+    """Sort standard sections into (present, missing_essential, missing_optional).
+
+    Each entry is (section_type, header): the matched header for present sections,
+    the recommended name for missing ones. Shared by the string tool and engine.
+    """
     # TODO: Detect creative headers (e.g. "My Journey" instead of "Experience").
     #       Proposed: flag header lines that match no known section as warnings.
     #       Deferred: hard to separate real creative headers from job titles and
     #                 project names without false positives; needs real data.
     header_lines = _extract_header_lines(resume_text)
-    present = []
-    missing_essential = []
-    missing_optional = []
+    present, missing_essential, missing_optional = [], [], []
     for section_type, aliases in STANDARD_SECTION_HEADERS.items():
         matched_header = _find_matching_header(aliases, header_lines)
         if matched_header is not None:
@@ -60,7 +109,7 @@ def check_section_headers(resume_text: str) -> str:
             missing_essential.append((section_type, aliases[0]))
         else:
             missing_optional.append((section_type, aliases[0]))
-    return _build_header_report(present, missing_essential, missing_optional)
+    return present, missing_essential, missing_optional
 
 
 def get_standard_headers() -> dict[str, list[str]]:
@@ -84,6 +133,25 @@ def _find_matching_header(aliases: list[str], header_lines: list[str]) -> str | 
         if any(alias.lower() in header.lower() for alias in aliases):
             return header
     return None
+
+
+def _make_finding(
+    section_type: str, recommended_name: str, severity: Severity
+) -> ReviewComment:
+    """Build a comment for a missing section (mechanical, so HIGH confidence).
+
+    section_type is a STANDARD_SECTION_HEADERS key, which matches a Section enum
+    value exactly, so it anchors the comment to that section.
+    """
+    return ReviewComment(
+        engine_id=ENGINE_ID,
+        message=f"No ATS-recognized '{section_type}' header found",
+        quoted_text="",
+        location=Location(section=Section(section_type)),
+        severity=severity,
+        confidence=Confidence.HIGH,
+        advice=f"Add a section titled '{recommended_name}'.",
+    )
 
 
 def _build_header_report(

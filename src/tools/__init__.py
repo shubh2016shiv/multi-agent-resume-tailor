@@ -4,6 +4,15 @@ Agent Tools Package — public surface re-exported for agent use.
 Agents import from here, not from sub-packages directly.
 """
 
+from .agent_facing_tools import (
+    analyze_jd_keyword_coverage,
+    audit_experience_quality,
+    audit_summary,
+    audit_truthfulness,
+    check_skills_evidence,
+    match_job_requirements,
+    validate_ats_compliance,
+)
 from .ats_compliance import (
     check_section_headers,
     get_incompatible_patterns,
@@ -33,4 +42,12 @@ __all__ = [
     # Job matching (keyword coverage)
     "calculate_keyword_density",
     "get_optimal_keyword_density_range",
+    # Agent-facing composite tools
+    "audit_experience_quality",
+    "audit_summary",
+    "check_skills_evidence",
+    "audit_truthfulness",
+    "match_job_requirements",
+    "validate_ats_compliance",
+    "analyze_jd_keyword_coverage",
 ]

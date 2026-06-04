@@ -56,6 +56,8 @@ def analyze_keyword_coverage(resume_text: str, required_keywords: list[str]) -> 
     """
     if not resume_text.strip():
         return ReviewResult(comments=[], summary="Empty input: nothing to audit")
+    if not required_keywords:
+        return ReviewResult(comments=[], summary="No keywords provided to match")
     keyword_counts = _count_keywords(resume_text, required_keywords)
     metrics = _compute_density_metrics(resume_text, required_keywords, keyword_counts)
     comments = _build_coverage_comments(metrics, required_keywords, keyword_counts)
@@ -120,7 +122,9 @@ def _build_coverage_comments(
                 advice=f"Work these JD keywords into bullets where true: {', '.join(missing)}.",
             )
         )
-    if not metrics["is_optimal"]:
+    # Only meaningful once at least one keyword is actually present; a 0% density
+    # when nothing matched is noise -- the missing-keywords comment already says it.
+    if metrics["total_instances"] > 0 and not metrics["is_optimal"]:
         comments.append(
             _make_finding(
                 message=(

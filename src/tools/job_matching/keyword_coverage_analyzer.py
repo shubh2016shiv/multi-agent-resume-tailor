@@ -74,13 +74,34 @@ def get_optimal_keyword_density_range() -> tuple[float, float]:
 
 
 def _count_keywords(resume_text: str, required_keywords: list[str]) -> dict[str, int]:
-    """Count case-insensitive occurrences of each keyword present in the text."""
-    resume_lower = resume_text.lower()
-    return {
-        keyword: resume_lower.count(keyword.lower())
-        for keyword in required_keywords
-        if keyword.lower() in resume_lower
-    }
+    """Count whole-token occurrences of each keyword present in the text.
+
+    Whole-token, not substring: "AI" must not match inside "Maintained" and "R"
+    must not match inside "Ruby". Word boundaries (\\b) are unreliable for tech
+    keywords ending in punctuation ("C#", "C++", ".NET"), so a keyword counts only
+    when it is not flanked by another alphanumeric character.
+    """
+    counts = {}
+    for keyword in required_keywords:
+        occurrences = _count_whole_token(keyword, resume_text)
+        if occurrences:
+            counts[keyword] = occurrences
+    return counts
+
+
+def _count_whole_token(keyword: str, text: str) -> int:
+    """Count case-insensitive whole-token matches of keyword in text.
+
+    The optional trailing "s" keeps regular plurals matching ("API" finds "APIs",
+    "model" finds "models") while the lookbehind still blocks embedded substrings
+    ("AI" never matches inside "Maintained").
+
+    TODO: irregular plurals ("repository"/"repositories") still miss.
+          Proposed: spaCy lemmatization (already a dependency).
+          Deferred because: heavier per-call; regular plurals cover the common case.
+    """
+    pattern = rf"(?<![A-Za-z0-9]){re.escape(keyword)}s?(?![A-Za-z0-9])"
+    return len(re.findall(pattern, text, re.IGNORECASE))
 
 
 def _compute_density_metrics(

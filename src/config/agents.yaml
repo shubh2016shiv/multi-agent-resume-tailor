@@ -68,7 +68,7 @@ job_description_analyst:
 
   # LLM configuration specific to this agent. This can override global settings.
   # We use a model optimized for cost and speed for this analytical task.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   # Low temperature for factual, deterministic analysis.
   temperature: 0.2
   # Enables detailed logging for this agent's actions.
@@ -113,7 +113,7 @@ resume_content_extractor:
     information in ways that enable strategic comparison and optimization. You pay special
     attention to achievements that demonstrate impact, skills that indicate depth of expertise,
     and experiences that show career progression.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   temperature: 0.2
   verbose: true
 
@@ -160,7 +160,7 @@ gap_analysis_specialist:
     You are committed to truthfulness - you never suggest fabricating experience, but you
     excel at helping people tell their professional story in the most compelling, relevant way
     for each specific opportunity.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   temperature: 0.3
   verbose: true
 
@@ -220,7 +220,7 @@ professional_summary_writer:
     a job requirement, demonstrating value, or strengthening credibility. You write in active
     voice, lead with strengths, and ensure the summary makes the reader want to continue
     reviewing the full resume.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   # Higher temperature for more creative and nuanced writing.
   temperature: 0.5
   verbose: true
@@ -288,7 +288,7 @@ experience_section_optimizer:
     exaggerate scope, but you help professionals present their work compellingly by
     transforming "Managed team" into "Led cross-functional team of 8 to deliver project
     2 weeks ahead of schedule, reducing costs by 15%."
-  llm: gemini/gemini-2.5-flash-lite  # Optimal for iterative workflows: fast (5-15s), cheap, reliable JSON
+  llm: openai/gpt-4o-mini  # Optimal for iterative workflows: fast, cheap, reliable JSON
   temperature: 0.5
   verbose: true
   # SAFETY LIMITS: Prevent infinite loops (SURGICAL FIX - 2025-11-24)
@@ -341,7 +341,7 @@ skills_section_strategist:
     the job posting first, then should-haves, then additional relevant skills that strengthen
     candidacy. You are meticulous about terminology. You never add skills not evidenced in
     experience, but you ensure every verifiable skill is captured and prioritized appropriately.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   temperature: 0.4
   verbose: true
   # OPTIMIZATION 7: Output length constraints to reduce token usage
@@ -405,7 +405,7 @@ ats_optimization_specialist:
     IMPORTANT: You are a "finalizer" agent. Your job is to assemble the complete,
     production-ready resume with all metadata. Output everything at once in a single
     comprehensive response.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   temperature: 0.1
   verbose: true
 
@@ -454,6 +454,6 @@ quality_assurance_reviewer:
     Your reviews are constructive and specific. When you identify issues, you explain the problem,
     why it's problematic, and how to fix it. You use the `evaluate_resume_quality` tool to
     generate quantitative scores, then interpret the results to provide actionable feedback.
-  llm: gemini/gemini-2.5-flash-lite
+  llm: openai/gpt-4o-mini
   temperature: 0.2
   verbose: true

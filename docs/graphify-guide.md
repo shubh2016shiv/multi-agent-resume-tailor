@@ -494,7 +494,7 @@ A key design decision in integrating graphify into a project is determining whic
 
 ### Manual Per-Machine Steps — Run Once Per Clone
 
-**Building the initial graph.** Running `graphify .` builds the graph from the current state of the codebase. This is a one-time operation for the first developer who sets up the project; subsequent developers get the pre-built `graphify-out/` from version control. After major structural changes (adding or removing agents, reorganizing modules), any developer can run `graphify . --update` to refresh the graph.
+**Building the initial graph.** Running `graphify .` builds the graph from the current state of the codebase. This is a one-time operation for the first developer who sets up the project; subsequent developers get the pre-built `graphify-out/` from version control. After major structural changes (adding or removing agents, reorganizing modules), any developer can run `graphify update .` to refresh the graph.
 
 **Installing the git hooks.** Running `graphify hook install` sets up post-commit and post-checkout hooks that automatically rebuild the graph. These hooks live in `.git/hooks/`, which is inside the `.git/` directory and intentionally not tracked by version control. This is a security feature of git — you cannot distribute executable hooks via `git clone`. Each developer must run this command once after cloning.
 
@@ -542,7 +542,7 @@ graphify explain "ExperienceOptimizerAgent"
 When working inside Claude Code (or any graphify-aware coding assistant), the agent uses these queries transparently. The developer asks a question about the codebase, and the agent resolves it through graph queries rather than file reading. The developer does not need to type `graphify query` themselves — the agent does it as part of its tool loop.
 
 The developer only needs to interact with graphify directly when:
-- Building or rebuilding the graph: `graphify .` or `graphify . --update`
+- Building or rebuilding the graph: `graphify update .` (no LLM) or `graphify .` (full LLM build)
 - Exporting architecture diagrams: `graphify export callflow-html`
 - Running explicit terminal queries to verify the graph's understanding
 
@@ -565,7 +565,7 @@ The hook also installs a git merge driver for `graph.json`. When two branches mo
 For cases where the developer wants to update the graph without committing (e.g., during active development before the code is ready to commit):
 
 ```bash
-graphify . --update
+graphify update .
 ```
 
 This re-extracts only files whose contents have changed since the last extraction, using the same SHA256 cache mechanism as the git hook. It is fast enough to run at any point during a development session without interrupting flow.
@@ -575,7 +575,7 @@ This re-extracts only files whose contents have changed since the last extractio
 For cases where the project structure has changed significantly — directories renamed, modules reorganized, many files added or removed — a full rebuild ensures the graph is clean:
 
 ```bash
-graphify . --force
+graphify update . --force
 ```
 
 The `--force` flag overwrites the existing graph even if the new graph has fewer nodes than the old one. This is important after refactors that delete files: without `--force`, graphify conservatively preserves old nodes to avoid losing information, which can lead to ghost nodes that no longer correspond to any source file.
@@ -618,13 +618,13 @@ The `cache/` directory contains SHA256-hashed extraction results. Committing it 
 
 3. **All developers** run `graphify hook install` once after cloning to enable automatic updates on commit. This is the only per-machine setup step.
 
-4. **After major structural changes** (adding a new agent class, splitting a module, reorganizing directories), any developer can run `graphify . --update` to refresh the graph. The update is committed alongside the code changes so that the graph stays synchronized with the codebase.
+4. **After major structural changes** (adding a new agent class, splitting a module, reorganizing directories), any developer can run `graphify update .` to refresh the graph. The update is committed alongside the code changes so that the graph stays synchronized with the codebase.
 
 ### Merge Conflicts
 
 Because `graph.json` is a single JSON file, git might produce conflict markers when two branches modify the graph. Graphify's merge driver prevents this by union-merging graph changes automatically. The merge driver is installed by `graphify hook install` and requires no configuration beyond running that command.
 
-If a merge conflict does occur (e.g., because the merge driver was not installed), the fix is to run `graphify . --force` after resolving the merge, which rebuilds the graph from the current state of the codebase.
+If a merge conflict does occur (e.g., because the merge driver was not installed), the fix is to run `graphify update . --force` after resolving the merge, which rebuilds the graph from the current state of the codebase.
 
 ---
 
@@ -664,9 +664,9 @@ For code-only projects, the AST extraction runs regardless of backend because tr
 
 A CI workflow might:
 1. Check out the repository.
-2. Run `graphify extract ./src --backend ollama` (or skip if code-only and use `graphify . --update` which requires no backend).
+2. Run `graphify extract ./src --backend ollama` (or skip if code-only and use `graphify update .` which requires no backend).
 3. Compare the generated `graph.json` with the committed version.
-4. Fail the build if the graph is out of date, alerting the developer to run `graphify . --update` and commit the result.
+4. Fail the build if the graph is out of date, alerting the developer to run `graphify update .` and commit the result.
 
 ### Cross-Project Global Graph
 
@@ -701,7 +701,7 @@ For the Resume Tailor project, a call-flow diagram might show the pipeline from 
 If a refactor deleted files, the old nodes may linger because graphify conservatively preserves them to avoid data loss. Pass `--force` to overwrite with the new, potentially smaller graph:
 
 ```bash
-graphify . --update --force
+graphify update . --force
 ```
 
 ### Ghost Duplicate Nodes
@@ -709,7 +709,7 @@ graphify . --update --force
 If semantic extraction and AST extraction produced different node IDs for the same symbol, the graph may contain duplicates. A full re-extract clears this:
 
 ```bash
-graphify . --force
+graphify update . --force
 ```
 
 ### Graph Not Updating on Commit
@@ -744,8 +744,8 @@ graphify install          # overwrites the skill file
 For graphs with over 5,000 nodes, the HTML visualization can become too large for browsers. Skip HTML generation and use the graph JSON directly:
 
 ```bash
-graphify . --no-viz
-graphify query "..."      # queries still work against graph.json
+graphify cluster-only . --no-viz   # skip HTML; report + graph.json still updated
+graphify query "..."               # queries still work against graph.json
 ```
 
 ---
@@ -802,8 +802,8 @@ uv tool install "graphifyy[leiden]"
 After installing, rebuild the graph with community detection:
 
 ```bash
-graphify . --force
-graphify . --cluster-only --resolution 1.5  # finer-grained communities
+graphify update . --force
+graphify cluster-only . --resolution 1.5  # finer-grained communities
 ```
 
 The resulting communities appear in `GRAPH_REPORT.md` as named clusters, making the architecture report more informative.

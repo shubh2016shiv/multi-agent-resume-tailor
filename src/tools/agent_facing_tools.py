@@ -19,6 +19,12 @@ from pydantic import ValidationError
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.tools.ats_compliance import audit_ats_formatting, audit_section_headers
+from src.tools.document_ingestion import (
+    audit_extraction_quality,
+    convert_document_to_markdown,
+    extract_resume,
+    redact_pii,
+)
 from src.tools.job_matching import analyze_keyword_coverage, match_requirements
 from src.tools.resume_diagnostics import (
     audit_bullet_structure,
@@ -209,4 +215,74 @@ def analyze_jd_keyword_coverage(resume_text: str, keywords_csv: str) -> str:
     keywords = [keyword.strip() for keyword in keywords_csv.split(",") if keyword.strip()]
     return _render_review_result(
         analyze_keyword_coverage(resume_text, keywords), "Keyword Coverage"
+    )
+
+
+@tool("Convert Resume Document to Markdown")
+def convert_resume_document_to_markdown(file_path: str) -> str:
+    """Convert a resume PDF or DOCX file to Markdown text.
+
+    Call this first. Pass the file path. The Markdown it returns is what
+    all subsequent steps (quality check, PII redaction, extraction) operate on.
+
+    Args:
+        file_path: Absolute or relative path to the resume PDF/DOCX file.
+
+    Returns:
+        The document content as a Markdown string.
+    """
+    return convert_document_to_markdown(file_path)
+
+
+@tool("Redact PII from Resume Markdown")
+def redact_pii_from_resume_markdown(markdown: str) -> str:
+    """Mask personally identifiable information before sending text to an LLM.
+
+    Call this after the quality check passes. Returns the redacted Markdown
+    ready for extraction. PII (name, email, phone) is replaced with placeholders.
+
+    Args:
+        markdown: The Markdown text from convert_resume_document_to_markdown.
+
+    Returns:
+        The Markdown with PII replaced by placeholder tokens.
+    """
+    redacted_markdown, _pii_mapping = redact_pii(markdown)
+    return redacted_markdown
+
+
+@tool("Extract Structured Resume from Markdown")
+def extract_structured_resume_from_markdown(redacted_markdown: str) -> str:
+    """Extract a validated Resume object from PII-redacted Markdown.
+
+    Call this last, after redaction. Uses a schema-constrained LLM call to
+    produce a Resume that matches the exact Resume data model fields.
+
+    Args:
+        redacted_markdown: The redacted Markdown from redact_pii_from_resume_markdown.
+
+    Returns:
+        The extracted Resume as a JSON string matching the Resume schema.
+    """
+    resume = extract_resume(redacted_markdown)
+    return resume.model_dump_json()
+
+
+@tool("Check Resume Markdown Quality")
+def check_resume_markdown_quality(markdown: str) -> str:
+    """Inspect converted resume Markdown for extraction blockers.
+
+    Use this after PDF conversion, before extracting. A BLOCKER means the
+    conversion failed and the resume cannot be reliably extracted — stop
+    and report the problem. An empty result means the text is usable.
+
+    Args:
+        markdown: The Markdown text produced from the resume PDF/DOCX.
+
+    Returns:
+        A quality report listing issues found (volume, fragmentation,
+        conversion artifacts). Empty result means no issues found.
+    """
+    return _render_review_result(
+        audit_extraction_quality(markdown), "Resume Markdown Quality"
     )

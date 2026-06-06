@@ -123,6 +123,14 @@ class AlignmentStrategy(BaseModel):
 
     This model is the final output of the `Gap & Alignment Strategist` agent and serves
     as the primary input for all subsequent content generation agents.
+
+    Architecture: This model implements the **Blackboard Pattern** (Strategy variant —
+    one writer, many readers). The Gap Analysis agent WRITES the strategy once; three
+    content-generation agents (Summary Writer, Experience Optimizer, Skills Optimizer)
+    READ their section-specific guidance fields in parallel. No downstream agent
+    re-analyzes Resume vs Job — the analysis happens once, the results are distributed.
+
+    See: docs/blackboard-pattern-multi-agent-systems.md
     """
 
     # A high-level assessment of how well the candidate's profile matches the job.

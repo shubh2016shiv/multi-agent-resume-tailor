@@ -122,6 +122,11 @@ class Experience(BaseModel):
     role, company, duration, responsibilities, and key achievements.
     """
 
+    experience_id: str | None = Field(
+        None,
+        description="Code-assigned stable ID for correlating this experience entry across pipeline steps.",
+    )
+
     job_title: str = Field(
         ...,
         description="The official job title or position held.",
@@ -188,6 +193,7 @@ class Experience(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "experience_id": "exp_001_innovate_corp_senior_software_engineer_2020_01_15",
                 "job_title": "Senior Software Engineer",
                 "company_name": "Innovate Corp",
                 "start_date": "2020-01-15",

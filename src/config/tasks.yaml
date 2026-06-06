@@ -297,186 +297,34 @@ write_professional_summary_task:
 
 optimize_experience_section_task:
   description: >
-    Rewrite and optimize all experience entries to align with the target job.
-    Your task is to:
-    1. Review each experience entry from the original resume.
-    2. For each entry, reorder bullets by relevance to the target job:
-       - Bullets with direct keyword matches go first
-       - High-impact achievements (revenue, scale, cost savings) prioritized
-       - Leadership/team accomplishments highlighted
-       - Generic duties moved to end or removed
-    3. Rewrite descriptions to incorporate job-relevant keywords naturally.
-    4. Reframe achievements to emphasize the most relevant aspects.
-    5. Quantify achievements wherever possible, using a Challenge-Action-Result (CAR) format.
-    6. Ensure each bullet starts with a strong action verb (e.g., "Led", "Architected", "Increased").
-    
-    Apply the "So What?" Test to every bullet:
-    - If a bullet describes WHAT you did without WHY it mattered, rewrite it.
-    - Transform: "Built microservices" → "Built microservices architecture that reduced deployment time from 2 hours to 15 minutes"
-    - Every bullet must answer: What business problem did this solve? Who benefited? What changed?
-    
-    Hierarchy of Impact (use highest level possible):
-    1. Revenue/Cost: "Generated $2M in savings" (BEST)
-    2. Efficiency: "Reduced processing time by 70%"
-    3. Scale: "Enabled platform to support 50M users"
-    4. Quality: "Decreased bug rate by 40%"
-    5. Capability: "Enabled real-time analytics previously impossible"
+    Rewrite the professional experience role provided in CONTEXT.
 
-    Bullet Structure Requirements:
-    1. Lead with strong action verb
-    2. Include context/scale early (team size, dataset size, user base)
-    3. Specify method/technology used
-    4. End with measurable impact
-    
-    Formula: "[Verb] [what] for [scale/context], [method], resulting in [impact]"
-    
-    Example: "Architected microservices platform for 50M+ users using Kubernetes and Python, 
-              reducing infrastructure costs by $2M annually and improving deployment speed by 300%"
+    The orchestration layer calls you once per company or role. Treat the
+    provided role as the full evidence boundary for this task. Do not use facts
+    from unrelated roles, the skills section, education, certifications, or
+    personal information.
 
-    ITERATIVE IMPROVEMENT PROCESS (MANDATORY):
-    You MUST use the evaluate_experience_bullets tool for iterative improvement.
-    DO NOT skip this process. Follow this exact workflow for EACH experience entry:
-    
-    FOR EACH experience entry (repeat this entire block per entry):
-      Set ITERATION_COUNT = 0
-      Set CONTINUE_IMPROVING = True
-      Set iteration_history = []
-      
-      WHILE CONTINUE_IMPROVING AND ITERATION_COUNT < 3:
-        ITERATION_COUNT = ITERATION_COUNT + 1
-        
-        # Step 1: Generate or Regenerate bullets
-        IF ITERATION_COUNT == 1:
-          bullets = [Generate 3-6 initial bullets based on original resume and strategy guidance]
-        ELSE:
-          bullets = [Regenerate 3-6 bullets addressing the specific critique from previous iteration]
-        
-        # Step 2: Evaluate using the tool (MANDATORY)
-        evaluation_result = evaluate_experience_bullets(
-          bullets_json=json.dumps(bullets),
-          keywords="comma,separated,keywords,from,strategy"
-        )
-        
-        # Step 3: Parse evaluation result
-        Parse JSON from evaluation_result to get:
-          - average_score (int)
-          - per_bullet_scores (list)
-          - issues (list of specific problems)
-          - critique (actionable improvement instructions)
-          - meets_threshold (bool)
-        
-        # Step 4: Record this iteration
-        iteration_history.append({
-          "iteration": ITERATION_COUNT,
-          "content": "\n".join(bullets),
-          "quality_score": average_score,
-          "issues_found": issues,
-          "critique": critique
-        })
-        
-        # Step 5: Log progress
-        LOG: "Iteration {ITERATION_COUNT} for {company_name}: Score {average_score}/100"
-        
-        # Step 6: Decide whether to continue
-        IF meets_threshold:
-          CONTINUE_IMPROVING = False
-          LOG: "✓ Quality threshold met at iteration {ITERATION_COUNT}"
-        ELSE IF ITERATION_COUNT >= 3:
-          CONTINUE_IMPROVING = False
-          LOG: "⚠ Max iterations reached. Final score: {average_score}/100"
-        ELSE:
-          LOG: "↻ Regenerating bullets based on critique: {critique}"
-          # Loop will continue with regeneration
-      
-      # Step 7: Store final bullets and history for this entry
-      final_bullets = bullets
-      final_score = average_score
-    
-    OUTPUT FORMAT REQUIREMENTS:
-    You MUST output using the IterativeExperienceOptimization model:
-    {
-      "optimized_experiences": [Experience objects with final bullets],
-      "optimization_notes": "Summary of optimization decisions",
-      "keywords_integrated": ["list", "of", "keywords", "used"],
-      "relevance_scores": {"Company Name": relevance_score},
-      "iteration_history": {
-        "Company Name": [list of BulletDraft objects showing each iteration]
-      },
-      "iterations_used": total_number_of_iterations_across_all_entries,
-      "final_quality_score": average_final_score_across_all_entries
-    }
-    
-    CRITICAL: You MUST call evaluate_experience_bullets after generating bullets.
-    CRITICAL: You MUST regenerate bullets if score < 85.
-    CRITICAL: You MUST include iteration_history in your output.
-    
-    ════════════════════════════════════════════════════════════════════════════════
-    CRITICAL OUTPUT REQUIREMENT - FINAL BULLET POINTS DISPLAY
-    ════════════════════════════════════════════════════════════════════════════════
-    
-    AFTER your JSON output, you MUST ALWAYS add a human-readable section that clearly
-    displays the final optimized bullet points. This section MUST be titled exactly:
-    
-    === FINAL OPTIMIZED BULLET POINTS ===
-    
-    This section is REQUIRED and makes it easy for users to see the final results at a glance.
-    DO NOT skip this section. It must appear after your JSON output.
-    
-    Format for the FINAL BULLET POINTS section:
-    
-    === FINAL OPTIMIZED BULLET POINTS ===
-    
-    [Job Title] at [Company Name] ([Start Date] - [End Date or Present])
-    Final Quality Score: [Score]/100
-    
-    • [First optimized bullet point]
-    • [Second optimized bullet point]
-    • [Third optimized bullet point]
-    [Add more bullets as needed]
-    
-    [Repeat this format for EACH experience entry]
-    
-    Example:
-    
-    === FINAL OPTIMIZED BULLET POINTS ===
-    
-    Software Engineer at Test Company (Jan 2021 - Present)
-    Final Quality Score: 88/100
-    
-    • Architected microservices platform for 50M+ users using Kubernetes and Python, reducing infrastructure costs by 40%
-    • Led cross-functional team of 8 engineers using Agile methodologies, delivering $2M cost-saving automation initiative
-    • Engineered CI/CD pipeline using Docker and AWS, improving release frequency by 300%
-    
-    Senior Engineer at Tech Corp (Jan 2022 - Present)
-    Final Quality Score: 92/100
-    
-    • [Bullets for this entry...]
-    
-    ════════════════════════════════════════════════════════════════════════════════
-    REMEMBER: Your output must have BOTH:
-    1. JSON output (IterativeExperienceOptimization format)
-    2. === FINAL OPTIMIZED BULLET POINTS === section (human-readable)
-    ════════════════════════════════════════════════════════════════════════════════
+    Use optional job signals only when they overlap with the role evidence.
+    Never fabricate tools, metrics, job duties, seniority, employers, domains,
+    or business impact. If a metric is not present, write a strong outcome
+    without inventing a number.
 
-    Never fabricate job duties or inflate scope. Your role is to present the actual experience
-    in its most compelling and relevant light. Output the complete rewritten experience section.
+    Rewrite 3-6 achievement bullets for the role:
+    - Start each bullet with a strong action verb.
+    - Emphasize action, scope, method, and outcome.
+    - Keep keywords natural and truthful.
+    - Preserve the original job title, company, dates, location, and skills_used
+      unless the role evidence clearly supports a change.
+
+    Return only JSON that conforms to OptimizedExperienceSection:
+    - optimized_experiences: one Experience object for this role
+    - optimization_notes: short note about what changed
+    - keywords_integrated: keywords actually used
+    - relevance_scores: company_name mapped to a 0-100 relevance score
   expected_output: >
-    Your output MUST consist of TWO parts:
-    
-    PART 1: JSON output conforming to IterativeExperienceOptimization model containing:
-    - The original job title, company, and dates for each experience.
-    - 3-6 optimized achievement bullets that start with strong action verbs, include
-      quantifiable metrics, incorporate keywords, and emphasize impact over activities.
-    - Complete iteration_history showing the improvement journey for each entry.
-    
-    PART 2: A human-readable section titled "=== FINAL OPTIMIZED BULLET POINTS ==="
-    that clearly displays the final optimized bullet points for each experience entry.
-    This section MUST appear after the JSON output and MUST show:
-    - Job title, company name, and date range for each experience
-    - Final quality score for each experience
-    - All final optimized bullet points in a clear, easy-to-read format
-    
-    The entire output must demonstrate a clear fit for the target role.
+    JSON conforming to OptimizedExperienceSection with exactly one optimized
+    Experience object for the role in CONTEXT. Do not append a human-readable
+    section after the JSON.
   context:
     - create_alignment_strategy_task
     - extract_resume_content_task

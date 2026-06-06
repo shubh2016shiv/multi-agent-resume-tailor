@@ -558,3 +558,4 @@ def format_professional_summary_context(
     )
 
     return formatted_context
+

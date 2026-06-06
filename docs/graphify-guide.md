@@ -283,6 +283,31 @@ Alternative methods include `pipx install graphifyy` (same isolation semantics) 
 
 For projects using uv as their package manager, graphify can also be declared as a dependency group in `pyproject.toml` under `[dependency-groups]`. This keeps it separate from the project's runtime dependencies and makes it installable via `uv sync --group graphify`. This is the approach used in the Resume Tailor project.
 
+> **⚠️ Important — check your project's `pyproject.toml` first.** uv dependency groups are **not installed by default**. Open your project's `pyproject.toml` and look for `graphifyy`:
+>
+> - If it's under `[dependency-groups]` (as it is in the Resume Tailor project), you **must** install the group before `graphify` becomes available:
+>
+>   ```bash
+>   uv sync --group graphify
+>   ```
+>
+> - If it's under `[project.dependencies]`, no extra step is needed — `uv sync` already installed it.
+>
+> Without the group install, `uv run graphify` will fail with:
+>
+> ```
+> error: Failed to spawn: `graphify`
+>   Caused by: No such file or directory (os error 2)
+> ```
+>
+> Alternatively, skip the sync and run in one shot:
+>
+> ```bash
+> uv run --group graphify graphify <subcommand>
+> ```
+>
+> This is the **#1 setup pitfall** for new developers — the `AGENTS.md` and skill files reference `graphify query` commands that only work after the group is installed.
+
 ### Dependency Tree
 
 The core package has a focused dependency tree designed for code-only extraction:

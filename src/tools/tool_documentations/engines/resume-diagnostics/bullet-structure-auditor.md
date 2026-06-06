@@ -4,7 +4,7 @@
 **Main function:** `audit_bullet_structure(resume: Resume) -> ReviewResult`
 **Type:** Mechanical (counting + word-length math — no LLM)
 **Runs in:** both modes
-**Used by:** the `audit_experience_quality` agent-facing tool → the Experience Optimizer agent
+**Used by:** `audit_experience_quality_for_experiences` in `src/tools/resume_diagnostics`
 
 ---
 
@@ -60,9 +60,9 @@ with a `TODO` to calibrate.
 
 ## 5. Who calls it
 
-One of the four engines inside `audit_experience_quality`. Its structural findings sit
-alongside the consistency, quantification, and language findings in the merged report the
-Experience Optimizer agent reads.
+One of the four checks inside `audit_experience_quality_for_experiences`. Its structural
+findings are merged with consistency, quantification, and language findings after the
+professional experience writer returns typed `Experience` objects.
 
 ## 6. Gotchas
 

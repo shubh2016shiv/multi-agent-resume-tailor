@@ -63,12 +63,25 @@ def audit_language_quality(resume: Resume) -> ReviewResult:
         call depends on domain knowledge). An empty result (no LLM call) means
         there were no bullets to review.
     """
+    return audit_language_quality_for_experiences(resume.work_experience)
+
+
+def audit_language_quality_for_experiences(experiences: list[Experience]) -> ReviewResult:
+    """Flag duty-language and hollow phrasing in experience bullets.
+
+    Args:
+        experiences: Experience entries to audit; only achievements are read.
+
+    Returns:
+        A ReviewResult of judgment comments with honest confidence. An empty
+        result means there were no bullets to review.
+    """
     # TODO: Also review role description text, not just achievements.
     #       Proposed: send descriptions in a separate pass with a duty-tolerant rubric.
     #       Deferred: descriptions are role-summary prose and would false-positive here.
     # TODO: Domain coverage is uneven -- unfamiliar fields yield mostly low-confidence
     #       comments. Proposed: note coverage gaps to the user. Deferred: honest for now.
-    bullets = _collect_bullets(resume.work_experience)
+    bullets = _collect_bullets(experiences)
     if not bullets:
         return ReviewResult(comments=[], summary="No experience bullets to review")
     numbered_bullets = "\n".join(

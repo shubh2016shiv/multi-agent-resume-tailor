@@ -37,7 +37,19 @@ def audit_bullet_structure(resume: Resume) -> ReviewResult:
         A ReviewResult. An empty comment list means the bullet structure looks
         balanced. All comments anchor to Section.EXPERIENCE.
     """
-    experiences = resume.work_experience
+    return audit_bullet_structure_for_experiences(resume.work_experience)
+
+
+def audit_bullet_structure_for_experiences(experiences: list[Experience]) -> ReviewResult:
+    """Flag bullet count and length issues across experience entries.
+
+    Args:
+        experiences: Experience entries to audit; no other resume fields are read.
+
+    Returns:
+        A ReviewResult. An empty comment list means the bullet structure looks
+        balanced. All comments anchor to Section.EXPERIENCE.
+    """
     if not experiences:
         return ReviewResult(comments=[], summary="No work experience to audit")
     comments: list[ReviewComment] = []

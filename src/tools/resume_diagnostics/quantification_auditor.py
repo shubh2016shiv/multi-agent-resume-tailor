@@ -41,7 +41,20 @@ def audit_quantification(resume: Resume) -> ReviewResult:
         A ReviewResult of suggestion-level comments, one per unquantified bullet.
         An empty result (no LLM call made) means every bullet already has a number.
     """
-    unquantified_bullets = _find_unquantified_bullets(resume.work_experience)
+    return audit_quantification_for_experiences(resume.work_experience)
+
+
+def audit_quantification_for_experiences(experiences: list[Experience]) -> ReviewResult:
+    """Flag bullets with no number and suggest what metric each could add.
+
+    Args:
+        experiences: Experience entries to audit; only achievements are read.
+
+    Returns:
+        A ReviewResult of suggestion-level comments, one per unquantified bullet.
+        An empty result (no LLM call made) means every bullet already has a number.
+    """
+    unquantified_bullets = _find_unquantified_bullets(experiences)
     if not unquantified_bullets:
         return ReviewResult(comments=[], summary="All experience bullets include a metric")
     bullets_for_prompt = _format_bullets_for_prompt(unquantified_bullets)

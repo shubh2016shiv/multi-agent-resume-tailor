@@ -4,7 +4,7 @@
 **Main function:** `audit_consistency(resume: Resume) -> ReviewResult`
 **Type:** Mechanical (rule-based, using the spaCy NLP library — runs offline, no LLM)
 **Runs in:** both modes
-**Used by:** the `audit_experience_quality` agent-facing tool → the Experience Optimizer agent
+**Used by:** `audit_experience_quality_for_experiences` in `src/tools/resume_diagnostics`
 
 > "Mechanical" includes local NLP libraries like spaCy. spaCy runs on your machine and makes
 > no network/model-provider call, so it is *not* an LLM tool (Concept 2).
@@ -69,8 +69,8 @@ so importing the module is cheap. `REPEATED_VERB_THRESHOLD = 3` is the constant 
 
 ## 5. Who calls it
 
-One of the four engines inside `audit_experience_quality`, merged with the structure,
-quantification, and language findings.
+One of the four checks inside `audit_experience_quality_for_experiences`, merged with the
+structure, quantification, and language findings after the writer returns typed output.
 
 ## 6. Gotchas
 

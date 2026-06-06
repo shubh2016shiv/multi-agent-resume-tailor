@@ -71,7 +71,7 @@ This is the structure you will navigate every day.
         │  Coarse instruments an agent actually calls. Each one        │
         │  bundles several engines, merges their findings, and         │
         │  returns a human-readable string for the agent to read.      │
-        │  Example: audit_experience_quality(...)                      │
+        │  Example: match_job_requirements(...)                        │
         └───────────────┬─────────────────────────────────────────────┘
                         │  is built out of
                         ▼
@@ -184,17 +184,21 @@ agent-facing tool has one under `agent-tools/`. The three foundation concepts ar
 | `detect_rewrite_drift` | Judgment | **Yes** | truthfulness — did a rewrite invent, exaggerate, or drop content? |
 | `build_resume_tex` / `render_resume_document` | Mechanical | No | **document_rendering** — structured `Resume` → ATS-safe PDF via LaTeX. |
 
-### Layer 2 — Agent-facing tools (the 7 an agent is handed)
+### Layer 2 — Agent-facing tools
 
 | Agent-facing tool | Kind (because of what it bundles) | Engines it coordinates | Agent that uses it |
 |---|---|---|---|
-| `audit_experience_quality` | Hybrid | bullet_structure + consistency + quantification + language_quality | Experience Optimizer |
 | `audit_summary` | Hybrid | summary_quality | Summary Writer |
 | `check_skills_evidence` | Judgment | skills_evidence | Skills Optimizer |
 | `audit_truthfulness` | Hybrid | claim_inflation (mech) + rewrite_drift (LLM) | Quality Assurance |
 | `match_job_requirements` | Hybrid | requirements_matcher (LLM) + keyword_coverage (mech) | Gap Analysis |
 | `validate_ats_compliance` | Mechanical | ats_formatting + section_headers | ATS Optimization, QA |
 | `analyze_jd_keyword_coverage` | Mechanical | keyword_coverage | ATS Optimization, QA |
+
+Professional experience quality is code-facing now, not an agent-facing tool:
+`src.tools.resume_diagnostics.audit_experience_quality_for_experiences(...)`
+merges bullet structure, consistency, quantification, and language quality after
+the writer LLM has returned typed `Experience` objects.
 
 > Note: the ingestion engines (`convert`, `redact`, `extract_resume`,
 > `extract_job_requirements`) and the renderer are run **directly by the orchestrator**

@@ -14,9 +14,9 @@ Recall the two layers from the README:
 Why not just hand the engines straight to the agents? Two reasons:
 
 1. **Keep the agent's world small.** An agent that had to choose between ~19 micro-tools
-   would have a bloated, confusing prompt and would pick wrong. Instead the Experience
-   Optimizer agent gets *one* tool — `audit_experience_quality` — and behind it, four
-   engines run. The orchestration is hidden from the agent.
+   would have a bloated, confusing prompt and would pick wrong. Agents get only the
+   coarse tools they can call with clean inputs. Professional experience audit is a
+   code-facing exception: orchestration runs it after the writer returns typed output.
 
 2. **Different shapes at each layer.** Engines speak in typed objects (`Resume`) and
    return `ReviewResult` objects — perfect for testing and for code. But a CrewAI tool
@@ -34,7 +34,7 @@ Why not just hand the engines straight to the agents? Two reasons:
 
 ## Part B — What an agent-facing tool actually does (the 4 steps)
 
-Every one of the 7 tools in `agent_facing_tools.py` follows the same four steps:
+Every agent-facing review tool in `agent_facing_tools.py` follows the same four steps:
 
 ```
 1. PARSE      Resume.model_validate_json(resume_json)
@@ -42,14 +42,14 @@ Every one of the 7 tools in `agent_facing_tools.py` follows the same four steps:
                        │
                        ▼
 2. RUN        call each backing engine with the typed object
-              e.g. audit_bullet_structure(resume), audit_consistency(resume), ...
+              e.g. match_requirements(resume, job), analyze_keyword_coverage(...)
                        │
                        ▼
 3. MERGE      _merge([...])  ->  one ReviewResult holding ALL the comments
               (concatenates comments; keeps the lead engine's score)
                        │
                        ▼
-4. RENDER     _render_review_result(merged, "Experience Quality")  ->  a readable string
+4. RENDER     _render_review_result(merged, "<title>")  ->  a readable string
               the agent reads this string and decides what to do next
 ```
 
@@ -65,14 +65,9 @@ Two small shared helpers do steps 3 and 4 for all tools:
 That's the entire coordination mechanism. An agent-facing tool is "parse → run engines →
 merge → render."
 
-### The 7 tools and the engines behind them
+### Agent-facing tools and the engines behind them
 
 ```
-audit_experience_quality   ─┬─► audit_bullet_structure   (mechanical)
-                            ├─► audit_consistency         (mechanical)
-                            ├─► audit_quantification      (hybrid)
-                            └─► audit_language_quality    (judgment)
-
 audit_summary              ───► audit_summary_quality     (hybrid)
 
 check_skills_evidence      ───► validate_skills_evidence  (judgment)
@@ -87,6 +82,18 @@ validate_ats_compliance    ─┬─► audit_ats_formatting      (mechanical)
                             └─► audit_section_headers      (mechanical)
 
 analyze_jd_keyword_coverage ──► analyze_keyword_coverage  (mechanical)
+```
+
+Professional experience quality uses the same `ReviewResult` shape, but it is not
+an agent-facing tool. Orchestration calls the code-facing helper after structured
+writer output exists:
+
+```
+audit_experience_quality_for_experiences
+                            ├─► audit_bullet_structure_for_experiences   (mechanical)
+                            ├─► audit_consistency_for_experiences         (mechanical)
+                            ├─► audit_quantification_for_experiences      (hybrid)
+                            └─► audit_language_quality_for_experiences    (judgment)
 ```
 
 Notice how a tool's *type* comes from what it bundles: `match_job_requirements` is
@@ -123,7 +130,7 @@ are plain functions the orchestrator calls, not `@tool`s handed to an agent.
        ▼  extract_resume                      (judgment, LLM)
    Resume (structured)
        │
-       ├──► Experience Optimizer  → audit_experience_quality   (bullets, numbers, language)
+       ├──► Experience Optimizer  → code-facing experience audit after structured output
        ├──► Summary Writer        → audit_summary              (length, person, value)
        ├──► Skills Optimizer      → check_skills_evidence      (every skill backed up?)
        ├──► ATS Optimization      → validate_ats_compliance    (formatting, headers)
@@ -171,45 +178,44 @@ through, so you see every layer touch it.
        ─► redact (name/email masked) ─► extract_resume (LLM)
    ──► Resume object whose work_experience[0].achievements[0] == "Responsible for building models."
 
-2. THE AGENT ACTS
-   The Experience Optimizer agent decides to inspect the experience section.
-   It calls its ONE tool:  audit_experience_quality(resume_json)
+2. THE WRITER RETURNS STRUCTURED OUTPUT
+   The Professional Experience agent reads TOON context and returns
+   OptimizedExperienceSection through CrewAI output_pydantic.
 
-3. THE TOOL COORDINATES ENGINES (Layer 2)
-   parse JSON -> Resume
-   run 4 engines on it:
-       audit_bullet_structure  -> (nothing for this bullet)
-       audit_consistency       -> (nothing)
-       audit_quantification    -> mechanical: bullet has no digit -> send to LLM ->
-                                   ReviewComment("lacks a quantified result", SUGGESTION, MEDIUM)
-       audit_language_quality  -> LLM: "Responsible for" is duty language ->
-                                   ReviewComment("duty language, reframe as achievement", MINOR, HIGH)
+3. CODE COORDINATES THE EXPERIENCE CHECKS
+   run 4 engines on typed list[Experience]:
+       audit_bullet_structure_for_experiences  -> (nothing for this bullet)
+       audit_consistency_for_experiences       -> (nothing)
+       audit_quantification_for_experiences    -> mechanical: bullet has no digit -> send to LLM ->
+                                                  ReviewComment("lacks a quantified result", SUGGESTION, MEDIUM)
+       audit_language_quality_for_experiences  -> LLM: "Responsible for" is duty language ->
+                                                  ReviewComment("duty language, reframe as achievement", MINOR, HIGH)
    _merge(...) -> one ReviewResult with BOTH comments
-   _render_review_result(...) -> a readable string
 
-4. THE AGENT READS THE STRING
-   === Experience Quality ===
+4. ORCHESTRATION READS THE REVIEWRESULT
    [suggestion/medium] (experience) The bullet lacks a quantified result.
        advice: Add a metric such as number of models built or accuracy gained.
    [minor/high] (experience) Duty language: states a responsibility, not an achievement.
        advice: Reframe as a concrete achievement with an outcome.
 
-5. THE AGENT REWRITES the bullet, then later the Quality Assurance agent calls
-   audit_truthfulness(original, revised) to confirm the rewrite did not invent anything.
+5. ORCHESTRATION DECIDES whether one rewrite is needed, then later the Quality
+   Assurance agent calls audit_truthfulness(original, revised) to confirm the rewrite
+   did not invent anything.
 ```
 
 That is the whole system in one picture: ingestion produces typed data, an agent calls a
-coarse tool, the tool drives several engines and merges their same-shaped results, the
-agent reads the merged report and acts, and a truthfulness check guards any rewrite.
+coarse tool or code-facing helper drives several engines and merges their same-shaped
+results, orchestration or the agent acts on the merged report, and a truthfulness check
+guards any rewrite.
 
 ## What to take away
 
 1. Two layers: **engines** do the work (typed in, `ReviewResult` out); **agent-facing
-   tools** bundle engines and translate to/from the strings an agent uses.
+   tools** bundle engines only when an agent can provide clean tool inputs.
 2. Every agent-facing tool is the same four steps: **parse → run engines → merge →
    render**.
-3. Ingestion and rendering engines are run **directly by the orchestrator** as fixed
-   steps, not handed to agents.
+3. Ingestion, rendering, and professional experience audit are run **directly by
+   orchestration/code** when typed objects already exist.
 4. **Mode B is Mode A plus** the job-matching engines and the JD extractor; everything
    else is shared.
 

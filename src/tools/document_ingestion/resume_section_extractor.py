@@ -7,7 +7,9 @@ the orchestrator (like convert and redact), so the extraction LLM call is paid
 for exactly once, with no agent reasoning layered on top.
 """
 
-from src.data_models.resume import Resume
+import re
+
+from src.data_models.resume import Experience, Resume
 from src.tools.llm_gateway import request_structured_output
 
 # Prompt duplicated from tasks.yaml (extract_resume_content_task) for now.
@@ -47,4 +49,40 @@ def extract_resume(redacted_markdown: str) -> Resume:
     #       fallback. Deferred: need to see real failures first.
     # TODO: Flag valid-but-empty extraction (e.g. no work_experience). The schema
     #       accepts it silently. Proposed: a follow-up check. Deferred until seen.
-    return request_structured_output(Resume, RESUME_EXTRACTION_PROMPT, redacted_markdown)
+    resume = request_structured_output(Resume, RESUME_EXTRACTION_PROMPT, redacted_markdown)
+    return assign_experience_ids(resume)
+
+
+def assign_experience_ids(resume: Resume) -> Resume:
+    """Assign deterministic IDs to resume experience entries.
+
+    Expects a validated Resume, with or without existing experience IDs.
+    Returns a Resume copy whose work_experience entries have code-owned IDs.
+    """
+    experiences = [
+        experience.model_copy(update={"experience_id": _build_experience_id(index, experience)})
+        for index, experience in enumerate(resume.work_experience, start=1)
+    ]
+    return resume.model_copy(update={"work_experience": experiences})
+
+
+def _build_experience_id(index: int, experience: Experience) -> str:
+    """Build a human-readable ID from resume order and stable role fields.
+
+    Expects an Experience with company, title, and start_date populated.
+    Returns an ID suitable for per-run role correlation.
+    """
+    company_slug = _slugify_experience_id_part(experience.company_name)
+    title_slug = _slugify_experience_id_part(experience.job_title)
+    start_date = experience.start_date.isoformat().replace("-", "_")
+    return f"exp_{index:03d}_{company_slug}_{title_slug}_{start_date}"
+
+
+def _slugify_experience_id_part(text: str) -> str:
+    """Normalize one text field for inclusion in an experience ID.
+
+    Expects a company or title string.
+    Returns lowercase ASCII words joined by underscores, or 'unknown'.
+    """
+    normalized_text = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    return normalized_text or "unknown"

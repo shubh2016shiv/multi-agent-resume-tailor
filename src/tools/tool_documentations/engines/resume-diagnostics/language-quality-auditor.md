@@ -4,7 +4,7 @@
 **Main function:** `audit_language_quality(resume: Resume) -> ReviewResult`
 **Type:** Judgment (one LLM call — no mechanical half)
 **Runs in:** both modes
-**Used by:** the `audit_experience_quality` agent-facing tool → the Experience Optimizer agent
+**Used by:** `audit_experience_quality_for_experiences` in `src/tools/resume_diagnostics`
 
 ---
 
@@ -62,9 +62,9 @@ honest confidence is the safety valve against false flags in niche domains.
 
 ## 5. Who calls it
 
-One of the four engines inside `audit_experience_quality`. It pairs naturally with the
-quantification engine: quantification asks "is there a number?", language asks "is this an
-achievement or a duty?".
+One of the four checks inside `audit_experience_quality_for_experiences`. It pairs naturally
+with the quantification engine: quantification asks "is there a number?", language asks
+"is this an achievement or a duty?".
 
 ## 6. Gotchas
 

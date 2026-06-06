@@ -42,7 +42,19 @@ def audit_consistency(resume: Resume) -> ReviewResult:
         A ReviewResult. An empty comment list means bullets read consistently.
         All comments anchor to Section.EXPERIENCE.
     """
-    experiences = resume.work_experience
+    return audit_consistency_for_experiences(resume.work_experience)
+
+
+def audit_consistency_for_experiences(experiences: list[Experience]) -> ReviewResult:
+    """Flag tense mixing and repeated opening verbs across experience entries.
+
+    Args:
+        experiences: Experience entries to audit; no other resume fields are read.
+
+    Returns:
+        A ReviewResult. An empty comment list means bullets read consistently.
+        All comments anchor to Section.EXPERIENCE.
+    """
     if not experiences:
         return ReviewResult(comments=[], summary="No work experience to audit")
     comments: list[ReviewComment] = []

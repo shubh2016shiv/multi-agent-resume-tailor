@@ -89,31 +89,6 @@ def _run_resume_tool(resume_json: str, runner: Callable[[Resume], ReviewResult],
 # ── agent-facing tools ───────────────────────────────────────────────────────
 
 
-@tool("Audit Experience Quality")
-def audit_experience_quality(resume_json: str) -> str:
-    """Review work-experience bullets for structure, consistency, quantification, and language.
-
-    Args:
-        resume_json: A Resume serialized as JSON.
-
-    Returns:
-        A combined report from the bullet-structure, consistency, quantification,
-        and language-quality engines.
-    """
-
-    def run(resume: Resume) -> ReviewResult:
-        return _merge(
-            [
-                audit_bullet_structure(resume),
-                audit_consistency(resume),
-                audit_quantification(resume),
-                audit_language_quality(resume),
-            ]
-        )
-
-    return _run_resume_tool(resume_json, run, "Experience Quality")
-
-
 @tool("Audit Summary Quality")
 def audit_summary(resume_json: str) -> str:
     """Review the professional summary for length, first-person voice, and generic phrasing.

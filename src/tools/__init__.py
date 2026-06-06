@@ -10,7 +10,6 @@ from .agent_facing_tools import (
     convert_resume_document_to_markdown,
     redact_pii_from_resume_markdown,
     extract_structured_resume_from_markdown,
-    audit_experience_quality,
     audit_summary,
     audit_truthfulness,
     check_skills_evidence,
@@ -47,7 +46,6 @@ __all__ = [
     "calculate_keyword_density",
     "get_optimal_keyword_density_range",
     # Agent-facing composite tools
-    "audit_experience_quality",
     "audit_summary",
     "check_skills_evidence",
     "audit_truthfulness",

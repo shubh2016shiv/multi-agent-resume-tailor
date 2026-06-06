@@ -4,7 +4,7 @@
 **Main function:** `audit_quantification(resume: Resume) -> ReviewResult`
 **Type:** Hybrid (mechanical gate + one conditional LLM call) — see Concept 2, "Shape 3a"
 **Runs in:** both modes (no job description needed)
-**Used by:** the `audit_experience_quality` agent-facing tool → the Experience Optimizer agent
+**Used by:** `audit_experience_quality_for_experiences` in `src/tools/resume_diagnostics`
 
 > If you have not yet read `concepts/01` (the result shape) and `concepts/02` (engine
 > types), read those first — this page assumes them.
@@ -94,12 +94,10 @@ A finding looks like this (see Concept 1 for the field meanings):
 
 ## 5. Who calls it
 
-It is **not** handed to an agent directly. It is one of four engines bundled inside the
-agent-facing tool `audit_experience_quality` (alongside `audit_bullet_structure`,
-`audit_consistency`, and `audit_language_quality`). That tool is what the Experience
-Optimizer agent actually calls; this engine's findings are merged with the other three
-before the agent ever sees them. See
-[../../agent-tools/audit-experience-quality.md](../../agent-tools/audit-experience-quality.md).
+It is **not** handed to an agent directly. It is one of four checks called by
+`audit_experience_quality_for_experiences` after the professional experience writer returns
+typed `Experience` objects. Orchestration reads the merged `ReviewResult` and decides
+whether one rewrite is needed.
 
 ## 6. Gotchas and current limitations
 

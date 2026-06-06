@@ -216,4 +216,98 @@
      time. No silent fallback to defaults with a missing LLM field
      that causes a confusing failure 3 steps later. Broken config
      means a clear RuntimeError immediately.
+
+
+================================================================================
+                  HOW TO CONTROL OUTPUT QUALITY
+================================================================================
+
+  Quality is controlled in TWO places. Change the right one for what you need.
+
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  LEVER 1: Strategy instructions (WHAT to produce)                  │
+  │  src/config/tasks.yaml  —  create_alignment_strategy_task          │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │                                                                     │
+  │  Controls:                                                          │
+  │    - Fit score calculation weights:                                 │
+  │        must-have requirements met  (40% weight)                     │
+  │        should-have requirements met (30% weight)                    │
+  │        years of experience alignment (20% weight)                   │
+  │        domain/industry match        (10% weight)                    │
+  │    - Minimum keyword count (at least 15 keywords_to_integrate)      │
+  │    - Required output fields and their structure                     │
+  │    - Match/gap justification requirements                          │
+  │                                                                     │
+  │  Change when you want:                                              │
+  │    - Different scoring weights (e.g. heavier on domain match)       │
+  │    - More/fewer keywords required                                   │
+  │    - Different output format                                        │
+  │                                                                     │
+  │  Example:                                                           │
+  │    description: >                                                   │
+  │      Calculate overall_fit_score using:                             │
+  │        must-have coverage: 50% weight     # was 40%                 │
+  │        should-have coverage: 25% weight   # was 30%                  │
+  │        experience alignment: 15% weight   # was 20%                 │
+  │        domain match: 10% weight                                     │
+  │      keywords_to_integrate must have at least 20 keywords (was 15). │
+  │                                                                     │
+  └─────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  LEVER 2: Tool-based evidence (WHAT the agent sees)                │
+  │  Two engines bundled inside match_job_requirements()                │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │                                                                     │
+  │  2a. Requirements matching (LLM judgment)                           │
+  │      src/tools/job_matching/requirements_matcher.py                 │
+  │                                                                     │
+  │      REQUIREMENTS_RUBRIC  ← prompt that controls how the LLM        │
+  │        classifies each requirement as MATCHED / PARTIAL / GAP       │
+  │                                                                     │
+  │      Severity mapping:                                              │
+  │        must_have gap    → BLOCKER                                   │
+  │        should_have gap  → MAJOR                                     │
+  │        nice_to_have gap → MINOR                                     │
+  │                                                                     │
+  │      Change when: the LLM is too strict (too many false GAPs)       │
+  │      or too lenient (PARTIAL when it should be GAP). Edit the       │
+  │      rubric to tighten or relax the evidence standard.              │
+  │                                                                     │
+  │  2b. Keyword coverage (mechanical)                                  │
+  │      src/tools/job_matching/keyword_coverage_analyzer.py            │
+  │                                                                     │
+  │      MIN_KEYWORD_DENSITY = 0.02  ← 2%: floor for ATS effectiveness  │
+  │      MAX_KEYWORD_DENSITY = 0.05  ← 5%: ceiling before "stuffing"    │
+  │                                                                     │
+  │      Flags: absent JD keywords (MAJOR) + density outside band       │
+  │                                                                     │
+  │      Change when: you want a tighter/looser density band.           │
+  │                                                                     │
+  │  Example changes:                                                   │
+  │    MIN_KEYWORD_DENSITY = 0.03   # was 0.02 — stricter floor         │
+  │    MAX_KEYWORD_DENSITY = 0.06   # was 0.05 — more room before flag  │
+  │                                                                     │
+  │    REQUIREMENTS_RUBRIC = """                                        │
+  │      Also: for PARTIAL matches, require the agent to state exactly  │
+  │      WHAT evidence is missing and how the candidate could fill it.  │
+  │    """                                                              │
+  │                                                                     │
+  └─────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  NOT a runtime lever (post-hoc only):                               │
+  │  src/agents/gap_analysis/engines.py                                 │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │  check_strategy_quality() — scores completeness + consistency       │
+  │  calculate_coverage_stats() — derives match/gap/ratio metrics       │
+  │                                                                     │
+  │  These validate the agent's OUTPUT in tests/QA. They do NOT         │
+  │  affect what the agent produces at runtime. Change these when       │
+  │  you want different pass/fail criteria in your test suite.          │
+  └─────────────────────────────────────────────────────────────────────┘
 ```

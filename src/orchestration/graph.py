@@ -9,13 +9,29 @@ Stage 2 (sequential): run_gap_analysis          (waits for Stage 1)
 Stage 3 (parallel):   write_professional_summary + optimize_experience + optimize_skills
 Stage 4 (sequential): assemble_ats_resume        (waits for Stage 3)
 Stage 5 (sequential): run_quality_assurance
+Stage 6 (conditional): render_final_resume       (only if the QA gate passed)
 """
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from src.agents.quality_assessment.engines import should_render_resume
 from src.orchestration import nodes
 from src.orchestration.state import ResumeEnhancementPipelineState
+
+
+def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
+    """Route on the code-owned quality gate after QA.
+
+    Returns "render" when the QA report passed the threshold, else "end". The
+    gate boolean was set authoritatively by apply_quality_gate in the QA node.
+
+    Precondition: run_quality_assurance has populated qa_report.
+    """
+    qa_report = state["qa_report"]
+    if qa_report is None:
+        raise ValueError("qa_report is None after quality assurance node; cannot route render gate.")
+    return "render" if should_render_resume(qa_report) else "end"
 
 
 def build_resume_enhancement_graph() -> CompiledStateGraph:
@@ -37,6 +53,7 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_node("optimize_skills", nodes.optimize_skills)
     graph.add_node("assemble_ats_resume", nodes.assemble_ats_resume)
     graph.add_node("run_quality_assurance", nodes.run_quality_assurance)
+    graph.add_node("render_final_resume", nodes.render_final_resume)
 
     # -- Stage 1: parallel fan-out from START --
     graph.add_edge(START, "extract_resume")
@@ -56,8 +73,15 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_edge("optimize_experience", "assemble_ats_resume")
     graph.add_edge("optimize_skills", "assemble_ats_resume")
 
-    # -- Stage 5: sequential quality assurance then done --
+    # -- Stage 5: sequential quality assurance --
     graph.add_edge("assemble_ats_resume", "run_quality_assurance")
-    graph.add_edge("run_quality_assurance", END)
+
+    # -- Stage 6: conditional render -- only when the QA gate passed --
+    graph.add_conditional_edges(
+        "run_quality_assurance",
+        _route_after_quality,
+        {"render": "render_final_resume", "end": END},
+    )
+    graph.add_edge("render_final_resume", END)
 
     return graph.compile()

@@ -2,19 +2,13 @@
 Public entry point for the resume enhancement pipeline.
 
 Call tailor_resume(resume_path, jd_path) -- it builds the graph, invokes it,
-and returns an OrchestrationResult with the optimized resume and QA report.
-
-NOTE: OrchestrationResult is imported from src.agent_orchestrator today because
-that is where the model currently lives. It belongs in src/data_models/ -- move
-it there when the monolithic orchestrator is retired.
-# TODO: move OrchestrationResult to src/data_models/orchestration.py
-#       Proposed: add a new data model file, update all imports
-#       Deferred: the monolithic orchestrator is still in active use
+and returns an OrchestrationResult with the optimized resume, QA report, and
+(when the quality gate passed) the rendered PDF path.
 """
 
 from langgraph.graph.state import CompiledStateGraph
 
-from src.agent_orchestrator import OrchestrationResult
+from src.data_models.orchestration import OrchestrationResult
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.state import ResumeEnhancementPipelineState
 
@@ -42,6 +36,7 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "optimized_skills": None,
         "optimized_resume": None,
         "qa_report": None,
+        "rendered_resume_path": None,
     }
 
     final_state: ResumeEnhancementPipelineState = _PIPELINE.invoke(initial_state)
@@ -77,4 +72,5 @@ def _build_orchestration_result(
         strategy=state["alignment_strategy"],
         optimized_resume=state["optimized_resume"],
         qa_report=state["qa_report"],
+        rendered_resume_path=state["rendered_resume_path"],
     )

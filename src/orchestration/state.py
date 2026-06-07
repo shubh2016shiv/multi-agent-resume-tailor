@@ -10,7 +10,7 @@ The graph topology in graph.py enforces the correct read order.
 
 from typing import TypedDict
 
-from src.agents.ats_optimization_agent import OptimizedResume
+from src.agents.ats_optimizer.models import AtsOptimizedResume
 from src.agents.professional_experience.models import OptimizedExperienceSection
 from src.agents.summary_writer_agent import ProfessionalSummary
 from src.data_models.evaluation import QualityReport
@@ -43,7 +43,10 @@ class ResumeEnhancementPipelineState(TypedDict):
     optimized_skills: OptimizedSkillsSection | None
 
     # --- Stage 4: sequential ATS assembly ---
-    optimized_resume: OptimizedResume | None
+    optimized_resume: AtsOptimizedResume | None
 
     # --- Stage 5: sequential quality assurance ---
     qa_report: QualityReport | None
+
+    # --- Stage 6: conditional PDF render (only when the QA gate passes) ---
+    rendered_resume_path: str | None

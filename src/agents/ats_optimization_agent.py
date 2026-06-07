@@ -197,13 +197,15 @@ try:
     from src.observability import trace_tool
 
     # from src.data_models.strategy import AlignmentStrategy
-    from src.tools.ats_validation import (
-        calculate_keyword_density,
+    from src.tools.ats_compliance import (
         check_section_headers,
         get_incompatible_patterns,
-        get_optimal_keyword_density_range,
         get_standard_headers,
         validate_ats_formatting,
+    )
+    from src.tools.job_matching import (
+        calculate_keyword_density,
+        get_optimal_keyword_density_range,
     )
 except ImportError:
     # Fallback for when running this file directly
@@ -224,13 +226,15 @@ except ImportError:
     from src.observability import trace_tool
 
     # from src.data_models.strategy import AlignmentStrategy
-    from src.tools.ats_validation import (
-        calculate_keyword_density,
+    from src.tools.ats_compliance import (
         check_section_headers,
         get_incompatible_patterns,
-        get_optimal_keyword_density_range,
         get_standard_headers,
         validate_ats_formatting,
+    )
+    from src.tools.job_matching import (
+        calculate_keyword_density,
+        get_optimal_keyword_density_range,
     )
 
 logger = get_logger(__name__)

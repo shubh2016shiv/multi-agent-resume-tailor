@@ -898,7 +898,7 @@ def validate_iteration_progress() -> dict:
 
 
 @tool("Evaluate Experience Bullets")
-def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json: str) -> str:
+def evaluate_experience_bullets(bullets_json: str, keywords: str) -> str:
     """
     STAGE 2A: Self-Evaluation Tool - Agent's Quality Assessment Interface
 
@@ -954,7 +954,6 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
                      WRONG: ["Led team...", "Built system..."] (Python list)
                      IMPORTANT: Use json.dumps(your_list) to convert your list to JSON string before calling this tool.
         keywords: Comma-separated keywords to integrate (e.g., "Python,AWS,Docker")
-        strategy_json: JSON string of AlignmentStrategy object (use json.dumps())
 
     Returns:
         JSON string with: {
@@ -970,8 +969,7 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
         bullets = ["Managed team projects", "Built features"]
         result = evaluate_experience_bullets(
             bullets_json=json.dumps(bullets),  # Convert list to JSON string
-            keywords="Python,AWS,Kubernetes",
-            strategy_json=json.dumps(strategy_dict)  # Convert dict to JSON string
+            keywords="Python,AWS,Kubernetes"
         )
     """
     global _iteration_tracker
@@ -1114,82 +1112,11 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
 
         keywords_list = [k.strip() for k in keywords.split(",")] if keywords else []
 
-        # [FIX #2] Parse Strategy with Robust Handling
-        # ==================================================================
-        # WHAT: Handle both JSON string data AND schema definitions
-        # WHY: CrewAI sometimes passes schema instead of actual data
-        # ==================================================================
-        try:
-            # Use robust parser to handle LLM-generated JSON with trailing text
-            strategy_dict = parse_json_robust(strategy_json)
-
-            # [FIX #2] Detect if this is a schema definition (not actual data)
-            # Schema has 'description' and 'type' fields instead of actual strategy fields
-            if "description" in strategy_dict and "type" in strategy_dict:
-                logger.warning(
-                    "[FIX #2] Detected Pydantic schema instead of data in strategy_json. "
-                    "Creating minimal strategy for evaluation."
-                )
-                # Create minimal fallback strategy with required fields
-                strategy = AlignmentStrategy(
-                    overall_fit_score=80.0,  # Neutral score
-                    summary_of_strategy="Align bullet points with job requirements through quantifiable metrics and impactful outcomes.",
-                    identified_matches=[],  # No specific matches available
-                    identified_gaps=[],  # No specific gaps available
-                    keywords_to_integrate=keywords_list[:10],  # Use provided keywords
-                    professional_summary_guidance="Focus on quantifiable achievements and business impact.",
-                    experience_guidance="Use strong action verbs and include metrics where possible.",
-                    skills_guidance="Prioritize skills mentioned in job description.",
-                )
-                logger.info(
-                    "[FIX #2] Created fallback strategy. Evaluation will proceed with keyword matching only."
-                )
-            else:
-                # This looks like actual data - proceed normally
-                strategy = AlignmentStrategy(**strategy_dict)
-                logger.info(
-                    f"[FIX #2] Successfully parsed strategy with {len(strategy.keywords_to_integrate)} keywords"
-                )
-
-        except json.JSONDecodeError as e:
-            logger.error(f"[TOOL ERROR] Invalid strategy_json: {e}")
-            logger.error(
-                f"[TOOL ERROR] Received strategy_json (first 500 chars): {strategy_json[:500]}"
-            )
-            return json.dumps(
-                {
-                    "error": f"Invalid JSON format in strategy_json: {str(e)}",
-                    "error_type": "JSONDecodeError",
-                    "average_score": 0,
-                    "per_bullet_scores": [],
-                    "issues": [f"JSON parsing failed: {str(e)}"],
-                    "critique": "Fix strategy_json: must be valid JSON object",
-                    "meets_threshold": False,
-                    "call_id": call_id,
-                }
-            )
-        except ValidationError as e:
-            logger.error(f"[TOOL ERROR] Strategy validation failed: {e}")
-            logger.error(f"[TOOL ERROR] Validation errors: {e.errors()}")
-            return json.dumps(
-                {
-                    "error": f"Strategy validation failed: {str(e)}",
-                    "error_type": "ValidationError",
-                    "average_score": 0,
-                    "per_bullet_scores": [],
-                    "issues": [f"Strategy validation failed: {str(e)}"],
-                    "critique": "Fix strategy_json: must include all required AlignmentStrategy fields",
-                    "meets_threshold": False,
-                    "call_id": call_id,
-                }
-            )
-
         # OBSERVABILITY: Log what bullets are being evaluated
         logger.info(f"[ITERATION INPUT] Evaluating {len(bullets)} bullets:")
         for i, bullet in enumerate(bullets, 1):
             logger.info(f"  Bullet {i}: {bullet[:100]}{'...' if len(bullet) > 100 else ''}")
         logger.info(f"[ITERATION INPUT] Keywords: {keywords_list}")
-        logger.info(f"[ITERATION INPUT] Strategy keywords: {strategy.keywords_to_integrate[:5]}")
 
         # Track this tool call for observability
         tool_call_record = {
@@ -1201,9 +1128,6 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
         }
         _iteration_tracker["tool_call_log"].append(tool_call_record)
 
-        # Import evaluation functions (they're defined later in this file)
-        # This circular dependency is OK because @tool decorator delays execution
-
         # ---------------------------------------------------------------------
         # [SUB-STAGE 2A.2] Evaluate Each Bullet
         # ---------------------------------------------------------------------
@@ -1212,7 +1136,7 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
         # CALLS: evaluate_single_bullet() - see STAGE 3 below
         evaluations = []
         for bullet in bullets:
-            eval_result = evaluate_single_bullet(bullet, strategy, keywords_list)
+            eval_result = evaluate_single_bullet(bullet, keywords_list)
             evaluations.append(eval_result)
 
         # OBSERVABILITY: Log per-bullet scores
@@ -1241,7 +1165,7 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
         # Only critique bullets below threshold (focused feedback)
         for i, eval_result in enumerate(evaluations):
             if eval_result["score"] < QUALITY_THRESHOLD:
-                critique = generate_bullet_critique(bullets[i], eval_result, strategy)
+                critique = generate_bullet_critique(bullets[i], eval_result)
                 critique_parts.append(f"Bullet {i + 1}: {critique}")
 
         # Collect all issues for transparency
@@ -1309,17 +1233,18 @@ def evaluate_experience_bullets(bullets_json: str, keywords: str, strategy_json:
         )
 
         # Update tool call record with results
-        if _iteration_tracker["tool_call_log"]:
-            _iteration_tracker["tool_call_log"][-1].update(
-                {
-                    "output_score": int(avg_score),
-                    "output_meets_threshold": result["meets_threshold"],
-                    "output_issues_count": len(issues),
-                    "output_critique_preview": result["critique"][:200]
-                    if result["critique"]
-                    else "",
-                }
-            )
+        # FIX: Use local variable 'tool_call_record' instead of _iteration_tracker["tool_call_log"][-1]
+        # This avoids race conditions (if other threads append) and IndexError (if list is empty)
+        tool_call_record.update(
+            {
+                "output_score": int(avg_score),
+                "output_meets_threshold": result["meets_threshold"],
+                "output_issues_count": len(issues),
+                "output_critique_preview": result["critique"][:200]
+                if result["critique"]
+                else "",
+            }
+        )
 
         logger.info("=" * 80)
 
@@ -1627,36 +1552,21 @@ def _load_agent_config() -> dict:
 
 def _get_default_config() -> dict:
     """
-    Provide default configuration as a fallback.
-
-    This ensures the agent can still be created even if the YAML config
-    is unavailable or corrupted. These defaults are basic but functional.
-
-    Returns:
-        Dictionary with default agent configuration
+    NO DEFAULTS - Configuration must come from agents.yaml.
+    
+    Raises:
+        RuntimeError: Always raises to force configuration fix
     """
-    return {
-        "role": "Career Narrative Specialist",
-        "goal": (
-            "Rewrite experience section bullets to align with target job requirements "
-            "while maintaining complete truthfulness. Incorporate relevant keywords naturally, "
-            "quantify achievements wherever possible, reorder responsibilities by relevance, "
-            "and create compelling achievement statements that demonstrate impact."
-        ),
-        "backstory": (
-            "You are a career storytelling expert who specializes in transforming job "
-            "descriptions into achievement narratives. With a background in both corporate "
-            "communications and HR, you understand what makes experience compelling to hiring "
-            "managers. You excel at reframing responsibilities to emphasize outcomes and impact "
-            "over tasks, finding and incorporating relevant keywords naturally, quantifying "
-            "achievements, using action verbs that convey leadership and results, and structuring "
-            "bullets in order of relevance to the target role. You are both strategic and truthful, "
-            "never fabricating achievements or exaggerating scope."
-        ),
-        "llm": "gemini/gemini-2.5-flash-lite",
-        "temperature": 0.5,
-        "verbose": True,
-    }
+    raise RuntimeError(
+        "FATAL: Experience Section Optimizer agent configuration is missing from agents.yaml.\n"
+        "Please add the 'experience_section_optimizer' section to src/config/agents.yaml with all required fields:\n"
+        "  - role\n"
+        "  - goal\n"
+        "  - backstory\n"
+        "  - llm (e.g., 'gemini/gemini-2.0-flash')\n"
+        "  - temperature\n"
+        "  - verbose"
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -1695,31 +1605,6 @@ def create_experience_optimizer_agent() -> Agent:
 
         # Load configuration
         config = _load_agent_config()
-
-        # Extract LLM settings
-        llm_model = config.get("llm", "gemini/gemini-2.5-flash-lite")
-        temperature = config.get("temperature", 0.5)
-        verbose = config.get("verbose", True)
-
-        # Load centralized resilience configuration
-        app_config = get_config()
-        agent_defaults = app_config.llm.agent_defaults
-
-        # Initialize tools
-        # tools = [evaluate_experience_bullets]  # Unused variable - kept for potential future refactoring
-
-        # AGENTIC ITERATIVE IMPROVEMENT MECHANISM - COMPLETE WORKFLOW
-        #
-        # THIS IS THE CORE AGENTIC BEHAVIOR: The agent autonomously improves
-        # its own output through iterative self-evaluation and regeneration.
-        #
-        # WORKFLOW SEQUENCE (How the Agent Operates):
-        #
-        # STAGE A: INITIAL GENERATION (Agent's First Action)
-        # [A.1] Agent receives task: "Optimize experience bullets for job X"
-        # [A.2] Agent reads original resume experience entries
-        # [A.3] Agent reads alignment strategy (keywords, guidance, etc.)
-        # [A.4] Agent generates INITIAL bullets (3-6 per entry) via LLM reasoning
         #       -> Uses its backstory/goal to create compelling bullets
         #       -> Incorporates keywords naturally
         #       -> Applies CAR format, strong verbs, quantification
@@ -1810,6 +1695,31 @@ def create_experience_optimizer_agent() -> Agent:
         # 4. Verify bullets change between iterations (not just same bullets)
         # 5. Run test_experience_optimizer_enhancements.py with real LLM
         # ===================================================================
+
+
+        # STRICT VALIDATION - All required fields MUST exist in agents.yaml
+        required_fields = ["role", "goal", "backstory", "llm"]
+        missing_fields = [f for f in required_fields if f not in config or not config.get(f)]
+        
+        if missing_fields:
+            raise RuntimeError(
+                f"FATAL: Missing or empty required field(s) in experience_section_optimizer config: {missing_fields}\n"
+                "Please add ALL required fields to src/config/agents.yaml:\n"
+                "  - role (agent's persona)\n"
+                "  - goal (agent's objective)\n"
+                "  - backstory (agent's context)\n"
+                "  - llm (model to use, e.g., 'gemini/gemini-2.5-flash-lite')"
+            )
+        
+        llm_model = config["llm"]
+        temperature = config.get("temperature", 0.5)
+        verbose = config.get("verbose", True)
+
+
+        # Load centralized resilience configuration
+        from src.core.config import get_config
+        app_config = get_config()
+        agent_defaults = app_config.llm.agent_defaults
 
         agent = Agent(
             role=config["role"],
@@ -2092,6 +2002,10 @@ def analyze_action_verbs(achievements: list[str]) -> dict:
     weak_bullets = []
 
     for achievement in achievements:
+        # Skip empty bullets
+        if not achievement or not achievement.strip():
+            continue
+
         # Get the first word (action verb)
         first_word = achievement.strip().split()[0].lower().rstrip(".,;:")
 
@@ -2518,7 +2432,7 @@ def reorder_bullets_by_relevance(
 
 @trace_tool
 def evaluate_single_bullet(
-    bullet: str, strategy: AlignmentStrategy, required_keywords: list[str]
+    bullet: str, required_keywords: list[str]
 ) -> dict:
     """
     STAGE 3A: Single Bullet Evaluation - Comprehensive Quality Assessment
@@ -2551,7 +2465,6 @@ def evaluate_single_bullet(
 
     Args:
         bullet: The bullet point text to evaluate
-        strategy: The alignment strategy for context
         required_keywords: Keywords that should be present
 
     Returns:
@@ -2667,7 +2580,7 @@ def evaluate_single_bullet(
     }
 
 
-def generate_bullet_critique(bullet: str, evaluation: dict, strategy: AlignmentStrategy) -> str:
+def generate_bullet_critique(bullet: str, evaluation: dict) -> str:
     """
     STAGE 3B: Critique Generation - Actionable Improvement Instructions
 
@@ -2691,7 +2604,6 @@ def generate_bullet_critique(bullet: str, evaluation: dict, strategy: AlignmentS
     Args:
         bullet: The bullet text being critiqued
         evaluation: Result from evaluate_single_bullet
-        strategy: Alignment strategy for context
 
     Returns:
         String with specific, actionable improvement suggestions

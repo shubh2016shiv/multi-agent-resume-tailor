@@ -28,6 +28,8 @@ DESIGN RATIONALE:
 
 from datetime import date
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 # ==============================================================================
@@ -84,16 +86,13 @@ class Skill(BaseModel):
         description="Explanation for why this skill was added or inferred, based on domain expertise.",
     )
 
-    evidence: list[str] | None = Field(
-        None,
-        description="Direct quotes or references from experience section supporting this skill inference.",
-    )
+    evidence: Annotated[list[str], Field(description="Direct quotes or references from experience section supporting this skill inference.")] = []
 
     confidence_score: float | None = Field(
         None,
         ge=0.0,
-        le=1.0,
-        description="Confidence score (0-1) for inferred skills, based on evidence strength and domain relevance.",
+        le=100.0,
+        description="Confidence score (0-100) for inferred skills, based on evidence strength and domain relevance.",
     )
 
     class Config:

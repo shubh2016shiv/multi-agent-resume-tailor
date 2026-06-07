@@ -21,17 +21,7 @@ from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.formatters.base_formatter import FormatType, estimate_tokens, format_data
 
-# Import OptimizedResume from the ATS agent
-try:
-    from src.agents.ats_optimization_agent import OptimizedResume
-except ImportError:
-    # Fallback for direct script execution
-    import sys
-    from pathlib import Path
-
-    project_root = Path(__file__).parent.parent.parent
-    sys.path.insert(0, str(project_root))
-    from src.agents.ats_optimization_agent import OptimizedResume
+from src.agents.ats_optimizer.models import AtsOptimizedResume
 
 logger = get_logger(__name__)
 
@@ -93,7 +83,7 @@ def _filter_job_for_qa(job_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def format_quality_assurance_context(
-    optimized_resume: OptimizedResume,
+    optimized_resume: AtsOptimizedResume,
     original_resume: Resume,
     job: JobDescription,
     format_type: FormatType = "toon",
@@ -126,8 +116,8 @@ def format_quality_assurance_context(
     try:
         logger.info(f"Formatting QA context: filtering and converting to {format_type.upper()}")
 
-        # Extract only the resume field from OptimizedResume (exclude redundant fields)
-        optimized_resume_dict = optimized_resume.resume.model_dump()
+        # Extract only the assembled resume from AtsOptimizedResume (exclude decision notes)
+        optimized_resume_dict = optimized_resume.final_resume.model_dump()
         original_resume_dict = original_resume.model_dump()
         job_dict = job.model_dump()
 
@@ -203,6 +193,6 @@ JOB DESCRIPTION:
         logger.warning("Falling back to JSON format for QA context")
         return (
             f"ORIGINAL RESUME:\n{original_resume.model_dump_json()}\n\n"
-            f"TAILORED RESUME:\n{optimized_resume.resume.model_dump_json()}\n\n"
+            f"TAILORED RESUME:\n{optimized_resume.final_resume.model_dump_json()}\n\n"
             f"JOB DESCRIPTION:\n{job.model_dump_json()}"
         )

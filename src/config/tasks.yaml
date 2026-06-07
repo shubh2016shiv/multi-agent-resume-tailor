@@ -544,6 +544,44 @@ ats_optimization_task:
   agent: ats_optimization_specialist
   output_file: validation/ats_report.json
 
+# ----------------------------------------------------------------------------
+# ATS OPTIMIZER (slim-output module: src/agents/ats_optimizer)
+# Used by create_ats_optimizer_agent. The agent assembles the optimized sections
+# into one ATS-aligned Resume and returns AtsOptimizedResume. It does NOT render
+# markdown/JSON or self-score a report -- those are measured code-side.
+# ----------------------------------------------------------------------------
+optimize_ats_resume_task:
+  description: >
+    Assemble the optimized professional summary, work experience, and skills into a
+    single, ATS-aligned resume, carrying over contact information and education from
+    the original resume.
+
+    Steps:
+    1. Build one complete Resume from the provided sections. Use the original
+       resume's full_name, email, phone, location, website, education, and
+       certifications. Use the optimized summary text, optimized experience entries,
+       and optimized skills list.
+    2. Use standard, ATS-recognized section headers (e.g. "Professional Summary",
+       "Work Experience", "Skills", "Education") and place the summary first.
+    3. Verify your assembly with the tools available to you: call "Validate ATS
+       Compliance" on the rendered resume text to catch formatting / header issues,
+       and "Analyze Keyword Coverage" with the job's keywords to confirm the
+       must-have keywords are present at a healthy (non-stuffed) density.
+    4. If a required keyword has no truthful support in the resume, DO NOT invent
+       content -- record it in unresolved_issues instead.
+
+    CRITICAL: Do not fabricate experience, skills, metrics, or credentials. Only
+    reorder, standardize, and surface what the optimized sections already contain.
+  expected_output: >
+    A single AtsOptimizedResume JSON object with:
+    - "final_resume": the complete assembled Resume object
+    - "section_order": the standard section headers in final order
+    - "optimization_summary": what assembly and ATS decisions you made
+    - "keyword_integration_notes": how you ensured keyword coverage without stuffing
+    - "unresolved_issues": ATS concerns you could not fix without inventing content
+    Output ONLY the valid AtsOptimizedResume JSON.
+  agent: ats_optimization_specialist
+
 quality_assurance_task:
   description: >
     Conduct the final comprehensive quality review of the tailored resume.
@@ -571,3 +609,38 @@ quality_assurance_task:
     - create_alignment_strategy_task
   agent: quality_assurance_reviewer
   output_file: validation/final_qa_report.json
+
+# ----------------------------------------------------------------------------
+# QUALITY ASSESSMENT (submodule: src/agents/quality_assessment)
+# Used by create_quality_assessment_agent. The agent grounds each dimension score
+# in a real tool check and returns a QualityReport. The pass/fail boolean is NOT
+# the agent's to decide -- code (engines.apply_quality_gate) sets it from the score.
+# ----------------------------------------------------------------------------
+assess_quality_task:
+  description: >
+    Audit the optimized resume against the original resume and the job description,
+    and produce a quantitative QualityReport across three weighted dimensions.
+
+    Ground every score in a tool check -- do not score from impression alone:
+    1. ACCURACY (40%): Call "Audit Truthfulness" with the ORIGINAL resume JSON and the
+       OPTIMIZED resume JSON. Flag any invented, inflated, or unsupported claims.
+    2. RELEVANCE (35%): Call "Analyze Keyword Coverage" with the optimized resume text
+       and the job's keywords. Judge how well the resume answers the job's requirements.
+    3. ATS OPTIMIZATION (25%): Call "Validate ATS Compliance" on the optimized resume
+       text. Flag formatting problems and non-standard section headers.
+
+    Compute overall_quality_score as the weighted blend of the three dimension scores.
+    If anything is unsupported or below par, put specific, actionable guidance in
+    feedback_for_improvement. Be the final, honest gatekeeper -- never approve a resume
+    that exaggerates beyond what the original supports.
+  expected_output: >
+    A single QualityReport JSON object with:
+    - "overall_quality_score": float 0-100 (the weighted blend)
+    - "passed_quality_threshold": bool (your best estimate; code will recompute it)
+    - "assessment_summary": short high-level verdict
+    - "accuracy": AccuracyMetrics object
+    - "relevance": RelevanceMetrics object
+    - "ats_optimization": ATSMetrics object
+    - "feedback_for_improvement": specific guidance if anything fell short, else null
+    Output ONLY the valid QualityReport JSON.
+  agent: quality_assurance_reviewer

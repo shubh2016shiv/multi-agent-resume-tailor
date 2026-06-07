@@ -71,6 +71,27 @@ The name must describe what the module **does**, not what it contains.
 
 ---
 
+### The Single-Concern Rule (enforced before the first line of code)
+
+Every new file must pass this test **before any code is written inside it:**
+
+> State what this file owns in a single noun or verb-noun pair — no conjunctions allowed.
+
+| Declaration | Verdict | Why |
+|---|---|---|
+| "This file owns payment processing." | Pass | One positive identity. |
+| "This file owns payment processing and refund handling." | Fail | Two concerns. Split into two files first. |
+| "This file owns transaction management." | Fail | "Management" is a graveyard word — it owns nothing specific. Name the actual operation. |
+| "This file owns everything that isn't authentication." | Fail | Organized by exclusion, not identity. A file defined by what it is NOT will absorb anything. |
+
+**Positive identity:** A file's responsibility is defined by what it IS, never by what it is NOT. "Everything except X" is not a concern. If a file can only be described by exclusion or by a conjunction, it is already a catch-all before it has a single function in it.
+
+**Package consistency:** Within a package, all sibling files must be organized along the same axis. If the axis is "one file per domain entity," every file in that package must own one domain entity. If the axis is "one file per pipeline stage," every file must own one stage. Mixing axes inside one package destroys the package's organizing principle and turns it into a junk drawer that grows without a rule to reject additions.
+
+**Enforcement moment:** This test runs at the `⏸ REVIEW GATE` triggered by "about to create a new file." The agent must state the single-concern declaration and confirm it passes before any code is written. If the declaration fails — rejects by "and", by "management/handling/misc", or by exclusion — the package structure is redesigned first. No file is created until the declaration passes.
+
+---
+
 ### Class Names
 
 A class name is a noun representing a thing or concept with a single responsibility. If you need the word "and" to describe a class, it has more than one responsibility.
@@ -733,7 +754,7 @@ At these specific points, the agent must STOP and WAIT for explicit human approv
 
 | Trigger | What agent does | What you decide |
 |---------|----------------|-----------------|
-| About to create a new file | Shows proposed file name, what it will contain, why | Approve or suggest alternative structure |
+| About to create a new file | States single-concern declaration ("this file owns [X]"), confirms it passes the no-conjunction/no-exclusion test, shows how it fits the existing package axis | Approve the declaration or redesign the package structure |
 | About to create a class | Explains what the class represents, its responsibility, its methods | Approve or ask for flat alternative |
 | About to add an external dependency/import | Names the library, explains why, names the alternative | Approve or ask agent to avoid it |
 | Function body exceeds 15 lines | Shows the body, asks if it should be split | Split or accept |
@@ -806,6 +827,7 @@ Budget resets with each new user request.
 ═══ NAMING RULES ═══
 
 Module names: describe what the module DOES. Never: utils, helpers, common, misc.
+Single-concern rule: before creating any file, state what it owns in one noun — no "and", no "management/handling/misc", no "everything except X". If the declaration fails, redesign the package structure before writing code. Within a package, all sibling files must follow the same organizing axis.
 Function names: verb + noun pair. Never: process, handle, run, get_data, do_thing.
 Parameter names: full descriptive names. Never: data, obj, e, n, temp, val.
 Variable names: describe what the variable IS, not that it's a variable.
@@ -971,6 +993,8 @@ Integration of features is its own separate step after both are independently wo
 4. Request for human review before continuing
 
 **Red flags to stop immediately:**
+- A new file was created without a single-concern declaration — no stated ownership, or ownership described by "and", by a vague word like "management/handling/misc", or by exclusion ("everything that isn't X")
+- Sibling files in a package follow different organizing axes — some by entity, some by stage, some by exclusion — meaning the package has no consistent principle
 - Agent skipped the skeleton phase — jumped straight to full implementation without signatures-only review
 - Agent exceeded complexity budget without asking (3+ classes/models/helpers/layers in one request)
 - Function has no docstring, or docstring doesn't state preconditions and return shape

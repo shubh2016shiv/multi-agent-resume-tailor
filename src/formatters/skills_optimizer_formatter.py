@@ -30,8 +30,8 @@ Design Philosophy:
 
 from typing import Any
 
-from src.core.config import get_config
 from src.core.logger import get_logger
+from src.core.settings import get_config
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy

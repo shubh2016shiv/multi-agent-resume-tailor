@@ -21,7 +21,6 @@ advisory.
 from src.data_models.resume import Resume
 from src.tools.llm_gateway import request_review
 from src.tools.review_contract.review_models import ReviewResult
-
 from src.tools.shared.resume_rendering import render_resume
 
 ENGINE_ID = "rewrite_drift_detector"

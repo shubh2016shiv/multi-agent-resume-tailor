@@ -34,7 +34,6 @@ from src.tools.review_contract.review_models import (
     Section,
     Severity,
 )
-
 from src.tools.shared.resume_rendering import render_resume
 
 ENGINE_ID = "claim_inflation_detector"

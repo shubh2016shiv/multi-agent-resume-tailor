@@ -26,13 +26,7 @@ from src.tools.document_ingestion import (
     redact_pii,
 )
 from src.tools.job_matching import analyze_keyword_coverage, match_requirements
-from src.tools.resume_diagnostics import (
-    audit_bullet_structure,
-    audit_consistency,
-    audit_language_quality,
-    audit_quantification,
-    audit_summary_quality,
-)
+from src.tools.resume_diagnostics import audit_summary_quality
 from src.tools.review_contract.review_models import ReviewResult
 from src.tools.shared.resume_rendering import render_resume
 from src.tools.truthfulness import (
@@ -40,7 +34,6 @@ from src.tools.truthfulness import (
     detect_rewrite_drift,
     validate_skills_evidence,
 )
-
 
 # ── rendering + composition helpers ──────────────────────────────────────────
 

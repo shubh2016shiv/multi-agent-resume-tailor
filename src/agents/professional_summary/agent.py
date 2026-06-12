@@ -15,15 +15,15 @@ Output contract: ProfessionalSummary (via Task output_pydantic=ProfessionalSumma
 
 from crewai import LLM, Agent
 
-from src.core.config import get_agents_config, get_config
 from src.core.logger import get_logger
+from src.core.settings import get_agents_config, get_config
 from src.tools.agent_facing_tools import audit_summary
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
 
-_SUMMARY_TOOLS = [
+_SUMMARY_TOOLS: list = [
     audit_summary,
 ]
 
@@ -63,7 +63,7 @@ def create_professional_summary_agent() -> Agent:
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("professional_summary_writer")
-    llm_instance = LLM(model=config["llm"])
+    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.7))
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults
@@ -73,7 +73,6 @@ def create_professional_summary_agent() -> Agent:
         goal=config["goal"],
         backstory=config["backstory"],
         llm=llm_instance,
-        temperature=config.get("temperature", 0.7),
         verbose=config.get("verbose", True),
         allow_delegation=False,
         tools=_SUMMARY_TOOLS,

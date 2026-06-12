@@ -43,7 +43,7 @@ class ProfessionalSummary(BaseModel):
     drafts: list[SummaryDraft] = Field(
         ...,
         description="List of generated summary drafts using different writing strategies",
-        min_items=1,
+        min_length=1,
     )
     recommended_version: str = Field(
         ...,

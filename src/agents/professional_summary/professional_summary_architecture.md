@@ -147,7 +147,7 @@
      │
      ├──── from crewai import Agent, LLM
      │
-     ├──── from src.core.config import get_agents_config, get_config
+     ├──── from src.core.settings import get_agents_config, get_config
      │
      ├──── from src.core.logger import get_logger
      │

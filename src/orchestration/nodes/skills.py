@@ -22,6 +22,9 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_skills.
     Returns: partial state with the typed OptimizedSkillsSection.
     """
+    assert state["resume"] is not None, "resume must be set before skills optimization"
+    assert state["job_description"] is not None, "job_description must be set before skills optimization"
+    assert state["alignment_strategy"] is not None, "alignment_strategy must be set before skills optimization"
     resume = state["resume"]
     context = format_skills_optimizer_context(
         resume=resume,

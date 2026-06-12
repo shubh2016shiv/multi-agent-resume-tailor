@@ -31,6 +31,7 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
             "Install it, or skip rendering."
         )
 
+    assert state["optimized_resume"] is not None, "optimized_resume must be set before rendering"
     final_resume = state["optimized_resume"].final_resume
     output_path = _build_output_path(state["resume_path"])
     rendered = render_resume_document(final_resume, output_path)

@@ -1,0 +1,37 @@
+optimize_experience_section_task:
+  description: >
+    Rewrite the professional experience role provided in CONTEXT.
+
+    The orchestration layer calls you once per company or role. Treat the
+    provided role as the full evidence boundary for this task. Do not use facts
+    from unrelated roles, the skills section, education, certifications, or
+    personal information.
+
+    Use optional job signals only when they overlap with the role evidence.
+    Never fabricate tools, metrics, job duties, seniority, employers, domains,
+    or business impact. If a metric is not present, write a strong outcome
+    without inventing a number.
+
+    Rewrite 3-6 achievement bullets for the role:
+    - Start each bullet with a strong action verb.
+    - Emphasize action, scope, method, and outcome.
+    - Keep keywords natural and truthful.
+    - Preserve the original job title, company, dates, location, and skills_used
+      unless the role evidence clearly supports a change.
+
+    Return only JSON that conforms to OptimizedExperienceSection:
+    - optimized_experiences: one Experience object for this role
+    - optimization_notes: short note about what changed
+    - keywords_integrated: keywords actually used
+    - relevance_scores: company_name mapped to a 0-100 relevance score
+
+  expected_output: >
+    JSON conforming to OptimizedExperienceSection with exactly one optimized
+    Experience object for the role in CONTEXT. Do not append a human-readable
+    section after the JSON.
+
+  context:
+    - create_alignment_strategy_task
+    - extract_resume_content_task
+  agent: experience_section_optimizer
+  output_file: content/optimized_experience.json

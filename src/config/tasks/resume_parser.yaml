@@ -1,0 +1,34 @@
+extract_resume_content_task:
+  description: >
+    Extract and structure the candidate's resume information using LLM-based extraction.
+
+    IMPORTANT: The resume content is already provided in clean Markdown format in the
+    CONTEXT section below (converted from the original PDF/DOCX file). DO NOT attempt to
+    use file-parsing tools or load files. Simply analyze the content that has been provided to you.
+
+    Your task is to:
+    1. Analyze the resume Markdown content from the CONTEXT section.
+    2. Extract all information into a structured `Resume` model, including:
+       - Personal information (name, email, phone, location).
+       - The professional summary or objective.
+       - All work experience entries with job titles, companies, dates, descriptions,
+         quantifiable achievements, and skills used in each role.
+       - The education section with degrees, institutions, and graduation years.
+       - The skills section, categorized into technical, soft, and domain-specific skills.
+    3. Identify patterns of career growth and areas of deep expertise.
+    4. Calculate the total years of professional experience.
+    5. Ensure the accuracy and completeness of all extracted data.
+    Output a structured `Resume` model with the complete career history.
+
+  expected_output: >
+    A comprehensive JSON object representing a `Resume`. This object must include:
+    - Complete personal information.
+    - The professional summary.
+    - All work experiences (at least 3 entries) with detailed achievements.
+    - A full education history.
+    - A categorized list of skills (at least 20 skills).
+    - A calculation of the total years of experience.
+    The output must be a valid JSON that conforms to the `Resume` model structure.
+
+  agent: resume_content_extractor
+  output_file: analysis/resume_extraction.json

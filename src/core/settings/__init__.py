@@ -32,7 +32,7 @@ from src.core.settings.paths import (
     PROJECT_ROOT,
     SETTINGS_YAML_PATH,
     SRC_ROOT,
-    TASKS_YAML_PATH,
+    TASKS_CONFIG_DIR,
 )
 from src.core.settings.runtime import Settings, get_config
 from src.core.settings.schema import (
@@ -55,7 +55,7 @@ __all__ = [
     "PROJECT_ROOT",
     "SETTINGS_YAML_PATH",
     "SRC_ROOT",
-    "TASKS_YAML_PATH",
+    "TASKS_CONFIG_DIR",
     "AgentDefaults",
     "ApplicationConfig",
     "ConfigurationError",

@@ -1,0 +1,71 @@
+optimize_skills_section_task:
+  description: >
+    Reorder and optimize the skills section for maximum ATS matching and relevance.
+    Your task is to:
+    1. Review all skills from the original resume and the job description.
+    2. Reorder skills strategically: must-have skills first, then should-have, then nice-to-have.
+    3. Use the exact terminology from the job posting where accurate.
+    4. Group skills logically (e.g., Technical Skills, Programming Languages, Tools & Platforms).
+    5. Strategically add domain-inferred skills while maintaining complete truthfulness.
+    6. Remove outdated or irrelevant skills.
+
+    CRITICAL TRUTHFULNESS RULES:
+
+    ALLOWED (Domain-Based Inference):
+    - If candidate worked on "Generative AI" and job requires "LangChain", "Claude", or "OpenAI":
+      ADD these as they're standard tools in the Generative AI domain.
+    - If candidate used "Python for ML" and job requires "scikit-learn":
+      ADD as it's fundamental to the ML ecosystem.
+    - If candidate worked with "AWS EC2" and job requires "AWS Lambda":
+      ADD as both are AWS services (cloud platform expertise transfer).
+
+    FORBIDDEN (Cannot Add):
+    - MLOps if candidate has no MLOps experience (too specific, not inferable).
+    - Kubernetes if candidate only worked on frontend development.
+    - Terraform if candidate has no Infrastructure as Code experience.
+
+    YOUR WORKFLOW:
+    1. ANALYZE candidate's experience to understand their domain expertise.
+    2. IDENTIFY missing required skills from job description.
+    3. INFER related skills based on domain knowledge (use AI reasoning, not hardcoded rules).
+    4. VALIDATE each inference against actual experience evidence.
+    5. PRIORITIZE skills: must-have then should-have then nice-to-have.
+    6. CATEGORIZE skills using domain-appropriate categories.
+    7. REMOVE outdated or irrelevant skills.
+
+    VALIDATION REQUIREMENTS:
+    For EVERY skill you add:
+    1. Provide specific evidence from experience (quote actual text).
+    2. Explain the logical connection clearly.
+    3. Rate your confidence (0-100%) and only add if >= 70%.
+    4. Consider: Would a recruiter in this field accept this inference?
+
+    SKILL PRIORITIZATION STRATEGY:
+    1. MUST-HAVE (from job): List first, use exact terminology.
+    2. SHOULD-HAVE (from job): List second.
+    3. DOMAIN STRENGTHS: Highlight candidate's core expertise.
+    4. ADDITIONAL: Other relevant skills.
+    5. LIMIT: Keep total to 15-25 skills for readability.
+
+    ATS OPTIMIZATION:
+    - Use exact keywords from job posting where accurate.
+    - Include variations (e.g., "ML" and "Machine Learning").
+    - Place highest-priority keywords in first category.
+    - Ensure must-have skills are captured.
+
+  expected_output: >
+    A complete JSON object conforming to the OptimizedSkillsSection model with:
+    - "optimized_skills": list of skill objects with skill_name, category, proficiency_level,
+      justification, and evidence.
+    - "skill_categories": dict mapping category names to skill lists.
+    - "added_skills": list of inferred skill objects including confidence_score.
+    - "removed_skills": list of removed skill names.
+    - "optimization_notes": summary of what changed and why.
+    - "ats_match_score": float 0-100.
+    All added skills must have evidence-based justifications and confidence >= 0.70.
+
+  context:
+    - create_alignment_strategy_task
+    - extract_resume_content_task
+  agent: skills_section_strategist
+  output_file: content/optimized_skills.json

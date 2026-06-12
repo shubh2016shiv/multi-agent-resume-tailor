@@ -1,0 +1,44 @@
+write_professional_summary_task:
+  description: >
+    Write a compelling professional summary tailored to the target job.
+    Your task is to generate 4 distinct drafts using different strategic frameworks.
+
+    IMPORTANT: You must output a valid JSON object directly. Do NOT attempt to use tools.
+    Perform all analysis and self-critique internally, then output the final structured result.
+
+    Generate these 4 drafts:
+
+    1. Draft A (The Hook-Value-Future Framework):
+       - Sentence 1 (Hook): Lead with the most impressive fact/number.
+       - Sentences 2-3 (Value): Connect skills to outcomes ("Reduced X by Y%").
+       - Final Sentence (Future): Align with company mission/values.
+
+    2. Draft B (The Story Spine):
+       - Focus on the narrative arc: "Once upon a time... Until one day... And now..."
+       - Emphasize career evolution and the "why" behind the candidate's path.
+
+    3. Draft C (The Specialist/Keyword Camouflage):
+       - Maximize ATS keyword density but "camouflage" them within achievement contexts.
+       - Focus on deep technical specificity and hard skills.
+
+    4. Draft D (The Balanced Hybrid):
+       - The best balance of readability, impact, and ATS optimization.
+
+    For each draft, internally perform:
+    - "Specificity Test": Ensure every claim is backed by a number, tech, or outcome.
+    - "Energy Audit": Ensure active voice and momentum.
+    - Self-critique: Note strengths/weaknesses and assign a confidence score (0-100).
+
+    Then output the complete JSON structure with all 4 drafts and your recommendation.
+
+  expected_output: >
+    A valid JSON object conforming to the ProfessionalSummary model structure with:
+    - "drafts": list of 4 draft objects, each containing version_name, strategy_used,
+      content (75-150 words), critique, and score.
+    - "recommended_version": name of the recommended draft.
+    - "writing_notes": overall notes about trade-offs between versions.
+
+  context:
+    - create_alignment_strategy_task
+  agent: professional_summary_writer
+  output_file: content/professional_summary.txt

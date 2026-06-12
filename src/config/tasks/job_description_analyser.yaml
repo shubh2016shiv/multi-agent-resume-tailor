@@ -1,0 +1,35 @@
+analyze_job_description_task:
+  description: >
+    Analyze the provided job description content to extract and structure all relevant information.
+
+    IMPORTANT: The job description content is already provided in clean Markdown format in the
+    CONTEXT section below. DO NOT attempt to use file-parsing tools or load files. Simply analyze
+    the content that has been provided to you.
+
+    Your task is to:
+    1. Analyze the job description content from the CONTEXT section.
+    2. Extract the job title, company name, and identify the seniority level.
+    3. Identify all requirements and qualifications, categorizing each as:
+       - Must-have (e.g., required, mandatory, essential)
+       - Should-have (e.g., preferred, desired)
+       - Nice-to-have (e.g., bonus, plus)
+    4. Extract specific skills mentioned, paying close attention to technical skills,
+       required years of experience, and necessary certifications.
+    5. Identify key responsibilities and what success looks like in the role.
+    6. Extract company culture indicators from the language and tone used.
+    7. Compile a comprehensive list of ATS keywords that are critical for the resume.
+    Use your expertise in reading between the lines to identify implicit requirements.
+    Output a structured `JobDescription` model with your complete analysis.
+
+  expected_output: >
+    A comprehensive JSON object representing a `JobDescription`. This object must include:
+    - Job title and company name.
+    - The detected seniority level.
+    - A categorized list of requirements (at least 20 items with importance levels).
+    - A list of must-have keywords for ATS optimization.
+    - A breakdown of key responsibilities.
+    - Insights into the company culture.
+    The output must be a valid JSON that conforms to the `JobDescription` model structure.
+
+  agent: job_description_analyst
+  output_file: analysis/job_analysis.json

@@ -10,5 +10,5 @@ PROJECT_ROOT = SRC_ROOT.parent
 
 # Runtime configuration files.
 SETTINGS_YAML_PATH = SRC_ROOT / "config" / "settings.yaml"
-AGENTS_YAML_PATH = SRC_ROOT / "config" / "agents.yaml"
+AGENTS_CONFIG_DIR = SRC_ROOT / "config" / "agents"
 TASKS_YAML_PATH = SRC_ROOT / "config" / "tasks.yaml"

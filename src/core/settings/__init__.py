@@ -28,7 +28,7 @@ Settable sections exposed by `get_config()` from `src/config/settings.yaml`:
 from src.core.settings.agent_task_catalog import get_agents_config, get_tasks_config
 from src.core.settings.exceptions import ConfigurationError
 from src.core.settings.paths import (
-    AGENTS_YAML_PATH,
+    AGENTS_CONFIG_DIR,
     PROJECT_ROOT,
     SETTINGS_YAML_PATH,
     SRC_ROOT,
@@ -51,7 +51,7 @@ from src.core.settings.schema import (
 from src.core.settings.yaml_source import read_yaml_mapping, yaml_config_settings_source
 
 __all__ = [
-    "AGENTS_YAML_PATH",
+    "AGENTS_CONFIG_DIR",
     "PROJECT_ROOT",
     "SETTINGS_YAML_PATH",
     "SRC_ROOT",

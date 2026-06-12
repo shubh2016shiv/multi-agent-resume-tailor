@@ -14,6 +14,8 @@ def run_gap_analysis(state: ResumeEnhancementPipelineState) -> dict:
     Writes: alignment_strategy.
     Returns: partial state with the AlignmentStrategy for downstream writers.
     """
+    assert state["resume"] is not None, "resume must be set before gap analysis"
+    assert state["job_description"] is not None, "job_description must be set before gap analysis"
     context = format_gap_analysis_context(
         resume=state["resume"],
         job_description=state["job_description"],

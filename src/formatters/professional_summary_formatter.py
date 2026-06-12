@@ -190,7 +190,7 @@ def _extract_resume_for_summary_writing(resume: Resume) -> dict[str, Any]:
 
         # Take top 15 skills for summary context
         for skill in sorted_skills[:15]:
-            skill_entry = {
+            skill_entry: dict[str, Any] = {
                 "name": skill.skill_name,
                 "proficiency": skill.proficiency_level
                 if skill.proficiency_level
@@ -209,7 +209,7 @@ def _extract_resume_for_summary_writing(resume: Resume) -> dict[str, Any]:
     if resume.education:
         education_list = []
         for edu in resume.education:
-            education_entry = {
+            education_entry: dict[str, Any] = {
                 "degree": edu.degree,
                 "field": edu.field_of_study,
                 "institution": edu.institution_name,
@@ -295,8 +295,9 @@ def _extract_job_for_summary_writing(job_description: JobDescription) -> dict[st
                     "importance": req.importance,
                 }
 
-                if hasattr(req, "category") and req.category:
-                    req_entry["category"] = req.category
+                req_category = getattr(req, "category", None)
+                if req_category:
+                    req_entry["category"] = req_category
 
                 filtered_requirements.append(req_entry)
 

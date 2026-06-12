@@ -6,6 +6,8 @@ and returns an OrchestrationResult with the optimized resume, QA report, and
 (when the quality gate passed) the rendered PDF path.
 """
 
+from typing import cast
+
 from langgraph.graph.state import CompiledStateGraph
 
 from src.data_models.orchestration import OrchestrationResult
@@ -39,7 +41,7 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "rendered_resume_path": None,
     }
 
-    final_state: ResumeEnhancementPipelineState = _PIPELINE.invoke(initial_state)
+    final_state = cast(ResumeEnhancementPipelineState, _PIPELINE.invoke(initial_state))
 
     return _build_orchestration_result(final_state)
 
@@ -52,19 +54,11 @@ def _build_orchestration_result(
     Precondition: all state fields are non-None (the graph ran to completion).
     Raises: ValueError if any required field is still None after the graph finishes.
     """
-    required_fields = [
-        "resume",
-        "job_description",
-        "alignment_strategy",
-        "optimized_resume",
-        "qa_report",
-    ]
-    missing = [f for f in required_fields if state.get(f) is None]
-    if missing:
-        raise ValueError(
-            f"Pipeline completed but these fields are still None: {missing}. "
-            "Check the node that should produce each field."
-        )
+    assert state["resume"] is not None, "Pipeline completed but 'resume' is still None"
+    assert state["job_description"] is not None, "Pipeline completed but 'job_description' is still None"
+    assert state["alignment_strategy"] is not None, "Pipeline completed but 'alignment_strategy' is still None"
+    assert state["optimized_resume"] is not None, "Pipeline completed but 'optimized_resume' is still None"
+    assert state["qa_report"] is not None, "Pipeline completed but 'qa_report' is still None"
 
     return OrchestrationResult(
         original_resume=state["resume"],

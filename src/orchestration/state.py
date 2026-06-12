@@ -12,7 +12,7 @@ from typing import TypedDict
 
 from src.agents.ats_optimizer.models import AtsOptimizedResume
 from src.agents.professional_experience.models import OptimizedExperienceSection
-from src.agents.summary_writer_agent import ProfessionalSummary
+from src.agents.professional_summary.models import ProfessionalSummary
 from src.data_models.evaluation import QualityReport
 from src.data_models.job import JobDescription
 from src.data_models.resume import OptimizedSkillsSection, Resume

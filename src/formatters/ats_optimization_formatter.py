@@ -65,9 +65,8 @@ from src.formatters.base_formatter import FormatType, estimate_tokens, format_da
 
 # Import agent-specific models
 try:
-    # from src.agents.ats_optimization_agent import OptimizedResume  # Unused import
-    from src.agents.experience_optimizer_agent import OptimizedExperienceSection
-    from src.agents.summary_writer_agent import ProfessionalSummary
+    from src.agents.professional_experience.models import OptimizedExperienceSection
+    from src.agents.professional_summary.models import ProfessionalSummary
 except ImportError:
     # Fallback for direct script execution
     import sys
@@ -75,8 +74,8 @@ except ImportError:
 
     project_root = Path(__file__).parent.parent.parent
     sys.path.insert(0, str(project_root))
-    from src.agents.experience_optimizer_agent import OptimizedExperienceSection
-    from src.agents.summary_writer_agent import ProfessionalSummary
+    from src.agents.professional_experience.models import OptimizedExperienceSection
+    from src.agents.professional_summary.models import ProfessionalSummary
 
 logger = get_logger(__name__)
 

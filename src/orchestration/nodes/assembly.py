@@ -15,6 +15,11 @@ def assemble_ats_resume(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_resume.
     Returns: partial state with the typed AtsOptimizedResume.
     """
+    assert state["professional_summary"] is not None, "professional_summary must be set before assembly"
+    assert state["optimized_experience"] is not None, "optimized_experience must be set before assembly"
+    assert state["optimized_skills"] is not None, "optimized_skills must be set before assembly"
+    assert state["resume"] is not None, "resume must be set before assembly"
+    assert state["job_description"] is not None, "job_description must be set before assembly"
     context = format_ats_optimization_context(
         professional_summary=state["professional_summary"],
         optimized_experience=state["optimized_experience"],

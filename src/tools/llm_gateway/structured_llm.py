@@ -8,20 +8,18 @@ review tools (ReviewResult) and the extraction tools (Resume, JobDescription)
 build on this one function.
 """
 
-from typing import TypeVar
-
 from crewai import LLM
 from pydantic import BaseModel
 
-from src.core.config import get_config
 from src.core.logger import get_logger
+from src.core.resiliency import resilient_llm_call
+from src.core.settings import get_config
 
 logger = get_logger(__name__)
 
-OutputModel = TypeVar("OutputModel", bound=BaseModel)
 
-
-def request_structured_output(
+@resilient_llm_call()
+def request_structured_output[OutputModel: BaseModel](
     output_model: type[OutputModel], system_prompt: str, user_content: str
 ) -> OutputModel:
     """Call the LLM and return a validated instance of output_model.
@@ -67,7 +65,7 @@ def _build_structured_llm(output_model: type[BaseModel]) -> LLM:
     )
 
 
-def _parse_into_model(raw_output: object, output_model: type[OutputModel]) -> OutputModel:
+def _parse_into_model[OutputModel: BaseModel](raw_output: object, output_model: type[OutputModel]) -> OutputModel:
     """Validate the model's output into output_model.
 
     Accepts an already-parsed instance, a JSON string, or a dict, since CrewAI's

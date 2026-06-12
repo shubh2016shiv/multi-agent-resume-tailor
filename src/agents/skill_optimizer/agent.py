@@ -16,8 +16,8 @@ Output contract: OptimizedSkillsSection (via Task output_pydantic).
 
 from crewai import LLM, Agent
 
-from src.core.config import get_agents_config, get_config
 from src.core.logger import get_logger
+from src.core.settings import get_agents_config, get_config
 
 logger = get_logger(__name__)
 
@@ -57,7 +57,7 @@ def create_skill_optimizer_agent() -> Agent:
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("skills_section_strategist")
-    llm_instance = LLM(model=config["llm"])
+    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.4))
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults
@@ -67,7 +67,6 @@ def create_skill_optimizer_agent() -> Agent:
         goal=config["goal"],
         backstory=config["backstory"],
         llm=llm_instance,
-        temperature=config.get("temperature", 0.4),
         verbose=config.get("verbose", True),
         allow_delegation=False,
         tools=[],

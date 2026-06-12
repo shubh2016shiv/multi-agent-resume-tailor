@@ -16,12 +16,11 @@ Expected token reduction: ~80% (from 115K to ~20-25K tokens) with TOON format
 
 from typing import Any
 
+from src.agents.ats_optimizer.models import AtsOptimizedResume
 from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.formatters.base_formatter import FormatType, estimate_tokens, format_data
-
-from src.agents.ats_optimizer.models import AtsOptimizedResume
 
 logger = get_logger(__name__)
 

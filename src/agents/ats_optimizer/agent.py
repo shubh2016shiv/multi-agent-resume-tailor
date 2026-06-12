@@ -17,15 +17,15 @@ Output contract: AtsOptimizedResume (via Task output_pydantic=AtsOptimizedResume
 
 from crewai import LLM, Agent
 
-from src.core.config import get_agents_config, get_config
 from src.core.logger import get_logger
+from src.core.settings import get_agents_config, get_config
 from src.tools.agent_facing_tools import analyze_jd_keyword_coverage, validate_ats_compliance
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
 
-_ATS_TOOLS = [
+_ATS_TOOLS: list = [
     validate_ats_compliance,
     analyze_jd_keyword_coverage,
 ]
@@ -66,7 +66,7 @@ def create_ats_optimizer_agent() -> Agent:
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("ats_optimization_specialist")
-    llm_instance = LLM(model=config["llm"])
+    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.1))
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults
@@ -76,7 +76,6 @@ def create_ats_optimizer_agent() -> Agent:
         goal=config["goal"],
         backstory=config["backstory"],
         llm=llm_instance,
-        temperature=config.get("temperature", 0.1),
         verbose=config.get("verbose", True),
         allow_delegation=False,
         tools=_ATS_TOOLS,

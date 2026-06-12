@@ -15,6 +15,9 @@ def run_quality_assurance(state: ResumeEnhancementPipelineState) -> dict:
     Writes: qa_report (with the code-owned pass/fail gate already applied).
     Returns: partial state with the typed QualityReport.
     """
+    assert state["optimized_resume"] is not None, "optimized_resume must be set before quality assurance"
+    assert state["resume"] is not None, "resume must be set before quality assurance"
+    assert state["job_description"] is not None, "job_description must be set before quality assurance"
     context = format_quality_assurance_context(
         optimized_resume=state["optimized_resume"],
         original_resume=state["resume"],

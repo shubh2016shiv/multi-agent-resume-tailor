@@ -142,8 +142,9 @@ def _extract_job_requirements_for_alignment(job_description: JobDescription) -> 
         }
 
         # Include category if available for better grouping
-        if hasattr(req, "category") and req.category:
-            requirement_entry["category"] = req.category
+        req_category = getattr(req, "category", None)
+        if req_category:
+            requirement_entry["category"] = req_category
 
         requirements_list.append(requirement_entry)
 

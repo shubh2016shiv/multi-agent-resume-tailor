@@ -134,7 +134,7 @@ def _extract_experience_summaries_for_comparison(resume: Resume) -> dict[str, An
         # Build duration string for experience calculation
         duration = f"{exp.start_date} - {exp.end_date if exp.end_date else 'Present'}"
 
-        experience_entry = {
+        experience_entry: dict[str, Any] = {
             "title": exp.job_title,
             "company": exp.company_name,
             "duration": duration,
@@ -207,7 +207,7 @@ def _extract_education_and_certifications(resume: Resume) -> dict[str, Any]:
     if resume.education:
         education_list = []
         for edu in resume.education:
-            education_entry = {
+            education_entry: dict[str, Any] = {
                 "degree": edu.degree,
                 "field": edu.field_of_study,
                 "institution": edu.institution_name,
@@ -325,8 +325,9 @@ def _extract_job_requirements_for_comparison(job_description: JobDescription) ->
         }
 
         # Include category if available for better grouping in analysis
-        if hasattr(req, "category") and req.category:
-            requirement_entry["category"] = req.category
+        req_category = getattr(req, "category", None)
+        if req_category:
+            requirement_entry["category"] = req_category
 
         requirements_list.append(requirement_entry)
 

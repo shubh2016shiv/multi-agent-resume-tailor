@@ -15,15 +15,15 @@ Output contract: AlignmentStrategy (via Task output_pydantic=AlignmentStrategy).
 
 from crewai import LLM, Agent
 
-from src.core.config import get_agents_config, get_config
 from src.core.logger import get_logger
+from src.core.settings import get_agents_config, get_config
 from src.tools.agent_facing_tools import match_job_requirements
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
 
-_GAP_TOOLS = [
+_GAP_TOOLS: list = [
     match_job_requirements,
 ]
 
@@ -63,7 +63,7 @@ def create_gap_analysis_agent() -> Agent:
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("gap_analysis_specialist")
-    llm_instance = LLM(model=config["llm"])
+    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.3))
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults
@@ -73,7 +73,6 @@ def create_gap_analysis_agent() -> Agent:
         goal=config["goal"],
         backstory=config["backstory"],
         llm=llm_instance,
-        temperature=config.get("temperature", 0.3),
         verbose=config.get("verbose", True),
         allow_delegation=False,
         tools=_GAP_TOOLS,

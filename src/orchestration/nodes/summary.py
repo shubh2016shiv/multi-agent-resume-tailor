@@ -14,6 +14,9 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     Writes: professional_summary.
     Returns: partial state with the typed ProfessionalSummary.
     """
+    assert state["resume"] is not None, "resume must be set before summary writing"
+    assert state["job_description"] is not None, "job_description must be set before summary writing"
+    assert state["alignment_strategy"] is not None, "alignment_strategy must be set before summary writing"
     context = format_professional_summary_context(
         resume=state["resume"],
         job_description=state["job_description"],

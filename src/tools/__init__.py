@@ -6,14 +6,13 @@ Agents import from here, not from sub-packages directly.
 
 from .agent_facing_tools import (
     analyze_jd_keyword_coverage,
-    check_resume_markdown_quality,
-    convert_resume_document_to_markdown,
-    redact_pii_from_resume_markdown,
-    extract_structured_resume_from_markdown,
     audit_summary,
     audit_truthfulness,
+    check_resume_markdown_quality,
     check_skills_evidence,
-    match_job_requirements,
+    convert_resume_document_to_markdown,
+    extract_structured_resume_from_markdown,
+    redact_pii_from_resume_markdown,
     validate_ats_compliance,
 )
 from .ats_compliance import (
@@ -49,7 +48,6 @@ __all__ = [
     "audit_summary",
     "check_skills_evidence",
     "audit_truthfulness",
-    "match_job_requirements",
     "validate_ats_compliance",
     "analyze_jd_keyword_coverage",
     "check_resume_markdown_quality",

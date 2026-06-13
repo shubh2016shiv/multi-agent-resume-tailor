@@ -16,7 +16,9 @@ from collections.abc import Callable
 from crewai.tools import tool
 from pydantic import ValidationError
 
-from src.data_models.job import JobDescription
+from src.core.pii_mapping_store import assert_extraction_input_redacted, save_pii_mapping
+from src.core.run_context import get_current_run_id
+from src.core.settings import get_config
 from src.data_models.resume import Resume
 from src.tools.ats_compliance import audit_ats_formatting, audit_section_headers
 from src.tools.document_ingestion import (
@@ -25,10 +27,9 @@ from src.tools.document_ingestion import (
     extract_resume,
     redact_pii,
 )
-from src.tools.job_matching import analyze_keyword_coverage, match_requirements
+from src.tools.job_matching import analyze_keyword_coverage
 from src.tools.resume_diagnostics import audit_summary_quality
 from src.tools.review_contract.review_models import ReviewResult
-from src.tools.shared.resume_rendering import render_resume
 from src.tools.truthfulness import (
     detect_claim_inflation,
     detect_rewrite_drift,
@@ -129,32 +130,6 @@ def audit_truthfulness(original_resume_json: str, revised_resume_json: str) -> s
     return _render_review_result(merged, "Truthfulness")
 
 
-@tool("Match Job Requirements")
-def match_job_requirements(resume_json: str, job_json: str) -> str:
-    """Classify how well the resume evidences each job requirement, plus keyword coverage.
-
-    Args:
-        resume_json: A Resume serialized as JSON.
-        job_json: A JobDescription serialized as JSON.
-
-    Returns:
-        A combined report from the requirements-matcher (judgment) and keyword-coverage
-        (mechanical) engines.
-    """
-    try:
-        resume = Resume.model_validate_json(resume_json)
-        job = JobDescription.model_validate_json(job_json)
-    except ValidationError as error:
-        return f"Error: could not parse input JSON ({error.error_count()} validation error(s))."
-    merged = _merge(
-        [
-            match_requirements(resume, job),
-            analyze_keyword_coverage(render_resume(resume), job.ats_keywords),
-        ]
-    )
-    return _render_review_result(merged, "Job Requirements Match")
-
-
 @tool("Validate ATS Compliance")
 def validate_ats_compliance(resume_text: str) -> str:
     """Check resume text for ATS-breaking formatting and missing standard section headers.
@@ -215,7 +190,14 @@ def redact_pii_from_resume_markdown(markdown: str) -> str:
     Returns:
         The Markdown with PII replaced by placeholder tokens.
     """
-    redacted_markdown, _pii_mapping = redact_pii(markdown)
+    if not get_config().feature_flags.enable_pii_redaction:
+        # PII pipeline disabled: pass Markdown through untouched (no Presidio, no
+        # Redis). The matching guard and rehydration steps are skipped too.
+        return markdown
+    redacted_markdown, pii_mapping = redact_pii(markdown)
+    # The mapping is sensitive and must never return to the agent/LLM. Store it
+    # server-side under the current run_id so rehydration can restore PII later.
+    save_pii_mapping(get_current_run_id(), pii_mapping)
     return redacted_markdown
 
 
@@ -232,6 +214,12 @@ def extract_structured_resume_from_markdown(redacted_markdown: str) -> str:
     Returns:
         The extracted Resume as a JSON string matching the Resume schema.
     """
+    # Fail closed: reject the call unless redaction ran for this run AND the
+    # supplied text carries no raw PII. The agent controls this argument, so a
+    # "redaction ran" flag alone would not stop unredacted text reaching the LLM.
+    # Skipped entirely when the PII pipeline is disabled.
+    if get_config().feature_flags.enable_pii_redaction:
+        assert_extraction_input_redacted(get_current_run_id(), redacted_markdown)
     resume = extract_resume(redacted_markdown)
     return resume.model_dump_json()
 

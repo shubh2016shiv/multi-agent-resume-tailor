@@ -15,6 +15,12 @@ create_alignment_strategy_task:
     7. identified_gaps (list): List of SkillGap objects (can be empty list if no gaps)
     8. keywords_to_integrate (list): List of keyword strings (at least 15 keywords)
 
+    The context includes a `match_findings` section: a code-computed report of
+    must-have requirement coverage, per-requirement gaps/partial matches, and missing
+    ATS keywords. Treat it as ground truth for matches, gaps, and keywords -- do not
+    contradict it. Use the candidate_profile and job_requirements sections to add
+    detail and write the guidance.
+
     YOUR ANALYSIS WORKFLOW:
     1. Compare the extracted job requirements against the candidate's experience and skills.
     2. Identify all skill matches, categorizing them as direct, transferable, or implicit.

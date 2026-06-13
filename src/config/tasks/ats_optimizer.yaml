@@ -43,15 +43,32 @@ optimize_ats_resume_task:
        and optimized skills list.
     2. Use standard, ATS-recognized section headers (e.g. "Professional Summary",
        "Work Experience", "Skills", "Education") and place the summary first.
-    3. Verify your assembly with the tools available to you: call "Validate ATS
+    3. Render the assembled resume as plain text for checking.
+    4. Verify your assembly with the tools available to you: call "Validate ATS
        Compliance" on the rendered resume text to catch formatting / header issues,
        and "Analyze Keyword Coverage" with the job's keywords to confirm the
        must-have keywords are present at a healthy (non-stuffed) density.
-    4. If a required keyword has no truthful support in the resume, DO NOT invent
+    5. If either tool reports major issues, revise only by reordering, preserving
+       standard headers, or surfacing already-supported keywords from the provided
+       optimized sections. Do not add new facts.
+    6. If a required keyword has no truthful support in the resume, DO NOT invent
        content -- record it in unresolved_issues instead.
 
     CRITICAL: Do not fabricate experience, skills, metrics, or credentials. Only
     reorder, standardize, and surface what the optimized sections already contain.
+    Do not claim "all keywords integrated" unless the Analyze Keyword Coverage tool
+    shows complete coverage. If coverage is incomplete, list the missing unsupported
+    keywords in unresolved_issues and explain the truthful limitation in
+    keyword_integration_notes.
+
+    ATS ASSEMBLY RULES:
+    - Preserve all contact and education facts from the original resume.
+    - Preserve original role titles, companies, dates, and role-scoped facts.
+    - Use simple section order and standard labels: Professional Summary,
+      Work Experience, Skills, Education, Certifications, Languages.
+    - Keep content concise, active, and fact-based.
+    - Prefer supported exact JD terminology over synonyms where it is truthful.
+    - Never use job-description text as candidate evidence.
 
   expected_output: >
     A single AtsOptimizedResume JSON object with: "final_resume" (complete assembled Resume),

@@ -1,32 +1,50 @@
 write_professional_summary_task:
   description: >
-    Write a compelling professional summary tailored to the target job.
-    Your task is to generate 4 distinct drafts using different strategic frameworks.
+    Write a concise, fact-based professional summary tailored to the target job.
+    Your task is to generate 4 distinct drafts using different positioning angles.
 
     IMPORTANT: You must output a valid JSON object directly. Do NOT attempt to use tools.
     Perform all analysis and self-critique internally, then output the final structured result.
 
+    SOURCE-OF-TRUTH RULES:
+    - Use only facts supported by the provided resume and alignment strategy.
+    - Never invent years of experience, tools, platforms, domains, metrics, seniority,
+      credentials, employers, or business impact.
+    - A JD keyword may appear only when the resume evidence supports that capability.
+    - If the JD uses a broader category and the resume has narrower evidence, write the
+      narrower truthful evidence (for example, "REST APIs" instead of unsupported "GraphQL").
+    - Do not infer product/company categories such as SaaS, enterprise software, open source,
+      or observability unless the resume evidence explicitly supports them.
+    - If a number is not present in source evidence, do not create a number.
+
+    STYLE RULES:
+    - Write for fast human and ATS scanning: specific, active, plain, and fact-based.
+    - Avoid first person, narrative phrasing ("once upon a time", "and now"), hype,
+      cliches, and flowery marketing language.
+    - Prefer 3-4 tight sentences, 75-125 words total.
+    - Integrate 3-6 supported JD keywords naturally; do not stuff keywords.
+
     Generate these 4 drafts:
 
-    1. Draft A (The Hook-Value-Future Framework):
-       - Sentence 1 (Hook): Lead with the most impressive fact/number.
-       - Sentences 2-3 (Value): Connect skills to outcomes ("Reduced X by Y%").
-       - Final Sentence (Future): Align with company mission/values.
+    1. Draft A (Role Fit):
+       - Lead with the closest truthful match to the target role.
+       - Connect supported technical strengths to business or engineering outcomes.
 
-    2. Draft B (The Story Spine):
-       - Focus on the narrative arc: "Once upon a time... Until one day... And now..."
-       - Emphasize career evolution and the "why" behind the candidate's path.
+    2. Draft B (Backend / Platform Emphasis):
+       - Emphasize backend, API, data, platform, reliability, or cloud evidence only
+         where it exists in the resume.
 
-    3. Draft C (The Specialist/Keyword Camouflage):
-       - Maximize ATS keyword density but "camouflage" them within achievement contexts.
-       - Focus on deep technical specificity and hard skills.
+    3. Draft C (Technical Depth):
+       - Emphasize concrete tools, architectures, datasets, pipelines, and measurable
+         outcomes already present in the evidence.
 
-    4. Draft D (The Balanced Hybrid):
-       - The best balance of readability, impact, and ATS optimization.
+    4. Draft D (Balanced):
+       - Balance readability, truthful differentiation, and supported ATS keywords.
 
     For each draft, internally perform:
-    - "Specificity Test": Ensure every claim is backed by a number, tech, or outcome.
-    - "Energy Audit": Ensure active voice and momentum.
+    - "Evidence Test": Ensure every claim is traceable to resume or strategy evidence.
+    - "Keyword Truth Test": Remove any JD keyword that is not supported by resume evidence.
+    - "Specificity Test": Prefer concrete tech, outcome, or scope over generic claims.
     - Self-critique: Note strengths/weaknesses and assign a confidence score (0-100).
 
     Then output the complete JSON structure with all 4 drafts and your recommendation.

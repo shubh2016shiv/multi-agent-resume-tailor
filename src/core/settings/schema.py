@@ -92,6 +92,14 @@ class LLMConfig(BaseModel):
     temperature: float = 0.3
     timeout: int = 120
     max_retries: int = 3
+    structured_input_token_budget: int = Field(
+        default=100_000,
+        ge=1,
+        description=(
+            "Maximum combined system and user input tokens allowed before the "
+            "structured-output LLM gateway makes a provider call."
+        ),
+    )
     google: LLMGoogleConfig = Field(default_factory=LLMGoogleConfig)
     resilience: LLMResilienceConfig = Field(default_factory=LLMResilienceConfig)
     agent_defaults: AgentDefaults = Field(default_factory=AgentDefaults)
@@ -135,3 +143,28 @@ class ServicesConfig(BaseModel):
 
     redis_url: str | None = None
     database_url: str | None = None
+
+
+class ObservabilityConfig(BaseModel):
+    """LangSmith tracing settings (non-secret).
+
+    The API key is NOT here — it is a secret read from the environment as
+    `LANGSMITH_API_KEY` (see `Settings.langsmith_api_key`). These fields only
+    control whether tracing is on and which project/endpoint it targets.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Master switch for LangSmith tracing. On by default; still no-ops "
+            "safely if LANGSMITH_API_KEY is unset, so the pipeline always runs."
+        ),
+    )
+    project: str = Field(
+        default="resume-tailor-agents",
+        description="LangSmith project name that traces are grouped under.",
+    )
+    endpoint: str = Field(
+        default="https://api.smith.langchain.com",
+        description="LangSmith API endpoint (override for self-hosted/EU region).",
+    )

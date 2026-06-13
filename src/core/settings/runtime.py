@@ -21,6 +21,7 @@ from src.core.settings.schema import (
     FilePathsConfig,
     LLMConfig,
     LoggingConfig,
+    ObservabilityConfig,
     ServicesConfig,
     WorkflowConfig,
 )
@@ -37,11 +38,12 @@ class Settings(BaseSettings):
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
     file_paths: FilePathsConfig = Field(default_factory=FilePathsConfig)
     services: ServicesConfig = Field(default_factory=ServicesConfig)
+    observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
 
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
     gemini_api_key: str | None = Field(None, alias="GEMINI_API_KEY")
     serper_api_key: str | None = Field(None, alias="SERPER_API_KEY")
-    wandb_api_key: str | None = Field(None, alias="WANDB_API_KEY")
+    langsmith_api_key: str | None = Field(None, alias="LANGSMITH_API_KEY")
 
     model_config = SettingsConfigDict(
         env_prefix="APP_",

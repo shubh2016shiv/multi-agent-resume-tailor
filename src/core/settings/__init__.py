@@ -22,7 +22,7 @@ Settable sections exposed by `get_config()` from `src/config/settings.yaml`:
 - `workflow`: iteration count, quality threshold, QA metric thresholds.
 - `file_paths`: default resume and job-description input paths.
 - `services`: optional Redis/database URLs.
-- API keys: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `SERPER_API_KEY`, `WANDB_API_KEY`.
+- API keys: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `SERPER_API_KEY`, `LANGSMITH_API_KEY`.
 """
 
 from src.core.settings.agent_task_catalog import get_agents_config, get_tasks_config
@@ -44,6 +44,7 @@ from src.core.settings.schema import (
     LLMGoogleConfig,
     LLMResilienceConfig,
     LoggingConfig,
+    ObservabilityConfig,
     QualityMetricsConfig,
     ServicesConfig,
     WorkflowConfig,
@@ -65,6 +66,7 @@ __all__ = [
     "LLMGoogleConfig",
     "LLMResilienceConfig",
     "LoggingConfig",
+    "ObservabilityConfig",
     "QualityMetricsConfig",
     "ServicesConfig",
     "Settings",

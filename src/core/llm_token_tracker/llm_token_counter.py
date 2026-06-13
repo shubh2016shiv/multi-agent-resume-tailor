@@ -6,7 +6,8 @@ from functools import lru_cache
 from typing import Any
 
 try:
-    from litellm import cost_per_token, token_counter
+    from litellm.cost_calculator import cost_per_token
+    from litellm.utils import token_counter
 except ImportError:
     cost_per_token = None
     token_counter = None
@@ -89,7 +90,7 @@ class TokenCounter:
             return None
 
         try:
-            prompt_cost, completion_cost = cost_per_token(
+            prompt_cost_usd, completion_cost_usd = cost_per_token(
                 model=model,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
@@ -102,7 +103,7 @@ class TokenCounter:
                 error_type=type(exc).__name__,
             )
             return None
-        return (prompt_tokens * prompt_cost) + (completion_tokens * completion_cost)
+        return prompt_cost_usd + completion_cost_usd
 
     def log_token_usage(
         self,

@@ -1,7 +1,7 @@
 # ==============================================================================
 # RUNTIME SETTINGS
 # ------------------------------------------------------------------------------
-# This file contains global runtime configurations for the application.
+# This file contains global application settings.
 # It allows for easy tuning of system behavior without changing the code.
 #
 # WHY YAML for settings?
@@ -12,7 +12,7 @@
 # - Centralization: All key settings are in one place.
 #
 # HIERARCHY:
-# 1. Default values will be set in the Pydantic models in `src/core/config.py`.
+# 1. Default values will be set in the Pydantic models in `src/core/settings/schema.py`.
 # 2. These values are overridden by this `settings.yaml` file.
 # 3. These values are further overridden by environment variables (e.g., from a .env file).
 # ==============================================================================
@@ -31,11 +31,17 @@ application:
   # Enable or disable debug mode. When true, logging is more verbose.
   debug: true
 
-  # Enable or disable feature flags for experimental functionality.
-  feature_flags:
-    enable_cache: true
-    enable_web_search: false
-    enable_human_in_the_loop: false
+# ------------------------------------------------------------------------------
+# Feature Flags
+# ------------------------------------------------------------------------------
+# Feature flags are top-level runtime switches. Keep them separate from
+# application identity settings so every settable section maps directly to a
+# field on `Settings`.
+# ------------------------------------------------------------------------------
+feature_flags:
+  enable_cache: true
+  enable_web_search: false
+  enable_human_in_the_loop: false
 
 # ------------------------------------------------------------------------------
 # LLM (Large Language Model) Configuration
@@ -166,3 +172,21 @@ services:
   # URL for a database connection.
   # Example: "sqlite:///./resume_tailor.db"
   database_url: null
+
+# ------------------------------------------------------------------------------
+# Observability (LangSmith)
+# ------------------------------------------------------------------------------
+# Controls LangSmith tracing of agent behavior (inputs/outputs, tokens, cost).
+# The API key is a SECRET and must be set via the LANGSMITH_API_KEY environment
+# variable (e.g. in .env) — never put it here.
+# ------------------------------------------------------------------------------
+observability:
+  # Master switch. On by default; still no-ops safely if LANGSMITH_API_KEY is
+  # unset, so the pipeline always runs. Set false to fully disable tracing.
+  enabled: true
+
+  # LangSmith project that traces are grouped under.
+  project: "resume-tailor-agents"
+
+  # LangSmith API endpoint. Override for self-hosted or the EU region.
+  endpoint: "https://api.smith.langchain.com"

@@ -14,7 +14,7 @@ experience_section_optimizer:
     You excel at replacing duty language with evidence-backed outcomes, choosing
     strong action verbs, preserving chronology and role facts, and integrating
     relevant keywords only when they fit naturally.
-  llm: openai/gpt-4o-mini
+  llm: openai/gpt-4.1
   temperature: 0.5
   verbose: true
   max_iter: 4

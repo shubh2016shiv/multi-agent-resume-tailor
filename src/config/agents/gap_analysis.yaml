@@ -22,6 +22,6 @@ gap_analysis_specialist:
     You are committed to truthfulness - you never suggest fabricating experience, but you
     excel at helping people tell their professional story in the most compelling, relevant way
     for each specific opportunity.
-  llm: openai/gpt-4o-mini
+  llm: openai/gpt-4o
   temperature: 0.3
   verbose: true

@@ -23,6 +23,6 @@ quality_assurance_reviewer:
     Your reviews are constructive and specific. When you identify issues, you explain the problem,
     why it's problematic, and how to fix it. You use the `evaluate_resume_quality` tool to
     generate quantitative scores, then interpret the results to provide actionable feedback.
-  llm: openai/gpt-4o-mini
+  llm: openai/gpt-4o
   temperature: 0.2
   verbose: true

@@ -1,14 +1,15 @@
 """
 Gap Analysis agent factory.
 
-Builds a CrewAI Agent wired with the match_job_requirements tool — the single
-composite tool that bundles requirement evidence matching (LLM judgment) and
-keyword coverage scanning (mechanical) into one agent-readable report.
+Builds a tool-free CrewAI Agent. The requirement/keyword match is computed in code
+by the strategy node (match_resume_to_job) and rendered into the agent's context as
+match_findings, so the agent reads pre-computed facts rather than calling a tool that
+would force it to serialize the resume back from its lossy TOON view.
 
-The agent reasons over the report + formatted context to produce an
-AlignmentStrategy: identified matches, gaps, keyword targets, and section-specific
-guidance for the three downstream content-generation agents (summary, experience,
-skills).
+The agent reasons over the formatted context (candidate profile, job requirements,
+match findings) to produce an AlignmentStrategy: identified matches, gaps, keyword
+targets, and section-specific guidance for the three downstream content-generation
+agents (summary, experience, skills).
 
 Output contract: AlignmentStrategy (via Task output_pydantic=AlignmentStrategy).
 """
@@ -17,15 +18,12 @@ from crewai import LLM, Agent
 
 from src.core.logger import get_logger
 from src.core.settings import get_agents_config, get_config
-from src.tools.agent_facing_tools import match_job_requirements
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
 
-_GAP_TOOLS: list = [
-    match_job_requirements,
-]
+_GAP_TOOLS: list = []
 
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -55,7 +53,7 @@ def _load_agent_config(name: str) -> dict:
 
 
 def create_gap_analysis_agent() -> Agent:
-    """Build a CrewAI Agent with the match_job_requirements tool.
+    """Build a tool-free CrewAI Agent that reasons from its formatted context.
 
     Expects: agents.yaml has a 'gap_analysis_specialist' key with
              role, goal, backstory, and llm fields.

@@ -16,8 +16,10 @@
         "matcher": ".*",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "If any source files were modified, added, or deleted during this session, write HANDOFF.md now following the exact template in AGENTS.md. Include every section: Completed, Current state, Files modified table, and Next action."
+            "type": "command",
+            "command": "bash -c 'CHANGED=$(git diff --name-only HEAD 2>/dev/null | grep -vE \"\\.log$\"); if [ -n \"$CHANGED\" ]; then if [ -f HANDOFF.md ] && [ -n \"$(find HANDOFF.md -mmin -10 2>/dev/null)\" ]; then exit 0; fi; printf \"%s\" \"$CHANGED\"; exit 2; fi'",
+            "asyncRewake": true,
+            "rewakeMessage": "Source files were modified this session. Write HANDOFF.md now following the exact template in AGENTS.md. Include every section: Completed, Current state, Files modified table, and Next action. Modified files:\n"
           }
         ]
       }

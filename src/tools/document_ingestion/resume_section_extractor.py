@@ -10,24 +10,9 @@ for exactly once, with no agent reasoning layered on top.
 import re
 
 from src.data_models.resume import Experience, Resume
-from src.tools.llm_gateway import request_structured_output
+from src.tools.llm_gateway import load_tool_prompt, request_structured_output
 
-# Prompt duplicated from tasks.yaml (extract_resume_content_task) for now.
-# TODO: Remove the prompt from tasks.yaml once the Resume Extractor agent is
-#       migrated to call this engine instead of doing extraction inline.
-RESUME_EXTRACTION_PROMPT = """You extract a candidate's resume into a structured Resume object.
-
-Rules:
-- Use only information present in the resume text. Do not invent or infer data that is not there.
-- The text is privacy-redacted: tokens like [PERSON_1], [EMAIL_ADDRESS_1], [PHONE_NUMBER_1] are
-  placeholders. Copy them verbatim into the matching fields (full_name, email, phone_number).
-- Dates: convert to ISO format (YYYY-MM-DD). When only a month and year are given, use the first
-  day of the month. For an ongoing role, set is_current_position to true and leave end_date null.
-- For each work experience, capture the role's bullet points as achievements and the free-text
-  role summary as description.
-- Education graduation_year is the year the qualification was (or will be) completed.
-- If an optional field is absent, leave it null or an empty list. Do not fabricate values.
-"""
+RESUME_EXTRACTION_PROMPT = load_tool_prompt("document_ingestion/resume_extraction.md")
 
 
 def extract_resume(redacted_markdown: str) -> Resume:

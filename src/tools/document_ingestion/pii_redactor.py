@@ -41,6 +41,7 @@ REDACTED_ENTITIES = [
 # Drop low-confidence hits. Label-anchored DOB matches clear this only when their
 # context words boost the score; bare dates stay below and are not redacted.
 MIN_CONFIDENCE_SCORE = 0.5
+PHONE_PATTERN_SCORE = 0.85
 
 # TODO: Education completion year.
 #       Proposed: redact dates that fall inside the Education section.
@@ -79,6 +80,7 @@ def _get_analyzer() -> AnalyzerEngine:
     global _analyzer
     if _analyzer is None:
         engine = AnalyzerEngine()
+        engine.registry.add_recognizer(_build_resume_phone_recognizer())
         engine.registry.add_recognizer(_build_date_of_birth_recognizer())
         engine.registry.add_recognizer(_build_age_recognizer())
         _analyzer = engine
@@ -152,6 +154,55 @@ def _build_date_of_birth_recognizer() -> PatternRecognizer:
         supported_entity="DATE_OF_BIRTH",
         patterns=[date_pattern],
         context=["dob", "birth", "born"],
+    )
+
+
+def _build_resume_phone_recognizer() -> PatternRecognizer:
+    """Detect phone formats common in resume headers.
+
+    Presidio's default phone recognizer can miss human-spaced numbers such as
+    '+1 555 123 4567'. These custom patterns keep phone detection inside the
+    Presidio recognizer system instead of doing a separate redaction pass.
+    """
+    return PatternRecognizer(
+        supported_entity="PHONE_NUMBER",
+        patterns=[
+            _north_american_phone_pattern(),
+            _international_phone_pattern(),
+            _india_mobile_phone_pattern(),
+        ],
+        context=["phone", "mobile", "cell", "tel", "contact"],
+    )
+
+
+def _north_american_phone_pattern() -> Pattern:
+    """Return a pattern for US/Canada resume phone formats."""
+    return Pattern(
+        name="north_american_resume_phone",
+        regex=(
+            r"(?<!\w)(?:\+?1[\s.-]+)?"
+            r"(?:\(\d{3}\)|\d{3})[\s.-]+"
+            r"\d{3}[\s.-]+\d{4}(?!\w)"
+        ),
+        score=PHONE_PATTERN_SCORE,
+    )
+
+
+def _international_phone_pattern() -> Pattern:
+    """Return a pattern for separated international phone numbers."""
+    return Pattern(
+        name="international_resume_phone",
+        regex=r"(?<!\w)\+\d{1,3}[\s.-]+\d{2,5}(?:[\s.-]+\d{2,5}){1,3}(?!\w)",
+        score=PHONE_PATTERN_SCORE,
+    )
+
+
+def _india_mobile_phone_pattern() -> Pattern:
+    """Return a pattern for Indian mobile numbers, with or without country code."""
+    return Pattern(
+        name="india_mobile_resume_phone",
+        regex=r"(?<!\w)(?:\+?91[\s.-]+)?[6-9]\d{4}[\s.-]?\d{5}(?!\w)",
+        score=PHONE_PATTERN_SCORE,
     )
 
 

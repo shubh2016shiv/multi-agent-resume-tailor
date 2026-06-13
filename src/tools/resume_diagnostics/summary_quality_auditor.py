@@ -15,7 +15,7 @@ common resume failure and the first thing a recruiter reads.
 import string
 
 from src.data_models.resume import Resume
-from src.tools.llm_gateway import request_review
+from src.tools.llm_gateway import load_tool_prompt, request_review
 from src.tools.review_contract.review_models import (
     Confidence,
     Location,
@@ -42,24 +42,7 @@ FIRST_PERSON_PRONOUNS = {"i", "i'm", "i've", "my", "me", "myself", "mine"}
 #       Proposed: weight length, first-person, generic, and value into one score.
 #       Deferred: no consumer reads score yet and the weighting is uncalibrated (YAGNI).
 
-SUMMARY_RUBRIC = """You review a resume's professional summary for two judgment qualities:
-
-1. Generic boilerplate: empty phrases that say nothing specific, such as
-   "results-oriented professional" or "proven track record".
-2. Missing value proposition: the summary does not convey what this candidate
-   specifically offers (their domain, strengths, and the value they bring).
-
-Return one review comment per real issue, with:
-- severity: "minor"
-- confidence: "medium"
-- message: what is weak
-- quoted_text: the exact phrase, or the whole summary if it is generally generic
-- advice: how to make it specific and value-focused
-- location: section "summary"
-
-If the summary is specific and conveys clear value, return no comments.
-Do not comment on length or pronouns; those are checked separately.
-"""
+SUMMARY_RUBRIC = load_tool_prompt("resume_diagnostics/summary_quality.md")
 
 
 def audit_summary_quality(resume: Resume) -> ReviewResult:

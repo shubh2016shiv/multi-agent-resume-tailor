@@ -17,6 +17,7 @@ from src.data_models.evaluation import QualityReport
 from src.data_models.job import JobDescription
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
+from src.tools.review_contract.review_models import ReviewResult
 
 
 class ResumeEnhancementPipelineState(TypedDict):
@@ -36,6 +37,7 @@ class ResumeEnhancementPipelineState(TypedDict):
     job_description: JobDescription | None
 
     # --- Stage 2: sequential gap analysis ---
+    requirement_match_report: ReviewResult | None  # code-computed; fed into the agent's context
     alignment_strategy: AlignmentStrategy | None
 
     # --- Stage 3: parallel content generation ---

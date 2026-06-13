@@ -14,8 +14,12 @@ from langgraph.graph.state import CompiledStateGraph
 from src.core.pii_mapping_store import delete_pii_mapping
 from src.core.settings import get_config
 from src.data_models.orchestration import OrchestrationResult
+from src.observability import init_observability
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.state import ResumeEnhancementPipelineState
+
+# Initialize LangSmith tracing once at module load.
+init_observability("resume-tailor-agents")
 
 # Build the graph once at module load -- it is stateless and safe to share.
 # Each tailor_resume() call gets a fresh initial state but reuses this graph.
@@ -37,6 +41,7 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "jd_path": jd_path,
         "resume": None,
         "job_description": None,
+        "requirement_match_report": None,
         "alignment_strategy": None,
         "professional_summary": None,
         "optimized_experience": None,

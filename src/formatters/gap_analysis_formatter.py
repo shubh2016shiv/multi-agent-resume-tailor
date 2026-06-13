@@ -33,8 +33,33 @@ from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.formatters.base_formatter import FormatType, estimate_tokens, format_data
+from src.tools.review_contract.review_models import ReviewResult
 
 logger = get_logger(__name__)
+
+
+def _summarize_match_report(match_report: ReviewResult) -> dict[str, Any]:
+    """Condense a code-computed match ReviewResult into agent-readable findings.
+
+    Expects the merged requirement/keyword ReviewResult from match_resume_to_job.
+    Returns a compact dict: the must-have coverage score, the headline summary, and
+    one entry per finding (the gaps, partial matches, and missing keywords the agent
+    must address). Matched requirements produce no finding -- the agent reads those
+    directly from candidate_profile vs job_requirements.
+    """
+    return {
+        "must_have_coverage_score": match_report.score,
+        "headline": match_report.summary,
+        "findings": [
+            {
+                "severity": comment.severity.value,
+                "section": comment.location.section.value,
+                "issue": comment.message,
+                "advice": comment.advice,
+            }
+            for comment in match_report.comments
+        ],
+    }
 
 
 # ==============================================================================
@@ -424,6 +449,7 @@ def _extract_job_metadata_for_context(job_description: JobDescription) -> dict[s
 def format_gap_analysis_context(
     resume: Resume,
     job_description: JobDescription,
+    match_report: ReviewResult,
     format_type: FormatType = "toon",
 ) -> str:
     """
@@ -458,7 +484,7 @@ def format_gap_analysis_context(
     Example Usage:
         >>> resume = Resume(...)
         >>> job = JobDescription(...)
-        >>> context = format_gap_analysis_context(resume, job, format_type="toon")
+        >>> context = format_gap_analysis_context(resume, job, match_report, format_type="toon")
         >>> # Context now contains optimized data for gap analysis
     """
     logger.info("Starting Gap Analysis context formatting...")
@@ -511,6 +537,7 @@ def format_gap_analysis_context(
     combined_context = {
         "candidate_profile": resume_data_for_gap_analysis,
         "job_requirements": job_data_for_gap_analysis,
+        "match_findings": _summarize_match_report(match_report),
     }
 
     # ==============================================================================

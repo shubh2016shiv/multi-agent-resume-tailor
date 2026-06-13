@@ -42,8 +42,11 @@ output/
 results/
 temp/
 tmp/
+graphify-out/
+HANDOFF.md
 
 # Obsolete files/directories (matches at any depth)
 **/*_OBSELETE/
 **/*_OBSELETE.py
 **/*_OBSELETE
+**/*_OBSELETE*

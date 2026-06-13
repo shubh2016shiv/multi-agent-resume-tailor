@@ -69,6 +69,11 @@ llm:
   # Default number of retries for failed LLM API calls.
   max_retries: 3
 
+  # Maximum combined system + user input tokens allowed before a structured
+  # LLM gateway call is made. This protects extraction/review calls from
+  # accidentally sending unbounded documents to the provider.
+  structured_input_token_budget: 100000
+
   # Specific settings for Google Gemini models.
   google:
     # Model to use for agents configured with the 'google' provider.

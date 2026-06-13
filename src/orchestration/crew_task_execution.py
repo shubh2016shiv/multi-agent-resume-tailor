@@ -10,7 +10,7 @@ from typing import Any
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel
 
-from src.core.config import get_tasks_config
+from src.core.settings import get_tasks_config
 
 
 def run_agent_task(

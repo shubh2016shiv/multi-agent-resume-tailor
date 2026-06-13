@@ -6,6 +6,7 @@ from src.agents.job_description_analyser import create_job_analyzer_agent
 # It owns all 4 document-ingestion tools (convert -> quality check -> redact -> extract).
 # The node passes a file path -- the agent reasons through the steps itself.
 from src.agents.resume_parser import create_resume_extractor_agent
+from src.core.run_context import bind_run_id
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.orchestration.crew_task_execution import run_agent_task
@@ -17,17 +18,21 @@ from src.tools.document_ingestion.resume_section_extractor import assign_experie
 def extract_resume(state: ResumeEnhancementPipelineState) -> dict:
     """Hand the resume file path to the resume_parser agent.
 
-    Reads: resume_path, a file path to a PDF or DOCX.
+    Reads: resume_path, a file path to a PDF or DOCX; run_id, to scope PII storage.
     Writes: resume.
     Returns: partial state with a structured Resume whose experiences have IDs.
+
+    Binds run_id so the agent's redaction tool can store the PII mapping under it;
+    the agent itself never sees the run_id.
     """
     agent = create_resume_extractor_agent()
-    resume = run_agent_task(
-        agent=agent,
-        task_name="extract_resume_content_task",
-        context=f"RESUME FILE PATH: {state['resume_path']}",
-        output_model=Resume,
-    )
+    with bind_run_id(state["run_id"]):
+        resume = run_agent_task(
+            agent=agent,
+            task_name="extract_resume_content_task",
+            context=f"RESUME FILE PATH: {state['resume_path']}",
+            output_model=Resume,
+        )
     return {"resume": assign_experience_ids(resume)}
 
 

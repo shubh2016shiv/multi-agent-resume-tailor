@@ -1,23 +1,30 @@
 extract_resume_content_task:
   description: >
-    Extract and structure the candidate's resume information using LLM-based extraction.
+    Extract and structure the candidate's resume information from the resume file path.
 
-    IMPORTANT: The resume content is already provided in clean Markdown format in the
-    CONTEXT section below (converted from the original PDF/DOCX file). DO NOT attempt to
-    use file-parsing tools or load files. Simply analyze the content that has been provided to you.
+    IMPORTANT: The CONTEXT section contains a resume file path, not resume text.
+    You own the document-ingestion sequence. Use your tools in this order:
+    1. Convert Resume Document to Markdown
+    2. Check Resume Markdown Quality
+    3. Extract Structured Resume from Markdown
+
+    If the quality check reports a BLOCKER, stop and explain the conversion problem
+    instead of extracting from unreliable text.
 
     Your task is to:
-    1. Analyze the resume Markdown content from the CONTEXT section.
-    2. Extract all information into a structured `Resume` model, including:
+    1. Read the resume file path from the CONTEXT section.
+    2. Convert the file to Markdown using the conversion tool.
+    3. Check the converted Markdown quality before extraction.
+    4. Extract all information into a structured `Resume` model, including:
        - Personal information (name, email, phone, location).
        - The professional summary or objective.
        - All work experience entries with job titles, companies, dates, descriptions,
          quantifiable achievements, and skills used in each role.
        - The education section with degrees, institutions, and graduation years.
        - The skills section, categorized into technical, soft, and domain-specific skills.
-    3. Identify patterns of career growth and areas of deep expertise.
-    4. Calculate the total years of professional experience.
-    5. Ensure the accuracy and completeness of all extracted data.
+    6. Identify patterns of career growth and areas of deep expertise.
+    7. Calculate the total years of professional experience.
+    8. Ensure the accuracy and completeness of all extracted data.
     Output a structured `Resume` model with the complete career history.
 
   expected_output: >

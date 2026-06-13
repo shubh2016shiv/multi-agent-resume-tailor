@@ -28,12 +28,18 @@ logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
 
-_RESUME_TOOLS: list = [
-    convert_resume_document_to_markdown,
-    check_resume_markdown_quality,
-    redact_pii_from_resume_markdown,
-    extract_structured_resume_from_markdown,
-]
+
+def _build_resume_tools(enable_pii_redaction: bool) -> list:
+    """Return the document-ingestion tools, including PII redaction only when enabled.
+
+    With redaction off, the redact tool is dropped entirely so the agent never has
+    a redaction step to invoke (see feature_flags.enable_pii_redaction).
+    """
+    tools = [convert_resume_document_to_markdown, check_resume_markdown_quality]
+    if enable_pii_redaction:
+        tools.append(redact_pii_from_resume_markdown)
+    tools.append(extract_structured_resume_from_markdown)
+    return tools
 
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -75,6 +81,7 @@ def create_resume_extractor_agent() -> Agent:
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults
+    resume_tools = _build_resume_tools(app_config.feature_flags.enable_pii_redaction)
 
     agent = Agent(
         role=config["role"],
@@ -83,7 +90,7 @@ def create_resume_extractor_agent() -> Agent:
         llm=llm_instance,
         verbose=config.get("verbose", True),
         allow_delegation=False,
-        tools=_RESUME_TOOLS,
+        tools=resume_tools,
         max_retry_limit=defaults.max_retry_limit,
         max_rpm=defaults.max_rpm,
         max_iter=defaults.max_iter,
@@ -91,7 +98,7 @@ def create_resume_extractor_agent() -> Agent:
         respect_context_window=defaults.respect_context_window,
     )
 
-    tool_names = [t.name for t in _RESUME_TOOLS]
+    tool_names = [t.name for t in resume_tools]
     logger.info(
         "Resume Extractor agent created",
         model=config["llm"],

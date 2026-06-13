@@ -9,7 +9,8 @@ Stage 2 (sequential): run_gap_analysis          (waits for Stage 1)
 Stage 3 (parallel):   write_professional_summary + optimize_experience + optimize_skills
 Stage 4 (sequential): assemble_ats_resume        (waits for Stage 3)
 Stage 5 (sequential): run_quality_assurance
-Stage 6 (conditional): render_final_resume       (only if the QA gate passed)
+Stage 6 (sequential): rehydrate_pii              (restore PII after QA, on every path)
+Stage 7 (conditional): render_final_resume       (only if the QA gate passed)
 """
 
 from langgraph.graph import END, START, StateGraph
@@ -53,6 +54,7 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_node("optimize_skills", nodes.optimize_skills)
     graph.add_node("assemble_ats_resume", nodes.assemble_ats_resume)
     graph.add_node("run_quality_assurance", nodes.run_quality_assurance)
+    graph.add_node("rehydrate_pii", nodes.rehydrate_pii)
     graph.add_node("render_final_resume", nodes.render_final_resume)
 
     # -- Stage 1: parallel fan-out from START --
@@ -76,9 +78,13 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     # -- Stage 5: sequential quality assurance --
     graph.add_edge("assemble_ats_resume", "run_quality_assurance")
 
-    # -- Stage 6: conditional render -- only when the QA gate passed --
+    # -- Stage 6: rehydrate PII on every path -- the returned resume must carry
+    # real values whether or not it goes on to render, so this runs before the gate.
+    graph.add_edge("run_quality_assurance", "rehydrate_pii")
+
+    # -- Stage 7: conditional render -- only when the QA gate passed --
     graph.add_conditional_edges(
-        "run_quality_assurance",
+        "rehydrate_pii",
         _route_after_quality,
         {"render": "render_final_resume", "end": END},
     )

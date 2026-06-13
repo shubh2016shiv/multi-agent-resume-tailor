@@ -21,9 +21,8 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
     Returns: partial state with the PDF path.
     Raises: RuntimeError if the LaTeX toolchain is unavailable.
 
-    TODO: rehydrate PII placeholders before rendering.
-          Proposed: apply the redaction map captured at extraction time.
-          Deferred: the extraction path does not yet thread the PII map through state.
+    Precondition: the rehydrate_pii node has already restored real PII into
+    final_resume (it runs immediately before this node on the render branch).
     """
     if not is_render_available():
         raise RuntimeError(

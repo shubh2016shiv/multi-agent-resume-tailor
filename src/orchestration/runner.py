@@ -7,9 +7,12 @@ and returns an OrchestrationResult with the optimized resume, QA report, and
 """
 
 from typing import cast
+from uuid import uuid4
 
 from langgraph.graph.state import CompiledStateGraph
 
+from src.core.pii_mapping_store import delete_pii_mapping
+from src.core.settings import get_config
 from src.data_models.orchestration import OrchestrationResult
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.state import ResumeEnhancementPipelineState
@@ -27,7 +30,9 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
     Returns: OrchestrationResult with the optimized resume and QA report.
     Raises: ValueError if any agent node fails to produce a valid typed output.
     """
+    run_id = uuid4().hex
     initial_state: ResumeEnhancementPipelineState = {
+        "run_id": run_id,
         "resume_path": resume_path,
         "jd_path": jd_path,
         "resume": None,
@@ -41,9 +46,14 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "rendered_resume_path": None,
     }
 
-    final_state = cast(ResumeEnhancementPipelineState, _PIPELINE.invoke(initial_state))
-
-    return _build_orchestration_result(final_state)
+    # The run's PII mapping is sensitive run-state; delete it on every terminal
+    # path (success, quality-gate end, or exception) once rehydration is done.
+    try:
+        final_state = cast(ResumeEnhancementPipelineState, _PIPELINE.invoke(initial_state))
+        return _build_orchestration_result(final_state)
+    finally:
+        if get_config().feature_flags.enable_pii_redaction:
+            delete_pii_mapping(run_id)
 
 
 def _build_orchestration_result(

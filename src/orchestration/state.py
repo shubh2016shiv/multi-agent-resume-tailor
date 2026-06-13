@@ -27,6 +27,7 @@ class ResumeEnhancementPipelineState(TypedDict):
     """
 
     # --- inputs (set by the runner before graph.invoke()) ---
+    run_id: str  # identifies this run; keys the Redis PII mapping (see pii_mapping_store)
     resume_path: str
     jd_path: str
 

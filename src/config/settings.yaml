@@ -43,6 +43,11 @@ feature_flags:
   enable_web_search: false
   enable_human_in_the_loop: false
 
+  # Master switch for the resume PII pipeline (redact before the LLM, rehydrate
+  # after QA). False = no Presidio redaction, no guard, no rehydration; the resume
+  # reaches the LLM with real PII. Off for now while the PII approach is reworked.
+  enable_pii_redaction: false
+
 # ------------------------------------------------------------------------------
 # LLM (Large Language Model) Configuration
 # ------------------------------------------------------------------------------
@@ -172,11 +177,15 @@ file_paths:
 services:
   # URL for a Redis instance, used for caching or other features.
   # Example: "redis://localhost:6379/0"
-  redis_url: null
+  redis_url: "redis://localhost:6379/0"
 
   # URL for a database connection.
   # Example: "sqlite:///./resume_tailor.db"
   database_url: null
+
+  # TTL (seconds) for a run's PII placeholder mapping in Redis. Safety net that
+  # reclaims the key if a run dies before its explicit cleanup runs. Minimum 60.
+  pii_mapping_ttl_seconds: 3600
 
 # ------------------------------------------------------------------------------
 # Observability (LangSmith)

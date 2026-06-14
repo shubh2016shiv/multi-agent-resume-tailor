@@ -73,6 +73,16 @@ def get_optimal_keyword_density_range() -> tuple[float, float]:
     return (MIN_KEYWORD_DENSITY, MAX_KEYWORD_DENSITY)
 
 
+def keyword_present_in_text(keyword: str, text: str) -> bool:
+    """Return True if keyword appears as a whole token in text.
+
+    Case-insensitive and regular-plural aware (same matching as coverage analysis,
+    via _count_whole_token). This is the truthful "is this keyword evidenced" check
+    shared by coverage analysis and the skills add-back step.
+    """
+    return _count_whole_token(keyword, text) > 0
+
+
 def _count_keywords(resume_text: str, required_keywords: list[str]) -> dict[str, int]:
     """Count whole-token occurrences of each keyword present in the text.
 

@@ -141,10 +141,13 @@ class WorkflowConfig(BaseModel):
 
 
 class FilePathsConfig(BaseModel):
-    """Input file paths used by local runs and examples."""
+    """Input and output file paths used by local runs and examples."""
 
     resume_path: str = "sample_documents/resume.pdf"
     job_description_path: str = "sample_documents/job_description.txt"
+    # Base directory for produced resume artifacts. Renderers nest under it as
+    # <output_dir>/<candidate>/<designation>/ (see document_rendering.output_location).
+    output_dir: str = "tailored_resumes"
 
 
 class ServicesConfig(BaseModel):

@@ -168,6 +168,10 @@ file_paths:
   # Example: "sample_documents/job_description.txt" or "C:/path/to/jd.txt"
   job_description_path: "sample_documents/sample_job_description.txt"
 
+  # Base directory for produced resume artifacts. Files are nested as
+  # <output_dir>/<candidate_name>/<target_designation>/<files>.{md,docx,pdf}
+  output_dir: "tailored_resumes"
+
 # ------------------------------------------------------------------------------
 # External Services
 # ------------------------------------------------------------------------------

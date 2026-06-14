@@ -11,7 +11,7 @@ decided content, it never rewrites it.
 
 from enum import Enum
 
-from src.data_models.resume import Resume, Skill
+from src.data_models.resume import Experience, Resume, Skill
 
 # Skills with no category land in one bucket, rendered last.
 _UNCATEGORIZED = "Skills"
@@ -85,6 +85,18 @@ def infer_profile(resume: Resume) -> RenderProfile:
 def section_order(profile: RenderProfile) -> list[ResumeSection]:
     """Return the section order for a profile (the caller skips empty sections)."""
     return list(_SECTION_ORDERS[profile])
+
+
+def experience_date_range(experience: Experience) -> str:
+    """Format a role's dates as 'Mon YYYY -- Mon YYYY', or 'Mon YYYY -- Present' if current.
+
+    Shared by every renderer (markdown, docx, latex) so the date format stays identical
+    across output formats -- a single source of truth.
+    """
+    start = experience.start_date.strftime("%b %Y")
+    if experience.is_current_position or experience.end_date is None:
+        return f"{start} -- Present"
+    return f"{start} -- {experience.end_date.strftime('%b %Y')}"
 
 
 def group_skills(skills: list[Skill]) -> list[tuple[str, list[str]]]:

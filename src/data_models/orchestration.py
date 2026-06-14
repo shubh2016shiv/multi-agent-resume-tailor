@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from src.agents.ats_optimizer.models import AtsOptimizedResume
 from src.data_models.evaluation import QualityReport
 from src.data_models.job import JobDescription
+from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy
 
@@ -32,10 +33,10 @@ class OrchestrationResult(BaseModel):
     qa_report: QualityReport = Field(
         ..., description="The quality assessment, including the code-owned pass/fail gate."
     )
-    rendered_resume_path: str | None = Field(
+    rendered_artifacts: RenderedResumeArtifacts | None = Field(
         None,
         description=(
-            "Filesystem path to the rendered PDF, set only when the quality gate "
-            "passed and rendering ran. None when the resume did not pass the gate."
+            "Paths to the produced resume files (Markdown always, PDF best-effort), set "
+            "only when the quality gate passed and rendering ran. None when it did not pass."
         ),
     )

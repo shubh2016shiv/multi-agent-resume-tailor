@@ -15,6 +15,7 @@ from src.agents.professional_experience.models import OptimizedExperienceSection
 from src.agents.professional_summary.models import ProfessionalSummary
 from src.data_models.evaluation import AtsRenderedOutcome, QualityReport
 from src.data_models.job import JobDescription
+from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.tools.review_contract.review_models import ReviewResult
@@ -60,5 +61,6 @@ class ResumeEnhancementPipelineState(TypedDict):
     # built to inspect). The resume is not rendered; a human must review it.
     human_review_required: bool
 
-    # --- Stage 6: conditional PDF render (only when the QA gate passes) ---
-    rendered_resume_path: str | None
+    # --- Stage 6: conditional render (only when the QA gate passes) ---
+    # Markdown always; PDF best-effort. None until the render node runs.
+    rendered_artifacts: RenderedResumeArtifacts | None

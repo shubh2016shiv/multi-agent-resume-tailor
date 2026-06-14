@@ -54,5 +54,11 @@ class ResumeEnhancementPipelineState(TypedDict):
     # A non-PASS status here forces qa_report.passed_quality_threshold to False.
     ats_rendered_outcome: AtsRenderedOutcome | None
 
+    # --- Stage 5b: conditional ATS section recovery (only when the ATS check FAILed) ---
+    # Terminal disposition: True when the ATS failure is unrecoverable (the essential
+    # section is empty upstream too) or the check was INCONCLUSIVE (nothing could be
+    # built to inspect). The resume is not rendered; a human must review it.
+    human_review_required: bool
+
     # --- Stage 6: conditional PDF render (only when the QA gate passes) ---
     rendered_resume_path: str | None

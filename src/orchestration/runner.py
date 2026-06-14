@@ -49,6 +49,7 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "optimized_resume": None,
         "qa_report": None,
         "ats_rendered_outcome": None,
+        "human_review_required": False,
         "rendered_resume_path": None,
     }
 
@@ -76,6 +77,11 @@ def _build_orchestration_result(
     assert state["optimized_resume"] is not None, "Pipeline completed but 'optimized_resume' is still None"
     assert state["qa_report"] is not None, "Pipeline completed but 'qa_report' is still None"
 
+    # TODO: surface state["human_review_required"] on OrchestrationResult so callers can
+    #       distinguish "rendered" / "rejected on score" / "needs a human" (the terminal
+    #       ATS-unrecoverable and INCONCLUSIVE cases). Proposed: add a bool field to
+    #       OrchestrationResult. Deferred: the field exists in state now (Phase 2); adding
+    #       the result-model field is its own small change once a caller needs to read it.
     return OrchestrationResult(
         original_resume=state["resume"],
         job_description=state["job_description"],

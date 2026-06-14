@@ -13,6 +13,7 @@ from src.data_models.resume import Resume
 from src.evaluation_rubrics import blend_overall, grade_accuracy, grade_ats, grade_relevance
 from src.formatters.quality_assurance_formatter import format_quality_assurance_context
 from src.orchestration.crew_task_execution import run_agent_task
+from src.orchestration.human_review_policy import is_ats_unverifiable
 from src.orchestration.state import ResumeEnhancementPipelineState
 
 
@@ -45,7 +46,15 @@ def run_quality_assurance(state: ResumeEnhancementPipelineState) -> dict:
         revised_resume=state["optimized_resume"].final_resume,
         job=state["job_description"],
     )
-    return {"qa_report": qa_report, "ats_rendered_outcome": ats_outcome}
+    # An unverifiable ATS outcome (INCONCLUSIVE: no .tex to inspect) escalates to human
+    # review here -- there is nothing to patch. A FAIL is left False: the patch node tries
+    # a deterministic restore first. The full escalation policy lives in human_review_policy.
+    human_review_required = is_ats_unverifiable(ats_outcome)
+    return {
+        "qa_report": qa_report,
+        "ats_rendered_outcome": ats_outcome,
+        "human_review_required": human_review_required,
+    }
 
 
 def _ground_quality_dimensions(

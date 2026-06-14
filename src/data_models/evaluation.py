@@ -17,7 +17,57 @@ WHY THESE MODELS?
   issues) provides a clear basis for the iterative refinement loop.
 """
 
+from enum import Enum
+
 from pydantic import BaseModel, Field
+
+# ==============================================================================
+# 0. Rendered ATS Check Result
+# ==============================================================================
+# The outcome of the code-owned ATS check that inspects the REAL rendered artifact
+# (the .tex built by build_resume_tex), not the LLM's lossy context text. This is
+# the authoritative ATS signal: the QA agent's self-cert is advisory only, and a
+# non-PASS status here hard-blocks the quality gate regardless of any passing score.
+
+
+class AtsCheckStatus(str, Enum):
+    """Three-state result of the rendered ATS check -- never a bare pass/fail boolean.
+
+    PASS: the rendered resume carries every essential section header.
+    FAIL: at least one essential header is missing from the rendered artifact.
+    INCONCLUSIVE: the artifact could not be built/inspected; we cannot verify it, so
+      it must NOT silently pass -- it routes to secondary/human review instead.
+    """
+
+    PASS = "pass"
+    FAIL = "fail"
+    INCONCLUSIVE = "inconclusive"
+
+
+class AtsRenderedOutcome(BaseModel):
+    """The result of grading ATS compatibility on the rendered .tex artifact.
+
+    Produced by evaluation_rubrics.grade_ats and persisted to pipeline state. The QA
+    node reads `status` to gate release: any status other than PASS forces the report's
+    passed_quality_threshold to False. `ats_score` feeds the weighted overall blend.
+    """
+
+    status: AtsCheckStatus = Field(
+        description="PASS, FAIL, or INCONCLUSIVE -- the authoritative rendered-ATS verdict."
+    )
+    violations: list[str] = Field(
+        default_factory=list,
+        description="Concrete defects found in the rendered artifact (e.g. missing essential headers). Empty on PASS.",
+    )
+    ats_score: float = Field(
+        ge=0,
+        le=100,
+        description="A 0-100 ATS score derived mechanically from the rendered check; feeds the weighted overall score.",
+    )
+    detail: str = Field(
+        description="Human-readable explanation of how the status was reached (which check ran, what it found)."
+    )
+
 
 # ==============================================================================
 # 1. Accuracy Metrics Model

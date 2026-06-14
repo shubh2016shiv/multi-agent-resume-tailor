@@ -38,8 +38,9 @@ assess_quality_task:
        OPTIMIZED resume JSON. Flag any invented, inflated, or unsupported claims.
     2. RELEVANCE (35%): Call "Analyze Keyword Coverage" with the optimized resume text
        and the job's keywords. Judge how well the resume answers the job's requirements.
-    3. ATS OPTIMIZATION (25%): Call "Validate ATS Compliance" on the optimized resume
-       text. Flag formatting problems and non-standard section headers.
+    3. ATS OPTIMIZATION (25%): Provide your best estimate from the resume text. NOTE: this
+       dimension is authoritatively graded by code on the rendered document and your value
+       will be overwritten -- so spend your effort on accuracy and relevance instead.
 
     Compute overall_quality_score as the weighted blend of the three dimension scores.
     If anything is unsupported or below par, put specific, actionable guidance in

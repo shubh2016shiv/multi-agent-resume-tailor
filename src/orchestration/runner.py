@@ -48,6 +48,7 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "optimized_skills": None,
         "optimized_resume": None,
         "qa_report": None,
+        "ats_rendered_outcome": None,
         "rendered_resume_path": None,
     }
 

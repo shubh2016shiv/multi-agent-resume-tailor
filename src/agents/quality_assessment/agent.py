@@ -4,16 +4,19 @@ Quality Assessment agent factory.
 Builds a CrewAI Agent that audits the optimized resume against the original and the
 job, then produces a QualityReport. The agent is the final gatekeeper before render.
 
-It is wired with three read-only audit tools -- one per QualityReport dimension:
-  - audit_truthfulness        -> accuracy   (original vs revised: invented/inflated facts)
-  - validate_ats_compliance   -> ats        (formatting + standard section headers)
+It is wired with two read-only audit tools the agent calls WHILE reasoning:
+  - audit_truthfulness          -> accuracy  (original vs revised: invented/inflated facts)
   - analyze_jd_keyword_coverage -> relevance (job keyword coverage + density)
-The agent calls these WHILE reasoning so its dimension scores are grounded in real
-checks rather than unaided judgment. The tools never mutate the resume.
+The tools never mutate the resume.
 
-The pass/fail decision is NOT the agent's to make: it produces the dimension scores,
-and code (engines.apply_quality_gate) sets passed_quality_threshold deterministically
-from overall_quality_score. That code-owned boolean is what gates PDF rendering.
+ATS is NOT an agent tool here. ATS compatibility is graded by code on the REAL rendered
+artifact (evaluation_rubrics.grade_ats inspects the .tex). The agent has no rendered
+artifact, only its lossy context, so any self-cert it made would be a false positive that
+code discards anyway -- so the tool is removed rather than overridden.
+
+Neither the dimension scores nor the pass/fail decision are ultimately the agent's: the
+QA node overrides all three dimensions with code-owned grounded scores and apply_quality_gate
+sets passed_quality_threshold deterministically. That code-owned boolean gates PDF rendering.
 
 Output contract: QualityReport (src/data_models/evaluation.py), via Task output_pydantic.
 """
@@ -25,16 +28,16 @@ from src.core.settings import get_agents_config, get_config
 from src.tools.agent_facing_tools import (
     analyze_jd_keyword_coverage,
     audit_truthfulness,
-    validate_ats_compliance,
 )
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
+# ATS is graded by code on the rendered .tex (evaluation_rubrics.grade_ats), not by the
+# agent -- so validate_ats_compliance is intentionally NOT in this list.
 
 _QA_TOOLS: list = [
     audit_truthfulness,
-    validate_ats_compliance,
     analyze_jd_keyword_coverage,
 ]
 
@@ -70,7 +73,8 @@ def create_quality_assessment_agent() -> Agent:
 
     Expects: agents.yaml has a 'quality_assurance_reviewer' key with
              role, goal, backstory, and llm fields.
-    Returns: a configured CrewAI Agent wired with the three QA audit tools.
+    Returns: a configured CrewAI Agent wired with the two QA audit tools
+             (truthfulness + keyword coverage; ATS is graded by code, not a tool).
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("quality_assurance_reviewer")

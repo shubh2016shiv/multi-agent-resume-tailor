@@ -1,7 +1,9 @@
 """Stage 6 final resume render node.
 
 Plain code, no agent: rendering an already-decided Resume into files is mechanical.
-This node only runs when the quality gate passed (see the conditional edge in graph.py).
+This node runs when the quality gate passed, or when render_draft_on_gate_fail is True
+(see _route_after_quality in graph.py). When it runs on a gate-fail, the files are drafts
+and qa_report.passed_quality_threshold is False -- the caller decides what to do with them.
 
 It always writes Markdown and DOCX (both pure Python, every OS). PDF is best-effort: if the
 LaTeX toolchain (tectonic) is absent or compilation fails, the PDF is skipped with a recorded

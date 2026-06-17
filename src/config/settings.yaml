@@ -48,6 +48,11 @@ feature_flags:
   # reaches the LLM with real PII. Off for now while the PII approach is reworked.
   enable_pii_redaction: false
 
+  # When true, render md and docx even when the quality gate fails. Useful in
+  # development to inspect the draft without reading the JSON. False by default
+  # so gate-fail runs don't litter the output directory in production.
+  render_draft_on_gate_fail: true
+
 # ------------------------------------------------------------------------------
 # LLM (Large Language Model) Configuration
 # ------------------------------------------------------------------------------

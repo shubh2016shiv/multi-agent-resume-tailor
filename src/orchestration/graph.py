@@ -10,13 +10,14 @@ Stage 3 (parallel):   write_professional_summary + optimize_experience + optimiz
 Stage 4 (sequential): assemble_ats_resume        (waits for Stage 3)
 Stage 5 (sequential): run_quality_assurance
 Stage 6 (sequential): rehydrate_pii              (restore PII after QA, on every path)
-Stage 7 (conditional): render_final_resume       (only if the QA gate passed)
+Stage 7 (conditional): render_final_resume       (gate passed, or render_draft_on_gate_fail=True)
 """
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from src.agents.quality_assessment.engines import should_render_resume
+from src.core.settings import get_config
 from src.data_models.evaluation import AtsCheckStatus
 from src.orchestration import nodes
 from src.orchestration.state import ResumeEnhancementPipelineState
@@ -41,15 +42,20 @@ def _route_after_ats_check(state: ResumeEnhancementPipelineState) -> str:
 def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
     """Route on the code-owned quality gate after QA.
 
-    Returns "render" when the QA report passed the threshold, else "end". The
-    gate boolean was set authoritatively by apply_quality_gate in the QA node.
+    Returns "render" when the QA report passed the threshold. Also returns "render"
+    when it failed but render_draft_on_gate_fail is True (development mode: write md+docx
+    so the draft is viewable without inspecting the JSON). Returns "end" otherwise.
 
     Precondition: run_quality_assurance has populated qa_report.
     """
     qa_report = state["qa_report"]
     if qa_report is None:
         raise ValueError("qa_report is None after quality assurance node; cannot route render gate.")
-    return "render" if should_render_resume(qa_report) else "end"
+    if should_render_resume(qa_report):
+        return "render"
+    if get_config().feature_flags.render_draft_on_gate_fail:
+        return "render"
+    return "end"
 
 
 def build_resume_enhancement_graph() -> CompiledStateGraph:

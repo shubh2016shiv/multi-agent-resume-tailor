@@ -40,6 +40,14 @@ class FeatureFlags(BaseModel):
             "and uses compact TOON format. False sends full data for debugging."
         ),
     )
+    render_draft_on_gate_fail: bool = Field(
+        default=False,
+        description=(
+            "When True, render md and docx even if the quality gate fails. "
+            "Useful in development: the draft is viewable without inspecting JSON. "
+            "Defaults False so gate-failing runs don't litter the output directory."
+        ),
+    )
 
 
 class LLMGoogleConfig(BaseModel):

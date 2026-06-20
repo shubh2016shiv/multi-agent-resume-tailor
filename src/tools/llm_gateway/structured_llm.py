@@ -11,6 +11,7 @@ build on this one function.
 from crewai import LLM
 from pydantic import BaseModel
 
+from src.core.llm_cache import configure_llm_cache
 from src.core.llm_token_tracker import ensure_token_budget
 from src.core.logger import get_logger
 from src.core.resiliency import resilient_llm_call
@@ -36,6 +37,7 @@ def request_structured_output[OutputModel: BaseModel](
         TokenBudgetExceeded: If the combined system/user input exceeds the configured budget.
         RuntimeError: If the model returns malformed output twice in a row.
     """
+    configure_llm_cache()
     # TODO: Accept an optional model= override so bounded tool calls can use a
     #       cheaper model than the agent's. Deferred: no cost measurement yet.
     llm_config = get_config().llm
@@ -85,7 +87,9 @@ def _build_structured_llm(output_model: type[BaseModel]) -> LLM:
     )
 
 
-def _parse_into_model[OutputModel: BaseModel](raw_output: object, output_model: type[OutputModel]) -> OutputModel:
+def _parse_into_model[OutputModel: BaseModel](
+    raw_output: object, output_model: type[OutputModel]
+) -> OutputModel:
     """Validate the model's output into output_model.
 
     Accepts an already-parsed instance, a JSON string, or a dict, since CrewAI's

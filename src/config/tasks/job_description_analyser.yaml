@@ -6,6 +6,22 @@ analyze_job_description_task:
     CONTEXT section below. DO NOT attempt to use file-parsing tools or load files. Simply analyze
     the content that has been provided to you.
 
+    SOURCE-OF-TRUTH RULES:
+    - Perform factual extraction, not creative interpretation.
+    - Every populated value must be supported by words present in the supplied job description.
+    - Set `years_required` only when the posting explicitly gives a numeric duration for that
+      exact requirement, such as "5+ years of Python". Otherwise set it to null.
+    - Do not convert proficiency labels such as Advanced, Working knowledge, hands-on, senior,
+      deep experience, or production-grade into years.
+    - Set `location` only when the posting explicitly states where or how this role is worked.
+      Company headquarters, offices, and development centres are company context, not the role
+      location. If the role location is absent, set `location` to null.
+    - Never add Remote, Hybrid, relocation, visa, salary, certification, or experience-duration
+      information unless the posting explicitly states it.
+    - ATS keywords must be explicit skills, technologies, qualifications, or domain terms from
+      the source. Exclude the company name, job title, office locations, culture phrases, and
+      inferred synonyms.
+
     Your task is to:
     1. Analyze the job description content from the CONTEXT section.
     2. Extract the job title, company name, and identify the seniority level.
@@ -13,19 +29,18 @@ analyze_job_description_task:
        - Must-have (e.g., required, mandatory, essential)
        - Should-have (e.g., preferred, desired)
        - Nice-to-have (e.g., bonus, plus)
-    4. Extract specific skills mentioned, paying close attention to technical skills,
-       required years of experience, and necessary certifications.
+    4. Extract specific skills mentioned. Capture years of experience and certifications only
+       when their exact requirement is explicitly stated.
     5. Identify key responsibilities and what success looks like in the role.
     6. Extract company culture indicators from the language and tone used.
     7. Compile a comprehensive list of ATS keywords that are critical for the resume.
-    Use your expertise in reading between the lines to identify implicit requirements.
     Output a structured `JobDescription` model with your complete analysis.
 
   expected_output: >
     A comprehensive JSON object representing a `JobDescription`. This object must include:
     - Job title and company name.
     - The detected seniority level.
-    - A categorized list of requirements (at least 20 items with importance levels).
+    - A categorized list containing only requirements supported by the source text.
     - A list of must-have keywords for ATS optimization.
     - A breakdown of key responsibilities.
     - Insights into the company culture.

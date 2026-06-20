@@ -74,7 +74,7 @@ def create_professional_experience_agent() -> Agent:
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("experience_section_optimizer")
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.5))
+    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.0))
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults

@@ -46,6 +46,11 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
         rewrite_context = _build_skills_rewrite_context(context, optimized_skills, audit_result)
         optimized_skills = _write_skills_section(rewrite_context)
 
+    # Re-add any truthful skill the agent dropped: the candidate's listed skills are facts,
+    # and deleting one only loses an ATS keyword match. The LLM is unreliable at preserving a
+    # long list verbatim, so completeness is guaranteed here in code, not left to the agent.
+    optimized_skills = _preserve_original_skills(optimized_skills, resume)
+
     # Recover JD keywords the resume evidences but the agent dropped from the section
     # (e.g. Docker/Kubernetes present in experience but absent from a thin skills list).
     optimized_skills = _add_evidenced_jd_keywords(optimized_skills, resume, state["job_description"])
@@ -120,6 +125,30 @@ def _build_skills_rewrite_context(
         f"PREVIOUS_OPTIMIZED_SKILLS_JSON:\n{section.model_dump_json()}\n\n"
         f"SKILLS_AUDIT_FEEDBACK:\n{_render_skills_audit_feedback(audit_result)}\n\n"
         "Remove every flagged unsupported skill and return corrected OptimizedSkillsSection JSON."
+    )
+
+
+def _preserve_original_skills(
+    optimized_skills: OptimizedSkillsSection,
+    original_resume: Resume,
+) -> OptimizedSkillsSection:
+    """Re-add any original-resume skill the optimizer dropped, appended after its ordering.
+
+    The candidate's listed skills are truthful facts; the optimizer's job is to reorder and
+    categorize them, not delete them. Re-adds only skills that were already in the original
+    resume, so it can never introduce a fabricated skill. Returns the section unchanged when
+    the optimizer kept every original skill.
+    """
+    existing_names = {skill.skill_name.casefold() for skill in optimized_skills.optimized_skills}
+    dropped = [
+        skill
+        for skill in original_resume.skills
+        if skill.skill_name.casefold() not in existing_names
+    ]
+    if not dropped:
+        return optimized_skills
+    return optimized_skills.model_copy(
+        update={"optimized_skills": optimized_skills.optimized_skills + dropped}
     )
 
 

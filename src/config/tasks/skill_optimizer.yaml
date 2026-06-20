@@ -1,7 +1,7 @@
 optimize_skills_section_task:
   description: >
-    Reorder and optimize the skills section for maximum ATS matching and relevance
-    without adding unsupported capabilities.
+    Reorder and categorize the skills section for maximum ATS matching and relevance,
+    without adding unsupported capabilities and without dropping the candidate's truthful skills.
     Your task is to:
     1. Review skills from the original resume, experience evidence, alignment strategy,
        and the job description.
@@ -10,7 +10,10 @@ optimize_skills_section_task:
     4. Use the exact terminology from the job posting only when accurate.
     5. Group skills logically (e.g., Technical Skills, Programming Languages, Tools & Platforms).
     6. Add only evidence-backed transferable or synonymous skills.
-    7. Remove outdated or irrelevant skills.
+    7. Keep every skill the candidate truthfully listed. Do NOT drop a real, specific skill
+       (e.g. LangChain, Azure AI Search, Kubernetes) because it seems less relevant — every
+       truthful skill is an ATS keyword, and removing one only loses a match. Reordering, not
+       deletion, is how you de-emphasize a skill.
 
     CRITICAL TRUTHFULNESS RULES:
 
@@ -39,7 +42,7 @@ optimize_skills_section_task:
        optimization_notes as unresolved rather than inventing them.
     5. Prioritize skills: evidenced must-have then evidenced should-have then domain strengths.
     6. Categorize skills using domain-appropriate categories.
-    7. Remove outdated, irrelevant, duplicate, or unsupported skills.
+    7. Remove only exact duplicates. Never remove a truthful candidate skill to shorten the list.
 
     VALIDATION REQUIREMENTS:
     For EVERY optimized skill:
@@ -54,7 +57,8 @@ optimize_skills_section_task:
     2. EVIDENCED SHOULD-HAVE: List second.
     3. DOMAIN STRENGTHS: Highlight candidate's strongest proven expertise.
     4. ADDITIONAL: Other relevant evidenced skills.
-    5. LIMIT: Keep total to 15-25 skills for readability.
+    5. COMPLETENESS: Include every truthful skill the candidate listed. There is no cap —
+       order them by relevance rather than dropping any.
 
     ATS OPTIMIZATION:
     - Use exact keywords from job posting where accurate.

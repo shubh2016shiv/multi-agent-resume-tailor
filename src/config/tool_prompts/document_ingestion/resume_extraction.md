@@ -8,5 +8,11 @@ Rules:
   day of the month. For an ongoing role, set is_current_position to true and leave end_date null.
 - For each work experience, capture the role's bullet points as achievements and the free-text
   role summary as description.
+- Skills are often grouped as "Group label: item1, item2, item3" (e.g.
+  "MLOps: Docker, Kubernetes, FastAPI"). Extract each individual item as its own Skill, with
+  skill_name set to that item (e.g. "Docker") and category set to the group label (e.g. "MLOps").
+  Never collapse a group into a single skill named after the group label, and never discard the
+  individual items — they are the specific, ATS-matchable technologies. When a skill is listed
+  with no group, set category to null.
 - Education graduation_year is the year the qualification was (or will be) completed.
 - If an optional field is absent, leave it null or an empty list. Do not fabricate values.

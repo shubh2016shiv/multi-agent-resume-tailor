@@ -90,7 +90,11 @@ class JobRequirement(BaseModel):
     # Optional: The minimum years of experience needed for this specific skill.
     years_required: int | None = Field(
         None,
-        description="Minimum years of experience required for this specific skill.",
+        description=(
+            "Minimum years explicitly stated in the job posting for this exact requirement. "
+            "Must be null when the posting gives no numeric duration; never infer years from "
+            "seniority, proficiency labels, importance, or industry expectations."
+        ),
         ge=0,
         le=30,
     )
@@ -145,7 +149,13 @@ class JobDescription(BaseModel):
     )
 
     location: str | None = Field(
-        None, description="Job location or work arrangement (e.g., 'San Francisco, CA', 'Remote')."
+        None,
+        description=(
+            "Work location or arrangement explicitly stated for this role. Do not use company "
+            "headquarters, office locations, or development centres unless the posting identifies "
+            "them as the role location. Must be null when the role location is not stated, and "
+            "must not add inferred arrangements such as Remote or Hybrid."
+        ),
     )
 
     # A brief, high-level summary of the role.
@@ -166,7 +176,11 @@ class JobDescription(BaseModel):
     # A list of keywords that are critical for ATS (Applicant Tracking System) matching.
     ats_keywords: list[str] = Field(
         default_factory=list,
-        description="A list of high-priority keywords identified for ATS optimization.",
+        description=(
+            "Explicit skills, technologies, qualifications, and domain terms from the posting "
+            "that are useful for ATS matching. Exclude company name, job title, office locations, "
+            "culture language, and terms not present in the source text."
+        ),
     )
 
     # ===========================================================================

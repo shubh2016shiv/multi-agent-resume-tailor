@@ -74,7 +74,7 @@ def create_job_analyzer_agent() -> Agent:
     Raises: RuntimeError if required config fields are missing.
     """
     config = _load_agent_config("job_description_analyst")
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.2))
+    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.0))
 
     app_config = get_config()
     defaults = app_config.llm.agent_defaults

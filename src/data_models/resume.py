@@ -27,7 +27,6 @@ DESIGN RATIONALE:
 """
 
 from datetime import date
-
 from typing import Annotated
 
 from pydantic import BaseModel, Field
@@ -86,7 +85,12 @@ class Skill(BaseModel):
         description="Explanation for why this skill was added or inferred, based on domain expertise.",
     )
 
-    evidence: Annotated[list[str], Field(description="Direct quotes or references from experience section supporting this skill inference.")] = []
+    evidence: Annotated[
+        list[str],
+        Field(
+            description="Direct quotes or references from experience section supporting this skill inference."
+        ),
+    ] = []
 
     confidence_score: float | None = Field(
         None,
@@ -273,6 +277,20 @@ class Education(BaseModel):
 # Represents the output of the Skills Section Strategist agent.
 
 
+class SkillCategory(BaseModel):
+    """One named group of skills (e.g. 'Programming Languages' -> ['Python', 'Go']).
+
+    A list of these replaces a free-form {category: [skills]} dict: a dynamic-key dict
+    is not expressible as a native structured-output (response_format) schema, whereas
+    a list of fixed-field objects is.
+    """
+
+    name: str = Field(..., description="Category name, e.g. 'Cloud Platforms'.")
+    skills: list[str] = Field(
+        default_factory=list, description="Skill names grouped under this category."
+    )
+
+
 class OptimizedSkillsSection(BaseModel):
     """
     Represents an optimized skills section for a resume.
@@ -288,8 +306,8 @@ class OptimizedSkillsSection(BaseModel):
         description="The complete list of Skill objects, reordered by priority and relevance to the job.",
     )
 
-    skill_categories: dict[str, list[str]] = Field(
-        default_factory=dict,
+    skill_categories: list[SkillCategory] = Field(
+        default_factory=list,
         description="Skills grouped into logical categories (e.g., 'Programming Languages', 'Cloud Platforms').",
     )
 

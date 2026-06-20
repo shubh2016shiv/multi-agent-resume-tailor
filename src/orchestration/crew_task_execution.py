@@ -11,6 +11,7 @@ from typing import Any
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel
 
+from src.core.llm_cache import configure_llm_cache
 from src.core.settings import get_tasks_config
 
 # -----------------------------------------------------------------------------
@@ -72,16 +73,23 @@ def run_agent_task(
     Returns: a validated instance of output_model.
     Raises: ValueError if CrewAI does not produce output_model.
     """
+    configure_llm_cache()
     tasks_config = get_tasks_config()
     task_config = tasks_config.get(task_name, {})
     task_description = task_config.get("description", "") + "\n\nCONTEXT:\n" + context
     task_expected_output = task_config.get("expected_output", "Structured output.")
 
+    # Ask the model to return JSON in the exact shape of output_model, natively
+    # (response_format = the provider's structured-output mode -- the same mechanism
+    # src/tools/llm_gateway/structured_llm.py uses). This makes the output valid the
+    # first time, so we never need CrewAI's output_pydantic coercion -- whose schema
+    # parser crashes on our PEP 604 "X | None" model fields. We validate the returned
+    # JSON ourselves below, in one obvious place.
+    agent.llm.response_format = output_model
     task = Task(
         description=task_description,
         expected_output=task_expected_output,
         agent=agent,
-        output_pydantic=output_model,
     )
     # Serialize the kickoff so concurrent pipeline nodes never write CrewAI's shared
     # SQLite store at the same time (see _KICKOFF_LOCK above).
@@ -93,6 +101,35 @@ def run_agent_task(
             verbose=True,
         ).kickoff()
 
-    if hasattr(result, "pydantic") and result.pydantic:
-        return result.pydantic
-    raise ValueError(f"Agent {agent.role} did not return a valid {output_model.__name__} object.")
+    return _validate_agent_output(result.raw, output_model, agent.role)
+
+
+def _validate_agent_output(raw_output: str, output_model: type[BaseModel], agent_role: str) -> Any:
+    """Validate an agent's raw text output into output_model.
+
+    Agents are asked to emit JSON, but LLMs often wrap it in ```json fences or a line
+    of prose. We take the outermost {...} block and validate that against the model.
+
+    Raises: ValueError if no JSON object is present or it does not satisfy output_model.
+    """
+    json_text = _extract_json_object(raw_output)
+    if json_text is None:
+        raise ValueError(f"Agent {agent_role} returned no JSON object: {raw_output[:200]!r}")
+    try:
+        return output_model.model_validate_json(json_text)
+    except ValueError as error:
+        raise ValueError(
+            f"Agent {agent_role} output did not match {output_model.__name__}: {error}"
+        ) from error
+
+
+def _extract_json_object(text: str) -> str | None:
+    """Return the outermost {...} JSON object in text, ignoring code fences and prose.
+
+    Returns None when no braces are present.
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        return None
+    return text[start : end + 1]

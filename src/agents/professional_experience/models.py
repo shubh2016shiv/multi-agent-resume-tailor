@@ -10,6 +10,20 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.data_models.resume import Experience
 
 
+class ExperienceRelevance(BaseModel):
+    """Relevance of one experience entry to the target job, scored 0-100.
+
+    A list of these replaces a free-form {company_name: score} dict: a dynamic-key
+    dict is not expressible as a native structured-output (response_format) schema,
+    whereas a list of fixed-field objects is.
+    """
+
+    company_name: str = Field(..., description="Company of the experience entry being scored.")
+    relevance_score: float = Field(
+        ..., ge=0, le=100, description="How relevant this entry is to the target job (0-100)."
+    )
+
+
 class OptimizedExperienceSection(BaseModel):
     """Optimized work experience entries with metadata."""
 
@@ -26,9 +40,9 @@ class OptimizedExperienceSection(BaseModel):
         default_factory=list,
         description="Keywords from the strategy that were integrated into bullets",
     )
-    relevance_scores: dict[str, float] = Field(
-        default_factory=dict,
-        description="Relevance score per experience entry (key: company_name, value: 0-100)",
+    relevance_scores: list[ExperienceRelevance] = Field(
+        default_factory=list,
+        description="Relevance score per experience entry (one entry per company).",
     )
 
     model_config = ConfigDict(
@@ -51,7 +65,7 @@ class OptimizedExperienceSection(BaseModel):
                 ],
                 "optimization_notes": "Emphasized cloud and Python experience per strategy guidance",
                 "keywords_integrated": ["Python", "AWS", "microservices", "Docker"],
-                "relevance_scores": {"Tech Corp": 95.0},
+                "relevance_scores": [{"company_name": "Tech Corp", "relevance_score": 95.0}],
             }
         }
     )

@@ -29,8 +29,12 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     Returns: partial state with the typed OptimizedSkillsSection.
     """
     assert state["resume"] is not None, "resume must be set before skills optimization"
-    assert state["job_description"] is not None, "job_description must be set before skills optimization"
-    assert state["alignment_strategy"] is not None, "alignment_strategy must be set before skills optimization"
+    assert state["job_description"] is not None, (
+        "job_description must be set before skills optimization"
+    )
+    assert state["alignment_strategy"] is not None, (
+        "alignment_strategy must be set before skills optimization"
+    )
     resume = state["resume"]
     context = format_skills_optimizer_context(
         resume=resume,
@@ -53,7 +57,9 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
 
     # Recover JD keywords the resume evidences but the agent dropped from the section
     # (e.g. Docker/Kubernetes present in experience but absent from a thin skills list).
-    optimized_skills = _add_evidenced_jd_keywords(optimized_skills, resume, state["job_description"])
+    optimized_skills = _add_evidenced_jd_keywords(
+        optimized_skills, resume, state["job_description"]
+    )
     return {"optimized_skills": optimized_skills}
 
 
@@ -81,9 +87,7 @@ def _audit_skills_section(
     resume's experience, education, and certifications as the evidence corpus.
     Returns a ReviewResult with per-skill judgment findings.
     """
-    audit_resume = original_resume.model_copy(
-        update={"skills": optimized_skills.optimized_skills}
-    )
+    audit_resume = original_resume.model_copy(update={"skills": optimized_skills.optimized_skills})
     return validate_skills_evidence(audit_resume)
 
 
@@ -104,9 +108,7 @@ def _render_skills_audit_feedback(audit_result: ReviewResult) -> str:
     """Render audit comments into compact plain text for the rewrite context."""
     lines = [audit_result.summary or "Skills audit found unsupported skill claims."]
     for comment in audit_result.comments:
-        lines.append(
-            f"- {comment.severity.value} ({comment.confidence.value}): {comment.message}"
-        )
+        lines.append(f"- {comment.severity.value} ({comment.confidence.value}): {comment.message}")
         lines.append(f"  advice: {comment.advice}")
     return "\n".join(lines)
 

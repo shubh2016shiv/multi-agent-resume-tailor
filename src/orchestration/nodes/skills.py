@@ -135,13 +135,20 @@ def _add_evidenced_jd_keywords(
     Skill. Mechanical whole-token match means every added skill is truthfully evidenced;
     nothing not already in the resume is ever fabricated. Returns the section unchanged
     when no evidenced keyword is missing.
+
+    JD metadata that is categorically not a skill -- the job title and company name -- is
+    excluded even when it appears in ats_keywords and matches the resume text. Otherwise a
+    title like "AI Engineer" matches as a bigram inside "Generative AI Engineer" in the
+    experience and leaks into the skills section as a junk skill.
     """
     existing_names = {skill.skill_name.casefold() for skill in optimized_skills.optimized_skills}
+    non_skill_terms = _non_skill_jd_terms(job)
     resume_text = render_resume(original_resume)
     recovered = [
         _build_recovered_skill(keyword)
         for keyword in job.ats_keywords
         if keyword.casefold() not in existing_names
+        and keyword.casefold() not in non_skill_terms
         and keyword_present_in_text(keyword, resume_text)
     ]
     if not recovered:
@@ -152,6 +159,15 @@ def _add_evidenced_jd_keywords(
             "added_skills": optimized_skills.added_skills + recovered,
         }
     )
+
+
+def _non_skill_jd_terms(job: JobDescription) -> set[str]:
+    """Return casefolded JD terms that are metadata, never skills (title, company).
+
+    These are excluded from skill recovery so a job title or company name in
+    ats_keywords cannot leak into the skills section.
+    """
+    return {term.casefold() for term in (job.job_title, job.company_name) if term}
 
 
 def _build_recovered_skill(keyword: str) -> Skill:

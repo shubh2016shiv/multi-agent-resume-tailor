@@ -6,7 +6,7 @@ not the ~15 call sites that import from here.
 
 WHAT GETS CAPTURED
 ------------------
-Agent behavior is traced on two layers (details in ``langsmith_init.py``):
+Agent behavior is traced on two layers (details in ``langsmith_backend.py``):
 - Automatic LLM layer: every CrewAI/LiteLLM model call -> prompt, completion,
   tokens, cost, latency.
 - Readable workflow layer: ``@trace_agent`` / ``@trace_tool`` add named spans
@@ -35,8 +35,8 @@ All functions degrade to safe no-ops when tracing is disabled or the
 ``LANGSMITH_API_KEY`` is unset — the pipeline always runs.
 """
 
-from src.observability.langsmith_init import init_observability, is_observability_enabled
-from src.observability.metrics import log_iteration_metrics
+from src.observability.iteration_metrics import log_iteration_metrics
+from src.observability.langsmith_backend import init_observability, is_observability_enabled
 from src.observability.tracing import trace_agent, trace_tool
 
 __all__ = [

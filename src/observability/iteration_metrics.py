@@ -9,12 +9,10 @@ run is active, the same metrics are attached to that run's metadata so they
 appear on the trace. Never raises — metrics must never break a pipeline run.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from src.core.logger import get_logger
-from src.observability.langsmith_init import is_observability_enabled
+from src.observability.langsmith_backend import is_observability_enabled
 
 logger = get_logger(__name__)
 
@@ -25,16 +23,26 @@ def log_iteration_metrics(agent_name: str, iteration: int, metrics: dict[str, An
     Always logs to structlog. When LangSmith is active, attaches the same
     metrics to the current trace's metadata. Never raises.
     """
+    ####################################################
+    # STEP 1: ALWAYS LOG THE METRICS LOCALLY FIRST#
+    ####################################################
     logger.info("iteration_metrics", agent=agent_name, iteration=iteration, **metrics)
 
+    ####################################################
+    # STEP 2: EXIT EARLY WHEN LANGSMITH TRACING IS OFF#
+    ####################################################
     # Read live (function call), not a snapshotted import — see tracing.py.
     if not is_observability_enabled():
         return
+
+    ####################################################
+    # STEP 3: ATTACH THE SAME METRICS TO THE CURRENT LANGSMITH RUN#
+    ####################################################
     try:
         from langsmith.run_helpers import get_current_run_tree
 
-        run = get_current_run_tree()
-        if run is not None:
-            run.metadata.update({"agent_name": agent_name, "iteration": iteration, **metrics})
+        current_run = get_current_run_tree()
+        if current_run is not None:
+            current_run.metadata.update({"agent_name": agent_name, "iteration": iteration, **metrics})
     except Exception as exc:  # noqa: BLE001 — metrics must never break a run
         logger.warning("langsmith_metric_attach_failed", error=str(exc))

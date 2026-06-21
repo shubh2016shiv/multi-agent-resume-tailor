@@ -122,7 +122,7 @@ After that line runs, *every* GPT-4o call from *any* agent is automatically ship
 to LangSmith with its prompt, reply, **token counts, and cost** — and we never had
 to touch a single agent's code. That's why you'll see tokens and cost "for free."
 
-> This line lives in `init_observability()` inside `langsmith_init.py`. You don't
+> This line lives in `init_observability()` inside `langsmith_backend.py`. You don't
 > call it yourself; it runs once at startup.
 
 ### Layer 2 — the readable labels (so you know which agent is which)
@@ -210,11 +210,11 @@ happens, it is in exactly **three** places. There is no hidden magic anywhere el
 
 ### Place 1 — the global LLM recorder is armed once, at startup
 
-File: `src/observability/langsmith_init.py`, inside `init_observability()`.
+File: `src/observability/langsmith_backend.py`, inside `init_observability()`.
 This is the single line that makes every GPT-4o call get recorded (Layer 1):
 
 ```python
-# src/observability/langsmith_init.py  (inside _register_litellm_callback)
+# src/observability/langsmith_backend.py  (inside init_observability)
 litellm.callbacks = [*litellm.callbacks, "langsmith"]
 ```
 
@@ -361,11 +361,11 @@ src/observability/
 │                          functions from here, never from the backend modules.
 │                          This file does nothing but re-export them in one place.
 │
-├── langsmith_init.py    ← startup: init_observability(), LiteLLM callback
+├── langsmith_backend.py ← startup: init_observability(), LiteLLM callback
 │                          registration, and is_observability_enabled().
 ├── tracing.py           ← @trace_agent / @trace_tool decorators that wrap
 │                          functions with langsmith.traceable.
-├── metrics.py           ← log_iteration_metrics(): structlog + LangSmith
+├── iteration_metrics.py ← log_iteration_metrics(): structlog + LangSmith
 │                          metadata attachment for custom domain metrics.
 └── README.md            ← this file.
 ```

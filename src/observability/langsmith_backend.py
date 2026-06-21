@@ -24,8 +24,6 @@ DESIGN RULES
 - Always mirror metrics to structlog so behavior is observable even offline.
 """
 
-from __future__ import annotations
-
 import os
 
 from src.core.logger import get_logger
@@ -35,9 +33,6 @@ logger = get_logger(__name__)
 
 # Set True only after a successful init_observability() call.
 _is_initialized = False
-
-# The resolved project name, kept for diagnostics.
-_project_name: str | None = None
 
 
 def init_observability(project_name: str = "resume-tailor-agents", enabled: bool = True) -> bool:
@@ -49,21 +44,30 @@ def init_observability(project_name: str = "resume-tailor-agents", enabled: bool
         was missing, or the libraries are unavailable (pipeline still runs).
     Notes: idempotent — repeat calls are no-ops that return the current state.
     """
-    global _is_initialized, _project_name
+    global _is_initialized
 
+    ####################################################
+    # STEP 1: EXIT EARLY IF OBSERVABILITY IS ALREADY ACTIVE#
+    ####################################################
     if _is_initialized:
         return True
 
+    ####################################################
+    # STEP 2: READ OBSERVABILITY SETTINGS FROM CENTRAL APP CONFIG#
+    ####################################################
     config = get_config()
-    obs = config.observability
+    observability_config = config.observability
 
-    if not enabled or not obs.enabled:
+    ####################################################
+    # STEP 3: RESPECT BOTH THE CALLER SWITCH AND THE APP-LEVEL SWITCH#
+    ####################################################
+    if not enabled or not observability_config.enabled:
         logger.info("langsmith_disabled", reason="observability.enabled is false")
         return False
 
-    # READ config the project's one way: from settings. Settings already loads
-    # LANGSMITH_API_KEY from .env (see src/core/settings/runtime.py). We never
-    # call os.getenv ourselves.
+    ####################################################
+    # STEP 4: REQUIRE THE LANGSMITH API KEY BEFORE SETUP#
+    ####################################################
     api_key = config.langsmith_api_key
     if not api_key:
         logger.warning(
@@ -72,36 +76,9 @@ def init_observability(project_name: str = "resume-tailor-agents", enabled: bool
         )
         return False
 
-    if not _register_litellm_callback():
-        return False
-
-    # WRITE config out to environment variables — this is the ONE place in the
-    # codebase that does so, and it is on purpose. The LangSmith SDK and
-    # LiteLLM's "langsmith" callback are third-party libraries that read their
-    # settings ONLY from these env vars; they give us no Python API to pass the
-    # values in directly. So this block is a one-way hand-off: every value comes
-    # FROM settings (above), and we copy it OUT to where those libraries look.
-    os.environ["LANGSMITH_TRACING"] = "true"
-    os.environ["LANGSMITH_API_KEY"] = api_key
-    os.environ["LANGSMITH_PROJECT"] = project_name or obs.project
-    os.environ["LANGSMITH_ENDPOINT"] = obs.endpoint
-
-    _is_initialized = True
-    _project_name = project_name or obs.project
-    logger.info(
-        "langsmith_initialized",
-        project=_project_name,
-        endpoint=obs.endpoint,
-        dashboard="https://smith.langchain.com",
-    )
-    return True
-
-
-def _register_litellm_callback() -> bool:
-    """Route every CrewAI/LiteLLM model call to LangSmith.
-
-    Returns: True if the callback was registered, False if LiteLLM is missing.
-    """
+    ####################################################
+    # STEP 5: REGISTER THE LANGSMITH CALLBACK WITH LITELLM#
+    ####################################################
     try:
         import litellm
     except ImportError:
@@ -113,6 +90,31 @@ def _register_litellm_callback() -> bool:
 
     if "langsmith" not in litellm.callbacks:
         litellm.callbacks = [*litellm.callbacks, "langsmith"]
+
+    ####################################################
+    # STEP 6: HAND OFF SETTINGS TO THIRD-PARTY LIBRARIES VIA ENV VARS#
+    ####################################################
+    # WRITE config out to environment variables — this is the ONE place in the
+    # codebase that does so, and it is on purpose. The LangSmith SDK and
+    # LiteLLM's "langsmith" callback are third-party libraries that read their
+    # settings ONLY from these env vars; they give us no Python API to pass the
+    # values in directly. So this block is a one-way hand-off: every value comes
+    # FROM settings (above), and we copy it OUT to where those libraries look.
+    os.environ["LANGSMITH_TRACING"] = "true"
+    os.environ["LANGSMITH_API_KEY"] = api_key
+    os.environ["LANGSMITH_PROJECT"] = project_name or observability_config.project
+    os.environ["LANGSMITH_ENDPOINT"] = observability_config.endpoint
+
+    ####################################################
+    # STEP 7: MARK OBSERVABILITY AS ACTIVE AND LOG THE RESULT#
+    ####################################################
+    _is_initialized = True
+    logger.info(
+        "langsmith_initialized",
+        project=project_name or observability_config.project,
+        endpoint=observability_config.endpoint,
+        dashboard="https://smith.langchain.com",
+    )
     return True
 
 

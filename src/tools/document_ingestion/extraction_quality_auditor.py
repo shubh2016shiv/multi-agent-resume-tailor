@@ -96,9 +96,7 @@ def _check_extraction_artifacts(markdown: str) -> ReviewComment | None:
     )
 
 
-def _make_finding(
-    message: str, quoted_text: str, severity: Severity, advice: str
-) -> ReviewComment:
+def _make_finding(message: str, quoted_text: str, severity: Severity, advice: str) -> ReviewComment:
     """Build a document-level ReviewComment for this engine (mechanical, so HIGH confidence)."""
     return ReviewComment(
         engine_id=ENGINE_ID,

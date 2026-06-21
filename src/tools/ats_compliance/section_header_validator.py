@@ -135,9 +135,7 @@ def _find_matching_header(aliases: list[str], header_lines: list[str]) -> str | 
     return None
 
 
-def _make_finding(
-    section_type: str, recommended_name: str, severity: Severity
-) -> ReviewComment:
+def _make_finding(section_type: str, recommended_name: str, severity: Severity) -> ReviewComment:
     """Build a comment for a missing section (mechanical, so HIGH confidence).
 
     section_type is a STANDARD_SECTION_HEADERS key, which matches a Section enum
@@ -170,8 +168,6 @@ def _build_header_report(
         report_lines.append(f"[i] {section_type.title()}: not found (optional)")
         report_lines.append(f"  -> Consider adding: '{recommended_name}'")
     report_lines.append("")
-    report_lines.append(
-        "Status: PASS" if not missing_essential else "Status: NEEDS FIXES"
-    )
+    report_lines.append("Status: PASS" if not missing_essential else "Status: NEEDS FIXES")
     report_lines.append("ATS recognizes section names case-insensitively.")
     return "\n".join(report_lines)

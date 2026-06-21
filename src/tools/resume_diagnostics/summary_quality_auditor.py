@@ -112,9 +112,7 @@ def _check_first_person(summary_text: str) -> list[ReviewComment]:
     ]
 
 
-def _make_finding(
-    message: str, quoted_text: str, severity: Severity, advice: str
-) -> ReviewComment:
+def _make_finding(message: str, quoted_text: str, severity: Severity, advice: str) -> ReviewComment:
     """Build a SUMMARY-section comment for this engine's mechanical checks (HIGH confidence)."""
     return ReviewComment(
         engine_id=ENGINE_ID,

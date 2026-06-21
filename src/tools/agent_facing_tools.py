@@ -49,8 +49,7 @@ def _render_review_result(result: ReviewResult, title: str) -> str:
     for comment in result.comments:
         location = comment.location.section.value
         lines.append(
-            f"[{comment.severity.value}/{comment.confidence.value}] "
-            f"({location}) {comment.message}"
+            f"[{comment.severity.value}/{comment.confidence.value}] ({location}) {comment.message}"
         )
         lines.append(f"    advice: {comment.advice}")
         if comment.proposed_rewrite:
@@ -126,7 +125,9 @@ def audit_truthfulness(original_resume_json: str, revised_resume_json: str) -> s
         revised = Resume.model_validate_json(revised_resume_json)
     except ValidationError as error:
         return f"Error: could not parse resume JSON ({error.error_count()} validation error(s))."
-    merged = _merge([detect_claim_inflation(original, revised), detect_rewrite_drift(original, revised)])
+    merged = _merge(
+        [detect_claim_inflation(original, revised), detect_rewrite_drift(original, revised)]
+    )
     return _render_review_result(merged, "Truthfulness")
 
 
@@ -239,6 +240,4 @@ def check_resume_markdown_quality(markdown: str) -> str:
         A quality report listing issues found (volume, fragmentation,
         conversion artifacts). Empty result means no issues found.
     """
-    return _render_review_result(
-        audit_extraction_quality(markdown), "Resume Markdown Quality"
-    )
+    return _render_review_result(audit_extraction_quality(markdown), "Resume Markdown Quality")

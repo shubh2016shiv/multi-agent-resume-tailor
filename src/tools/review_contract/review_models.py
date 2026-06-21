@@ -82,4 +82,3 @@ class ReviewResult(BaseModel):
     # TODO: Constrain score to 0.0-1.0.
     #       Proposed: Field(ge=0.0, le=1.0) once a tool actually sets a score.
     #       Deferred: no tool emits a score yet.
-

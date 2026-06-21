@@ -61,9 +61,7 @@ def audit_consistency_for_experiences(experiences: list[Experience]) -> ReviewRe
     comments.extend(_check_tense_consistency(experiences))
     comments.extend(_check_repeated_opening_verbs(experiences))
     summary = (
-        "Bullets read consistently"
-        if not comments
-        else f"{len(comments)} consistency issue(s)"
+        "Bullets read consistently" if not comments else f"{len(comments)} consistency issue(s)"
     )
     return ReviewResult(comments=comments, summary=summary)
 
@@ -129,9 +127,7 @@ def _get_nlp() -> Language:
     return _nlp
 
 
-def _make_finding(
-    message: str, quoted_text: str, severity: Severity, advice: str
-) -> ReviewComment:
+def _make_finding(message: str, quoted_text: str, severity: Severity, advice: str) -> ReviewComment:
     """Build a role-level EXPERIENCE comment for this engine (mechanical, HIGH confidence)."""
     return ReviewComment(
         engine_id=ENGINE_ID,

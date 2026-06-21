@@ -67,7 +67,11 @@ if __name__ == "__main__":
     #   python -m src.tools.document_ingestion.document_converter <path>
     import sys
 
-    file_path = sys.argv[1] if len(sys.argv) > 1 else "/home/shubham_singh/Downloads/Shubham_Resume_2026_April_version2.pdf"
+    file_path = (
+        sys.argv[1]
+        if len(sys.argv) > 1
+        else "/home/shubham_singh/Downloads/Shubham_Resume_2026_April_version2.pdf"
+    )
     print(f"Converting: {file_path}\n")
     markdown = convert_document_to_markdown(file_path)
     print(markdown)

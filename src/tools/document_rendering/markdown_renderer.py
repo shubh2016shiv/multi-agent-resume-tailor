@@ -64,14 +64,18 @@ def _render_summary(resume: Resume) -> str:
 def _render_skills(resume: Resume) -> str:
     if not resume.skills:
         return ""
-    lines = [f"- **{category}:** {', '.join(names)}" for category, names in group_skills(resume.skills)]
+    lines = [
+        f"- **{category}:** {', '.join(names)}" for category, names in group_skills(resume.skills)
+    ]
     return _section("Skills", "\n".join(lines))
 
 
 def _render_experience(resume: Resume) -> str:
     if not resume.work_experience:
         return ""
-    return _section("Experience", "\n\n".join(_render_role(role) for role in resume.work_experience))
+    return _section(
+        "Experience", "\n\n".join(_render_role(role) for role in resume.work_experience)
+    )
 
 
 def _render_role(role: Experience) -> str:
@@ -87,7 +91,9 @@ def _render_role(role: Experience) -> str:
 def _render_education(resume: Resume) -> str:
     if not resume.education:
         return ""
-    return _section("Education", "\n\n".join(_render_education_entry(entry) for entry in resume.education))
+    return _section(
+        "Education", "\n\n".join(_render_education_entry(entry) for entry in resume.education)
+    )
 
 
 def _render_education_entry(education: Education) -> str:

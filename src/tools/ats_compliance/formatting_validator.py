@@ -24,10 +24,10 @@ ENGINE_ID = "formatting_validator"
 # Structural patterns that break ATS parsing. Box-drawing and other exotic
 # symbols are handled by _find_problematic_characters via unicode category.
 INCOMPATIBLE_PATTERNS = [
-    r"\|.*\|",     # pipe-character tables
-    r"\t",         # tab characters
-    r"<table>",    # HTML tables
-    r"<img>",      # HTML images
+    r"\|.*\|",  # pipe-character tables
+    r"\t",  # tab characters
+    r"<table>",  # HTML tables
+    r"<img>",  # HTML images
 ]
 
 # Bullet and dash characters common in real resumes; modern ATS handle them.

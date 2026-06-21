@@ -35,7 +35,7 @@ REDACTED_ENTITIES = [
     "MAC_ADDRESS",
     "MEDICAL_LICENSE",
     "DATE_OF_BIRTH",  # custom, label-anchored (see _build_date_of_birth_recognizer)
-    "AGE",            # custom, suffix-anchored (see _build_age_recognizer)
+    "AGE",  # custom, suffix-anchored (see _build_age_recognizer)
 ]
 
 # Drop low-confidence hits. Label-anchored DOB matches clear this only when their
@@ -113,9 +113,7 @@ def _spans_overlap(first: RecognizerResult, second: RecognizerResult) -> bool:
     return first.start < second.end and second.start < first.end
 
 
-def _build_placeholder_map(
-    text: str, spans: list[RecognizerResult]
-) -> dict[tuple[str, str], str]:
+def _build_placeholder_map(text: str, spans: list[RecognizerResult]) -> dict[tuple[str, str], str]:
     """Map each unique (entity_type, value) to a stable placeholder like '[EMAIL_ADDRESS_1]'."""
     counts_by_entity: dict[str, int] = {}
     placeholder_by_key: dict[tuple[str, str], str] = {}

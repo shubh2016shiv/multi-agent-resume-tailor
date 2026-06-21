@@ -1,197 +1,100 @@
-"""
-Quality Assurance Agent Formatter
-==================================
+"""Build context for the quality assurance reviewer.
 
-Formats and filters data specifically for the Quality Assurance Agent to reduce
-token usage. This formatter:
+Caller:
+- `src/orchestration/nodes/quality.py`
 
-1. Extracts only the `resume` field from OptimizedResume (excludes redundant
-   markdown_content, json_content, and metadata)
-2. Filters job description to essential fields
-3. Converts both to TOON or Markdown format based on format_type parameter
-4. Includes original resume for accuracy comparison
+Consumer:
+- the `assess_quality_task`
 
-Expected token reduction: ~80% (from 115K to ~20-25K tokens) with TOON format
+This formatter keeps:
+- the original resume for truthfulness comparison
+- the tailored resume that must be audited
+- the job requirements and keywords the tailored resume should answer
+
+This formatter drops:
+- ATS optimizer metadata outside the final assembled resume
+- full job text
+- fallback JSON dump behavior
+
+Toy example:
+    The reviewer receives three clearly named sections: original resume,
+    tailored resume, and target job.
 """
 
 from typing import Any
 
 from src.agents.ats_optimizer.models import AtsOptimizedResume
-from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
-from src.formatters.base_formatter import FormatType, estimate_tokens, format_data
-
-logger = get_logger(__name__)
+from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 
-def _filter_resume_for_qa(resume_dict: dict[str, Any]) -> dict[str, Any]:
-    """
-    Filter resume dictionary to include only fields needed for QA evaluation.
-
-    QA agent needs:
-    - For accuracy: work_experience (with descriptions, dates, companies), skills, education
-    - For relevance: professional_summary, work_experience, skills
-    - For ATS: all resume fields but in compact format
-
-    Args:
-        resume_dict: Resume dictionary from model_dump()
-
-    Returns:
-        Filtered resume dictionary with only QA-relevant fields
-    """
-    # Keep all resume fields - they're all needed for comprehensive QA evaluation
-    # The main optimization is removing redundant OptimizedResume wrapper fields
-    return resume_dict
+def select_original_resume_context(original_resume: Resume) -> dict[str, Any]:
+    """Keep the original resume exactly as the reviewer should compare it."""
+    return original_resume.model_dump(mode="json")
 
 
-def _filter_job_for_qa(job_dict: dict[str, Any]) -> dict[str, Any]:
-    """
-    Filter job description dictionary to include only fields needed for QA evaluation.
+def select_tailored_resume_context(optimized_resume: AtsOptimizedResume) -> dict[str, Any]:
+    """Keep only the final assembled resume from the ATS optimizer output."""
+    return optimized_resume.final_resume.model_dump(mode="json")
 
-    QA agent needs:
-    - job_title, company_name (for context)
-    - requirements (for relevance evaluation)
-    - ats_keywords (for ATS evaluation)
-    - summary (for context, but can be truncated)
 
-    Args:
-        job_dict: Job description dictionary from model_dump()
-
-    Returns:
-        Filtered job dictionary with only QA-relevant fields
-    """
-    filtered = {}
-
-    # Essential fields for QA evaluation
-    essential_fields = {
-        "job_title",
-        "company_name",
-        "requirements",  # Needed for relevance evaluation
-        "ats_keywords",  # Needed for ATS evaluation
-        "summary",  # Brief context (can be truncated if too long)
+def select_job_context(job_description: JobDescription) -> dict[str, Any]:
+    """Keep only the job fields the reviewer needs during scoring."""
+    return {
+        "job_title": job_description.job_title,
+        "company_name": job_description.company_name,
+        "summary": job_description.summary,
+        "requirements": [requirement.model_dump(mode="json") for requirement in job_description.requirements],
+        "ats_keywords": list(job_description.ats_keywords),
     }
 
-    for field in essential_fields:
-        if field in job_dict:
-            value = job_dict[field]
 
-            filtered[field] = value
+def build_quality_assurance_payload(
+    optimized_resume: AtsOptimizedResume,
+    original_resume: Resume,
+    job: JobDescription,
+) -> dict[str, Any]:
+    """Build the filtered payload for the quality assurance reviewer."""
+    ####################################################
+    # STEP 1: KEEP THE SOURCE RESUME THE REVIEWER MUST VERIFY AGAINST#
+    ####################################################
+    original_resume_context = select_original_resume_context(original_resume)
 
-    return filtered
+    ####################################################
+    # STEP 2: KEEP THE FINAL TAILORED RESUME THAT MUST BE AUDITED#
+    ####################################################
+    tailored_resume_context = select_tailored_resume_context(optimized_resume)
+
+    ####################################################
+    # STEP 3: KEEP THE JOB SIGNALS THE REVIEW SHOULD SCORE AGAINST#
+    ####################################################
+    job_context = select_job_context(job)
+
+    return {
+        "original_resume": original_resume_context,
+        "tailored_resume": tailored_resume_context,
+        "target_job": job_context,
+    }
 
 
 def format_quality_assurance_context(
     optimized_resume: AtsOptimizedResume,
     original_resume: Resume,
     job: JobDescription,
-    format_type: FormatType = "toon",
+    format_type: OutputFormat = "toon",
 ) -> str:
-    """
-    Format context data for Quality Assurance Agent using specified format (TOON or Markdown).
+    """Return the quality assurance reviewer's context string."""
+    ####################################################
+    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE REVIEWER ACTUALLY NEEDS#
+    ####################################################
+    payload = build_quality_assurance_payload(optimized_resume, original_resume, job)
 
-    This function:
-    1. Extracts only the `resume` field from OptimizedResume (removes redundant
-       markdown_content, json_content, and metadata)
-    2. Filters job description to essential fields
-    3. Converts both to TOON or Markdown format based on format_type
-    4. Includes original resume for accuracy comparison
-
-    Args:
-        optimized_resume: OptimizedResume object containing the tailored resume
-        original_resume: Original Resume object for accuracy comparison
-        job: JobDescription object for relevance and ATS evaluation
-        format_type: Format to use ("toon" for token reduction, "markdown" for readability)
-
-    Returns:
-        Formatted context string in the requested format ready for LLM input
-
-    Example:
-        >>> context = format_quality_assurance_context(
-        ...     optimized_resume, original_resume, job, format_type="toon"
-        ... )
-        >>> # Returns TOON-formatted string with all three data structures
-    """
-    try:
-        logger.info(f"Formatting QA context: filtering and converting to {format_type.upper()}")
-
-        # Extract only the assembled resume from AtsOptimizedResume (exclude decision notes)
-        optimized_resume_dict = optimized_resume.final_resume.model_dump()
-        original_resume_dict = original_resume.model_dump()
-        job_dict = job.model_dump()
-
-        # Filter job description to essential fields only
-        filtered_job = _filter_job_for_qa(job_dict)
-
-        # Convert to requested format
-        optimized_resume_formatted = format_data(
-            optimized_resume_dict, format_type=format_type, description="Tailored Resume"
-        )
-        original_resume_formatted = format_data(
-            original_resume_dict, format_type=format_type, description="Original Resume"
-        )
-        job_formatted = format_data(
-            filtered_job, format_type=format_type, description="Job Description"
-        )
-
-        # Build formatted context with appropriate separators
-        if format_type == "markdown":
-            context = f"""# Quality Assurance Evaluation Context
-
-{original_resume_formatted}
-
----
-
-{optimized_resume_formatted}
-
----
-
-{job_formatted}"""
-        else:  # TOON format
-            context = f"""ORIGINAL RESUME (for accuracy comparison):
-{original_resume_formatted}
-
-TAILORED RESUME (to be evaluated):
-{optimized_resume_formatted}
-
-JOB DESCRIPTION:
-{job_formatted}"""
-
-        # Log token reduction metrics
-        original_size = len(
-            f"FINAL RESUME:\n{optimized_resume.model_dump_json()}\n\n"
-            f"JOB DESCRIPTION:\n{job.model_dump_json()}"
-        )
-        new_size = len(context)
-        reduction_pct = (
-            ((original_size - new_size) / original_size * 100) if original_size > 0 else 0
-        )
-
-        estimated_original_tokens = estimate_tokens(
-            f"FINAL RESUME:\n{optimized_resume.model_dump_json()}\n\n"
-            f"JOB DESCRIPTION:\n{job.model_dump_json()}"
-        )
-        estimated_new_tokens = estimate_tokens(context)
-        token_reduction_pct = (
-            ((estimated_original_tokens - estimated_new_tokens) / estimated_original_tokens * 100)
-            if estimated_original_tokens > 0
-            else 0
-        )
-
-        logger.info(
-            f"QA context formatted ({format_type.upper()}): {reduction_pct:.1f}% size reduction, "
-            f"~{token_reduction_pct:.1f}% token reduction "
-            f"({estimated_original_tokens} -> {estimated_new_tokens} tokens)"
-        )
-
-        return context
-
-    except Exception as e:
-        logger.error(f"Error formatting QA context: {e}", exc_info=True)
-        # Fallback to JSON format if conversion fails
-        logger.warning("Falling back to JSON format for QA context")
-        return (
-            f"ORIGINAL RESUME:\n{original_resume.model_dump_json()}\n\n"
-            f"TAILORED RESUME:\n{optimized_resume.final_resume.model_dump_json()}\n\n"
-            f"JOB DESCRIPTION:\n{job.model_dump_json()}"
-        )
+    ####################################################
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    ####################################################
+    return render_context_data(
+        payload,
+        format_type=format_type,
+        description="Quality Assurance Context",
+    )

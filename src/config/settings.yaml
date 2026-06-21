@@ -178,6 +178,16 @@ file_paths:
   output_dir: "tailored_resumes"
 
 # ------------------------------------------------------------------------------
+# Prompt Catalog
+# ------------------------------------------------------------------------------
+# Centralized application-owned prompt files used by tool-layer engines.
+# This is app configuration, not per-agent configuration.
+# ------------------------------------------------------------------------------
+prompt_catalog:
+  # Root directory for tool prompts. May be project-relative or absolute.
+  tool_prompts_dir: "src/config/tool_prompts"
+
+# ------------------------------------------------------------------------------
 # External Services
 # ------------------------------------------------------------------------------
 # Configuration for any external services the application integrates with.

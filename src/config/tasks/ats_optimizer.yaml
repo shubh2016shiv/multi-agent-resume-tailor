@@ -1,80 +1,88 @@
-ats_optimization_task:
+optimize_ats_resume_task:
   description: >
-    Validate and optimize the complete assembled resume for ATS compatibility.
-    Your task is to:
-    1. Assemble all content components (summary, experience, skills, education) into a valid `Resume` structure.
-    2. Use the `validate_and_finalize_resume` tool to generate the final output.
+    Assemble the already-optimized sections into one ATS-aligned Resume. You are an
+    ASSEMBLER, not a rewriter. Works for any field.
 
-    CRITICAL INSTRUCTION:
-    Do NOT attempt to generate the final `OptimizedResume` JSON yourself. It is too complex.
-    Instead, you must:
-    1. Create a valid `Resume` JSON object from the assembled components.
-    2. Get the `JobDescription` JSON from the context.
-    3. Call `validate_and_finalize_resume(resume_json=..., job_description_json=...)`.
-    4. Return the output of this tool call as your final answer.
+    INPUTS (in the CONTEXT section below):
+    - assembled_sections: professional_summary_text, optimized_experience_entries,
+      optimized_skills. These are AUTHORITATIVE -- copy them through unchanged.
+    - preserved_resume_sections: full_name, email, phone_number, location,
+      website_or_portfolio, education, certifications, languages. Carry these over as-is.
+    - ats_validation_context: job_title, requirements, ats_keywords (for the keyword check).
 
-    Perform all validation checks internally via the tool. Do NOT call individual validation
-    functions as separate steps.
+    STEPS:
+    1. Build one complete Resume: the optimized summary text, the optimized experience
+       entries (verbatim -- do not edit titles, companies, dates, bullets, or metrics),
+       the optimized skills list, and the preserved contact + education facts.
+    2. Use standard ATS headers and a simple order, summary first: Professional Summary,
+       Work Experience, Skills, Education, Certifications, Languages.
+    3. Run your audit tools on the assembled resume text: "Validate ATS Compliance" for
+       header/formatting issues, and "Analyze Keyword Coverage" with ats_keywords to see
+       which must-have keywords are present.
+    4. If a tool flags an issue, fix it ONLY by reordering, standardizing headers, or
+       surfacing keywords the optimized sections already support. Add no new facts.
+    5. If a required keyword has no truthful support, leave it out and record it in
+       unresolved_issues; explain the limitation in keyword_integration_notes.
+
+    HARD RULES:
+    - Never fabricate experience, skills, metrics, or credentials, and never use
+      job-description text as if it were candidate evidence.
+    - Do NOT self-grade ATS compliance or a numeric score: the mechanical checks and the
+      final ATS score are computed in code from the rendered document. Your job is honest
+      assembly + reporting, not scoring. Do not claim "all keywords integrated" unless the
+      Analyze Keyword Coverage tool shows complete coverage.
 
   expected_output: >
-    The JSON output returned by the `validate_and_finalize_resume` tool. This will be a single,
-    complete JSON object with: "resume", "markdown_content", "json_content", "ats_validation",
-    "optimization_summary", "components_assembled", and "quality_metrics". Output ONLY the
-    valid JSON returned by the tool.
+    A single AtsOptimizedResume JSON object: "final_resume" (the assembled Resume),
+    "section_order" (standard headers in final order), "optimization_summary" (assembly/ATS
+    decisions), "keyword_integration_notes" (how coverage was achieved without stuffing, and
+    any keyword that could not be placed truthfully), and "unresolved_issues" (ATS concerns
+    not fixable without inventing content; empty list if none).
 
-  context:
-    - write_professional_summary_task
-    - optimize_experience_section_task
-    - optimize_skills_section_task
-    - extract_resume_content_task
   agent: ats_optimization_specialist
   output_file: validation/ats_report.json
 
-optimize_ats_resume_task:
-  description: >
-    Assemble the optimized professional summary, work experience, and skills into a
-    single, ATS-aligned resume, carrying over contact information and education from
-    the original resume.
-
-    Steps:
-    1. Build one complete Resume from the provided sections. Use the original
-       resume's full_name, email, phone, location, website, education, and
-       certifications. Use the optimized summary text, optimized experience entries,
-       and optimized skills list.
-    2. Use standard, ATS-recognized section headers (e.g. "Professional Summary",
-       "Work Experience", "Skills", "Education") and place the summary first.
-    3. Render the assembled resume as plain text for checking.
-    4. Verify your assembly with the tools available to you: call "Validate ATS
-       Compliance" on the rendered resume text to catch formatting / header issues,
-       and "Analyze Keyword Coverage" with the job's keywords to confirm the
-       must-have keywords are present at a healthy (non-stuffed) density.
-    5. If either tool reports major issues, revise only by reordering, preserving
-       standard headers, or surfacing already-supported keywords from the provided
-       optimized sections. Do not add new facts.
-    6. If a required keyword has no truthful support in the resume, DO NOT invent
-       content -- record it in unresolved_issues instead.
-
-    CRITICAL: Do not fabricate experience, skills, metrics, or credentials. Only
-    reorder, standardize, and surface what the optimized sections already contain.
-    Do not claim "all keywords integrated" unless the Analyze Keyword Coverage tool
-    shows complete coverage. If coverage is incomplete, list the missing unsupported
-    keywords in unresolved_issues and explain the truthful limitation in
-    keyword_integration_notes.
-
-    ATS ASSEMBLY RULES:
-    - Preserve all contact and education facts from the original resume.
-    - Preserve original role titles, companies, dates, and role-scoped facts.
-    - Use simple section order and standard labels: Professional Summary,
-      Work Experience, Skills, Education, Certifications, Languages.
-    - Keep content concise, active, and fact-based.
-    - Prefer supported exact JD terminology over synonyms where it is truthful.
-    - Never use job-description text as candidate evidence.
-
-  expected_output: >
-    A single AtsOptimizedResume JSON object with: "final_resume" (complete assembled Resume),
-    "section_order" (standard section headers in final order), "optimization_summary" (assembly
-    and ATS decisions made), "keyword_integration_notes" (how keyword coverage was ensured
-    without stuffing), and "unresolved_issues" (ATS concerns that could not be fixed without
-    inventing content). Output ONLY the valid AtsOptimizedResume JSON.
-
-  agent: ats_optimization_specialist
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- refinements to the live task above:
+#   * Named the ACTUAL context keys the formatter emits (assembled_sections /
+#     preserved_resume_sections / ats_validation_context) instead of "the provided sections".
+#   * Stated that experience entries are verbatim pass-through -- matches the wiring: the
+#     assembly node OVERWRITES work_experience with the verified upstream entries anyway.
+#   * Made explicit that ATS compliance/score is code-graded, NOT self-graded (the output
+#     model has no self-score field by design).
+#
+# Also commented out below: the DEAD `ats_optimization_task`. The live pipeline runs
+# `optimize_ats_resume_task` (src/orchestration/nodes/assembly.py). The dead task calls a
+# `validate_and_finalize_resume` tool that does NOT exist in the current tool-light design.
+# -----------------------------------------------------------------------------
+# ats_optimization_task:
+#   description: >
+#     Validate and optimize the complete assembled resume for ATS compatibility.
+#     Your task is to:
+#     1. Assemble all content components (summary, experience, skills, education) into a valid `Resume` structure.
+#     2. Use the `validate_and_finalize_resume` tool to generate the final output.
+# 
+#     CRITICAL INSTRUCTION:
+#     Do NOT attempt to generate the final `OptimizedResume` JSON yourself. It is too complex.
+#     Instead, you must:
+#     1. Create a valid `Resume` JSON object from the assembled components.
+#     2. Get the `JobDescription` JSON from the context.
+#     3. Call `validate_and_finalize_resume(resume_json=..., job_description_json=...)`.
+#     4. Return the output of this tool call as your final answer.
+# 
+#     Perform all validation checks internally via the tool. Do NOT call individual validation
+#     functions as separate steps.
+# 
+#   expected_output: >
+#     The JSON output returned by the `validate_and_finalize_resume` tool. This will be a single,
+#     complete JSON object with: "resume", "markdown_content", "json_content", "ats_validation",
+#     "optimization_summary", "components_assembled", and "quality_metrics". Output ONLY the
+#     valid JSON returned by the tool.
+# 
+#   context:
+#     - write_professional_summary_task
+#     - optimize_experience_section_task
+#     - optimize_skills_section_task
+#     - extract_resume_content_task
+#   agent: ats_optimization_specialist
+#   output_file: validation/ats_report.json

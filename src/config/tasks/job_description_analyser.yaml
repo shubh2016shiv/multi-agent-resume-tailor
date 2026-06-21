@@ -1,50 +1,116 @@
 analyze_job_description_task:
   description: >
-    Analyze the provided job description content to extract and structure all relevant information.
+    Extract a structured JobDescription from the job posting in the CONTEXT section.
+    The posting text is already provided inline below -- just analyze it; you have no
+    tools and no files to load. Works for any field.
 
-    IMPORTANT: The job description content is already provided in clean Markdown format in the
-    CONTEXT section below. DO NOT attempt to use file-parsing tools or load files. Simply analyze
-    the content that has been provided to you.
+    WHY THIS MATTERS (the downstream stakes):
+    - `requirements` importance drives the must-have coverage SCORE computed later in code.
+    - `ats_keywords` drives keyword-coverage scoring across gap analysis, the skills step,
+      and the relevance check.
+    A fabricated requirement, a wrong importance, or a junk keyword silently corrupts every
+    later stage. Extract only what the posting states.
 
-    SOURCE-OF-TRUTH RULES:
-    - Perform factual extraction, not creative interpretation.
-    - Every populated value must be supported by words present in the supplied job description.
-    - Set `years_required` only when the posting explicitly gives a numeric duration for that
-      exact requirement, such as "5+ years of Python". Otherwise set it to null.
-    - Do not convert proficiency labels such as Advanced, Working knowledge, hands-on, senior,
-      deep experience, or production-grade into years.
-    - Set `location` only when the posting explicitly states where or how this role is worked.
-      Company headquarters, offices, and development centres are company context, not the role
-      location. If the role location is absent, set `location` to null.
-    - Never add Remote, Hybrid, relocation, visa, salary, certification, or experience-duration
-      information unless the posting explicitly states it.
-    - ATS keywords must be explicit skills, technologies, qualifications, or domain terms from
-      the source. Exclude the company name, job title, office locations, culture phrases, and
-      inferred synonyms.
+    SOURCE-OF-TRUTH RULES (these are the point of this agent):
+    - Factual extraction, not interpretation. Every value must be supported by words present
+      in the posting. If the posting is silent, leave the field null or the list empty.
+    - importance: classify from the posting's own language --
+      required / essential / must -> must_have;
+      preferred / desired / strong plus -> should_have;
+      bonus / nice to have / a plus -> nice_to_have.
+      When a requirement is listed without such wording, default to should_have.
+    - years_required: set ONLY when the posting gives a numeric duration for that exact
+      requirement (e.g. "5+ years of [SKILL]"). Otherwise null. Never convert proficiency
+      or seniority words ("advanced", "senior", "deep experience") into years.
+    - location: set ONLY when the posting states where/how THIS role is worked. Company HQ,
+      offices, and dev centres are company context, not role location. Otherwise null. Never
+      add Remote/Hybrid/relocation/visa unless explicitly stated.
+    - ats_keywords: explicit skills, technologies, qualifications, and domain terms from the
+      source ONLY. Exclude the company name, job title, office locations, culture phrases,
+      and any inferred synonyms not in the text.
+    - full_text: copy the supplied posting text into this field VERBATIM and unmodified.
+      Do not summarize, translate, or truncate it -- later stages rely on the original text.
 
-    Your task is to:
-    1. Analyze the job description content from the CONTEXT section.
-    2. Extract the job title, company name, and identify the seniority level.
-    3. Identify all requirements and qualifications, categorizing each as:
-       - Must-have (e.g., required, mandatory, essential)
-       - Should-have (e.g., preferred, desired)
-       - Nice-to-have (e.g., bonus, plus)
-    4. Extract specific skills mentioned. Capture years of experience and certifications only
-       when their exact requirement is explicitly stated.
-    5. Identify key responsibilities and what success looks like in the role.
-    6. Extract company culture indicators from the language and tone used.
-    7. Compile a comprehensive list of ATS keywords that are critical for the resume.
-    Output a structured `JobDescription` model with your complete analysis.
+    STEPS:
+    1. Read the posting in CONTEXT.
+    2. Extract job_title, company_name, and the seniority level (job_level); use
+       "unspecified" if the posting does not state a level.
+    3. Extract each requirement with its importance (and years_required only if numerically
+       stated).
+    4. Write a 1-3 sentence summary of the role from the posting.
+    5. Compile ats_keywords per the rule above.
+    6. Set full_text to the verbatim posting text.
 
   expected_output: >
-    A comprehensive JSON object representing a `JobDescription`. This object must include:
-    - Job title and company name.
-    - The detected seniority level.
-    - A categorized list containing only requirements supported by the source text.
-    - A list of must-have keywords for ATS optimization.
-    - A breakdown of key responsibilities.
-    - Insights into the company culture.
-    The output must be a valid JSON that conforms to the `JobDescription` model structure.
+    A valid JobDescription JSON object: job_title, company_name, job_level (a valid level or
+    "unspecified"), location (null if unstated), summary (1-3 sentences), full_text (the
+    posting verbatim), requirements (each with requirement + importance, and years_required
+    only when numerically stated), and ats_keywords (explicit source terms only). Every
+    populated value must trace to words in the posting.
 
   agent: job_description_analyst
   output_file: analysis/job_analysis.json
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- kept for reference, not loaded (run_agent_task reads only
+# `description` + `expected_output`; `context`/`agent`/`output_file` are ignored).
+# Why replaced:
+#   * Schema REQUIRES `full_text` but the old prompt never mentioned it -- under forced
+#     JSON the model had to produce it unguided (risking a truncated/paraphrased JD that
+#     then flows downstream as "the original"). Now instructed to copy it verbatim.
+#   * Old "DO NOT use file-parsing tools" guarded against tools the agent does not have
+#     (it is tool-free) -- replaced with a one-line "content is inline, no tools".
+#   * Added the downstream-stakes note so the model understands WHY fidelity matters, and
+#     made the importance-classification cues explicit.
+#   * (Schema examples in src/data_models/job.py were also made domain-neutral.)
+# -----------------------------------------------------------------------------
+# analyze_job_description_task:
+#   description: >
+#     Analyze the provided job description content to extract and structure all relevant information.
+# 
+#     IMPORTANT: The job description content is already provided in clean Markdown format in the
+#     CONTEXT section below. DO NOT attempt to use file-parsing tools or load files. Simply analyze
+#     the content that has been provided to you.
+# 
+#     SOURCE-OF-TRUTH RULES:
+#     - Perform factual extraction, not creative interpretation.
+#     - Every populated value must be supported by words present in the supplied job description.
+#     - Set `years_required` only when the posting explicitly gives a numeric duration for that
+#       exact requirement, such as "5+ years of Python". Otherwise set it to null.
+#     - Do not convert proficiency labels such as Advanced, Working knowledge, hands-on, senior,
+#       deep experience, or production-grade into years.
+#     - Set `location` only when the posting explicitly states where or how this role is worked.
+#       Company headquarters, offices, and development centres are company context, not the role
+#       location. If the role location is absent, set `location` to null.
+#     - Never add Remote, Hybrid, relocation, visa, salary, certification, or experience-duration
+#       information unless the posting explicitly states it.
+#     - ATS keywords must be explicit skills, technologies, qualifications, or domain terms from
+#       the source. Exclude the company name, job title, office locations, culture phrases, and
+#       inferred synonyms.
+# 
+#     Your task is to:
+#     1. Analyze the job description content from the CONTEXT section.
+#     2. Extract the job title, company name, and identify the seniority level.
+#     3. Identify all requirements and qualifications, categorizing each as:
+#        - Must-have (e.g., required, mandatory, essential)
+#        - Should-have (e.g., preferred, desired)
+#        - Nice-to-have (e.g., bonus, plus)
+#     4. Extract specific skills mentioned. Capture years of experience and certifications only
+#        when their exact requirement is explicitly stated.
+#     5. Identify key responsibilities and what success looks like in the role.
+#     6. Extract company culture indicators from the language and tone used.
+#     7. Compile a comprehensive list of ATS keywords that are critical for the resume.
+#     Output a structured `JobDescription` model with your complete analysis.
+# 
+#   expected_output: >
+#     A comprehensive JSON object representing a `JobDescription`. This object must include:
+#     - Job title and company name.
+#     - The detected seniority level.
+#     - A categorized list containing only requirements supported by the source text.
+#     - A list of must-have keywords for ATS optimization.
+#     - A breakdown of key responsibilities.
+#     - Insights into the company culture.
+#     The output must be a valid JSON that conforms to the `JobDescription` model structure.
+# 
+#   agent: job_description_analyst
+#   output_file: analysis/job_analysis.json

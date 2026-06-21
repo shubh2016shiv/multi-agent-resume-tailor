@@ -1,41 +1,93 @@
 extract_resume_content_task:
   description: >
-    Extract and structure the candidate's resume information from the resume file path.
+    Extract a structured Resume from the resume FILE PATH in CONTEXT (not resume text).
+    Works for any field. You are the root of the pipeline -- extract faithfully; fabrication
+    here corrupts every later stage.
 
-    IMPORTANT: The CONTEXT section contains a resume file path, not resume text.
-    You own the document-ingestion sequence. Use your tools in this order:
-    1. Convert Resume Document to Markdown
-    2. Check Resume Markdown Quality
-    3. Extract Structured Resume from Markdown
+    INGESTION SEQUENCE (you own these tools; run in order):
+    1. "Convert Resume Document to Markdown" on the file path.
+    2. "Check Resume Markdown Quality". If it reports a BLOCKER, STOP and explain the
+       conversion problem instead of extracting from unreliable text.
+    3. If a "Redact PII from Resume Markdown" tool is available to you, run it now (before
+       extraction). If no such tool is present, skip this step.
+    4. "Extract Structured Resume from Markdown".
 
-    If the quality check reports a BLOCKER, stop and explain the conversion problem
-    instead of extracting from unreliable text.
+    EXTRACT into the Resume model, using ONLY what the document states:
+    - Personal info: full_name, email, phone_number, location, website_or_portfolio.
+    - professional_summary (the resume's own summary/objective, if present).
+    - work_experience: every role the resume lists, with job_title, company, dates,
+      description, achievements, and skills_used -- copied as written.
+    - education, certifications, languages as listed.
+    - skills as listed (use the resume's own categories where given).
 
-    Your task is to:
-    1. Read the resume file path from the CONTEXT section.
-    2. Convert the file to Markdown using the conversion tool.
-    3. Check the converted Markdown quality before extraction.
-    4. Extract all information into a structured `Resume` model, including:
-       - Personal information (name, email, phone, location).
-       - The professional summary or objective.
-       - All work experience entries with job titles, companies, dates, descriptions,
-         quantifiable achievements, and skills used in each role.
-       - The education section with degrees, institutions, and graduation years.
-       - The skills section, categorized into technical, soft, and domain-specific skills.
-    6. Identify patterns of career growth and areas of deep expertise.
-    7. Calculate the total years of professional experience.
-    8. Ensure the accuracy and completeness of all extracted data.
-    Output a structured `Resume` model with the complete career history.
+    SOURCE-FIDELITY RULES (the point of this agent):
+    - Do NOT infer "implicit" skills, invent metrics/numbers, upgrade titles, or rephrase
+      achievement bullets. Record what is written.
+    - Extract however many experiences and skills the resume actually contains -- there is
+      no minimum. Do not pad to reach a count.
+    - Leave a field empty/null when the resume does not provide it; never guess dates,
+      locations, or numbers.
 
   expected_output: >
-    A comprehensive JSON object representing a `Resume`. This object must include:
-    - Complete personal information.
-    - The professional summary.
-    - All work experiences (at least 3 entries) with detailed achievements.
-    - A full education history.
-    - A categorized list of skills (at least 20 skills).
-    - A calculation of the total years of experience.
-    The output must be a valid JSON that conforms to the `Resume` model structure.
+    A valid Resume JSON object faithfully reflecting the document: personal info, the
+    professional_summary if present, all work_experience entries as written, education,
+    certifications, languages, and the skills the resume lists. Every value must trace to
+    the resume text -- no inferred or padded content. Empty/null where the resume is silent.
 
   agent: resume_content_extractor
   output_file: analysis/resume_extraction.json
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- kept for reference, not loaded. Why replaced:
+#   * Removed PHANTOM outputs the Resume schema cannot hold: "identify patterns of career
+#     growth", "calculate total years of experience". Those fields do not exist on Resume,
+#     so the instructions were discarded work (Pattern 6).
+#   * Removed the arbitrary minimums "(at least 3 entries)" and "(at least 20 skills)".
+#     For an EXTRACTOR at the root of the pipeline, a quota pressures fabrication; now it
+#     extracts exactly what the document contains.
+#   * Added the feature-flagged redact step conditionally ("if available") -- the agent is
+#     wired with the redact tool only when enable_pii_redaction is on.
+#   * Reframed toward source fidelity (no implicit skills, no invented metrics, no rephrasing)
+#     and made it domain-agnostic.
+# -----------------------------------------------------------------------------
+# extract_resume_content_task:
+#   description: >
+#     Extract and structure the candidate's resume information from the resume file path.
+# 
+#     IMPORTANT: The CONTEXT section contains a resume file path, not resume text.
+#     You own the document-ingestion sequence. Use your tools in this order:
+#     1. Convert Resume Document to Markdown
+#     2. Check Resume Markdown Quality
+#     3. Extract Structured Resume from Markdown
+# 
+#     If the quality check reports a BLOCKER, stop and explain the conversion problem
+#     instead of extracting from unreliable text.
+# 
+#     Your task is to:
+#     1. Read the resume file path from the CONTEXT section.
+#     2. Convert the file to Markdown using the conversion tool.
+#     3. Check the converted Markdown quality before extraction.
+#     4. Extract all information into a structured `Resume` model, including:
+#        - Personal information (name, email, phone, location).
+#        - The professional summary or objective.
+#        - All work experience entries with job titles, companies, dates, descriptions,
+#          quantifiable achievements, and skills used in each role.
+#        - The education section with degrees, institutions, and graduation years.
+#        - The skills section, categorized into technical, soft, and domain-specific skills.
+#     6. Identify patterns of career growth and areas of deep expertise.
+#     7. Calculate the total years of professional experience.
+#     8. Ensure the accuracy and completeness of all extracted data.
+#     Output a structured `Resume` model with the complete career history.
+# 
+#   expected_output: >
+#     A comprehensive JSON object representing a `Resume`. This object must include:
+#     - Complete personal information.
+#     - The professional summary.
+#     - All work experiences (at least 3 entries) with detailed achievements.
+#     - A full education history.
+#     - A categorized list of skills (at least 20 skills).
+#     - A calculation of the total years of experience.
+#     The output must be a valid JSON that conforms to the `Resume` model structure.
+# 
+#   agent: resume_content_extractor
+#   output_file: analysis/resume_extraction.json

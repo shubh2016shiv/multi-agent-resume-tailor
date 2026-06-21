@@ -192,6 +192,7 @@ def good_summary_draft() -> SummaryDraft:
     return SummaryDraft(
         version_name="Hook-Value-Future",
         strategy_used="Classic three-part structure.",
+        evidence_used="Resume: 5 yrs ML + Python/AWS pipelines -> Machine Learning, Python, AWS.",
         content=(
             "Senior Machine Learning Engineer with 5 years of experience building "
             "production Python pipelines on AWS. Led a team of 4 engineers to deliver "

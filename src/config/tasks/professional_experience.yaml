@@ -1,37 +1,89 @@
 optimize_experience_section_task:
   description: >
-    Rewrite the professional experience role provided in CONTEXT.
+    Reorder the professional experience bullets for the single role in CONTEXT so the
+    most job-relevant evidence comes first. Works for any field. You ONLY reorder.
 
-    The orchestration layer calls you once per company or role. Treat the
-    provided role as the full evidence boundary for this task. Do not use facts
-    from unrelated roles, the skills section, education, certifications, or
-    personal information.
+    THE MECHANISM (why verbatim matters): downstream code accepts your output only when
+    your achievements are an exact permutation of the source bullets. If you change even
+    one character of any bullet, code rejects your whole proposal and keeps the original
+    order -- you lose your only lever. The role's metadata is rebuilt from the source
+    regardless of what you emit. So your single effective contribution is bullet ORDER.
 
-    Use optional job signals only when they overlap with the role evidence.
-    Never fabricate tools, metrics, job duties, seniority, employers, domains,
-    or business impact. If a metric is not present, write a strong outcome
-    without inventing a number.
+    SCOPE: the orchestration layer calls you once per role. Treat the provided role as the
+    full evidence boundary. Do not use facts from other roles, skills, education,
+    certifications, or personal information.
 
-    Rewrite 3-6 achievement bullets for the role:
-    - Start each bullet with a strong action verb.
-    - Emphasize action, scope, method, and outcome.
-    - Keep keywords natural and truthful.
-    - Preserve the original job title, company, dates, location, and skills_used
-      unless the role evidence clearly supports a change.
+    YOU MAY NOT rewrite, paraphrase, shorten, expand, split, merge, add, or remove any
+    bullet. Return every original achievement string verbatim; change only their order.
 
-    Return only JSON that conforms to OptimizedExperienceSection:
-    - optimized_experiences: one Experience object for this role
-    - optimization_notes: short note about what changed
-    - keywords_integrated: keywords actually used
-    - relevance_scores: company_name mapped to a 0-100 relevance score
+    STRICT RULES:
+    - The number of achievements must exactly equal the source count.
+    - Copy each achievement character-for-character from CONTEXT.
+    - Preserve job title, company, dates, location, description, and skills_used exactly.
+    - Do not insert job-description keywords into bullet text.
+    - Do not change any name, number, or term inside a bullet (e.g. a tool, product, model,
+      method, standard, drug, certification, or metric name) -- not even to "correct" it.
+    - Do not add scale, counts, teams, leadership, ownership, outcomes, or metrics.
+
+    OUTPUT: return OptimizedExperienceSection JSON with optimized_experiences = one
+    Experience object for this role (bullets reordered, everything else copied). The other
+    fields are NOT consumed downstream -- set optimization_notes to a short note, and leave
+    keywords_integrated and relevance_scores empty/minimal. Do not spend effort on them.
 
   expected_output: >
-    JSON conforming to OptimizedExperienceSection with exactly one optimized
-    Experience object for the role in CONTEXT. Do not append a human-readable
-    section after the JSON.
+    OptimizedExperienceSection JSON with exactly one Experience object whose achievements
+    are an exact permutation of the source achievements (same strings, reordered). No
+    human-readable text after the JSON.
 
-  context:
-    - create_alignment_strategy_task
-    - extract_resume_content_task
   agent: experience_section_optimizer
   output_file: content/optimized_experience.json
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- kept for reference, not loaded. Why replaced:
+#   * Added THE MECHANISM the node enforces (experience.py:
+#     _accept_bullet_order_or_preserve_source): only an exact bullet permutation is
+#     accepted; any text edit voids the whole ordering; metadata is rebuilt from source.
+#     Stating this drives strict verbatim copying.
+#   * Domain-neutralized the example ("GPT o1 to GPT-4.x" -> any name/number/term in a
+#     bullet, with non-software examples).
+#   * Clarified that optimization_notes / keywords_integrated / relevance_scores are NOT
+#     consumed downstream (the accepted section is rebuilt without them), so the agent
+#     should not invest effort there. Old prompt asked for a real relevance_scores map.
+# -----------------------------------------------------------------------------
+# optimize_experience_section_task:
+#   description: >
+#     Prioritize the professional experience bullets provided in CONTEXT.
+# 
+#     The orchestration layer calls you once per company or role. Treat the
+#     provided role as the full evidence boundary for this task. Do not use facts
+#     from unrelated roles, the skills section, education, certifications, or
+#     personal information.
+# 
+#     You are NOT permitted to rewrite, paraphrase, shorten, expand, split, merge,
+#     add, or remove achievement bullets. Return every original achievement string
+#     verbatim, changing only their order to place the most job-relevant evidence first.
+# 
+#     STRICT OUTPUT RULES:
+#     - The number of achievements must exactly equal the source count.
+#     - Every achievement must be copied character-for-character from CONTEXT.
+#     - Preserve job title, company, dates, location, description, and skills_used exactly.
+#     - Do not insert JD keywords into bullet text.
+#     - Do not change technology or model names (for example GPT o1 to GPT-4.x).
+#     - Do not add scale, users, requests, teams, leadership, ownership, outcomes, or metrics.
+# 
+#     Return only JSON that conforms to OptimizedExperienceSection:
+#     - optimized_experiences: one Experience object for this role
+#     - optimization_notes: state that only source-bullet ordering was considered
+#     - keywords_integrated: empty list
+#     - relevance_scores: company_name mapped to a 0-100 relevance score
+# 
+#   expected_output: >
+#     JSON conforming to OptimizedExperienceSection with exactly one Experience
+#     object whose achievements are an exact permutation of the source achievements.
+#     Do not append a human-readable section after the JSON.
+# 
+#   context:
+#     - create_alignment_strategy_task
+#     - extract_resume_content_task
+#   agent: experience_section_optimizer
+#   output_file: content/optimized_experience.json

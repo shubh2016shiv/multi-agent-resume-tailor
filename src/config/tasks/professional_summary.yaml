@@ -1,62 +1,139 @@
 write_professional_summary_task:
   description: >
-    Write a concise, fact-based professional summary tailored to the target job.
-    Your task is to generate 4 distinct drafts using different positioning angles.
+    Write a professional summary tailored to the target job, in the candidate's own
+    field (any domain -- healthcare, finance, trades, law, education, software, etc.).
+    Produce 2 genuinely distinct drafts, then recommend one.
 
-    IMPORTANT: You must output a valid JSON object directly. Do NOT attempt to use tools.
-    Perform all analysis and self-critique internally, then output the final structured result.
+    INPUTS (in the CONTEXT section below):
+    - The candidate's resume facts.
+    - The alignment strategy (matches, gaps, keywords to integrate, guidance).
+    Treat these as your only source of truth. Do not assume a domain; read theirs.
 
-    SOURCE-OF-TRUTH RULES:
-    - Use only facts supported by the provided resume and alignment strategy.
-    - Never invent years of experience, tools, platforms, domains, metrics, seniority,
-      credentials, employers, or business impact.
-    - A JD keyword may appear only when the resume evidence supports that capability.
-    - If the JD uses a broader category and the resume has narrower evidence, write the
-      narrower truthful evidence (for example, "REST APIs" instead of unsupported "GraphQL").
-    - Do not infer product/company categories such as SaaS, enterprise software, open source,
-      or observability unless the resume evidence explicitly supports them.
-    - If a number is not present in source evidence, do not create a number.
+    HOW TO WORK EACH DRAFT (follow the output field order -- it is the procedure):
+    1. evidence_used: FIRST, list the specific resume/strategy facts you will use and
+       the JD keyword each one justifies. This is your evidence ledger.
+    2. content: write the summary using ONLY what is in evidence_used.
+    3. critique: state strengths/weaknesses and confirm every claim traces to evidence_used.
+    4. score: 0-100, assigned last as a verdict on the finished draft.
+    After both drafts, set recommended_version, then call the "Audit Summary Quality"
+    tool on your recommended draft and fold any issue it raises into writing_notes.
+
+    EVIDENCE RULES (do / don't):
+    - DO surface a JD keyword only when candidate evidence proves the capability.
+      DON'T add a keyword the resume does not support -- list it as a gap, do not fake it.
+    - DO write the narrower truthful term when the JD term is broader than the evidence
+      (write what the resume actually shows, not the broader claim).
+    - DON'T invent years, tools, methods, metrics, seniority, credentials, employers,
+      industries, or business impact. If a number is not in the evidence, do not state one.
+    - DON'T infer a company/product/sector category unless the resume names it.
 
     STYLE RULES:
-    - Write for fast human and ATS scanning: specific, active, plain, and fact-based.
-    - Avoid first person, narrative phrasing ("once upon a time", "and now"), hype,
-      cliches, and flowery marketing language.
-    - Prefer 3-4 tight sentences, 75-125 words total.
-    - Integrate 3-6 supported JD keywords naturally; do not stuff keywords.
+    - Specific, active, plain, fact-based -- written for fast human and ATS scanning.
+    - No first person, no narrative phrasing, no hype, no cliches.
+    - 3-4 sentences, 80-110 words.
+    - Integrate 3-6 supported JD keywords naturally; do not stuff.
 
-    Generate these 4 drafts:
+    THE 2 ANGLES (same evidence, different emphasis -- keep them genuinely distinct,
+    not two phrasings of the same sentence):
+    1. "Role Fit": lead with the closest truthful match to the target role and its
+       stated priorities.
+    2. "Strength Emphasis": lead with the candidate's strongest proven capability that
+       the job values -- foregrounding concrete methods, tools, and measurable outcomes
+       already present in the evidence, whatever the field.
 
-    1. Draft A (Role Fit):
-       - Lead with the closest truthful match to the target role.
-       - Connect supported technical strengths to business or engineering outcomes.
-
-    2. Draft B (Backend / Platform Emphasis):
-       - Emphasize backend, API, data, platform, reliability, or cloud evidence only
-         where it exists in the resume.
-
-    3. Draft C (Technical Depth):
-       - Emphasize concrete tools, architectures, datasets, pipelines, and measurable
-         outcomes already present in the evidence.
-
-    4. Draft D (Balanced):
-       - Balance readability, truthful differentiation, and supported ATS keywords.
-
-    For each draft, internally perform:
-    - "Evidence Test": Ensure every claim is traceable to resume or strategy evidence.
-    - "Keyword Truth Test": Remove any JD keyword that is not supported by resume evidence.
-    - "Specificity Test": Prefer concrete tech, outcome, or scope over generic claims.
-    - Self-critique: Note strengths/weaknesses and assign a confidence score (0-100).
-
-    Then output the complete JSON structure with all 4 drafts and your recommendation.
+    WORKED MICRO-EXAMPLE (domain-neutral -- shows the evidence->keyword discipline only,
+    do NOT copy any wording):
+      evidence_used: "Resume '[managed TASK with METHOD_A]' -> justifies JD keyword
+        '[KEYWORD_A]'. Resume '[N years as ROLE]' -> justifies years + '[KEYWORD_B]'.
+        JD wants '[KEYWORD_C]' -> no evidence -> excluded."
+      content: "[Role] with [N]+ years [supported strength], achieving [supported
+        outcome] through [METHOD_A]..."
+    Note how [KEYWORD_C] is left out because nothing in the resume supports it.
 
   expected_output: >
-    A valid JSON object conforming to the ProfessionalSummary model structure with:
-    - "drafts": list of 4 draft objects, each containing version_name, strategy_used,
-      content (75-150 words), critique, and score.
-    - "recommended_version": name of the recommended draft.
-    - "writing_notes": overall notes about trade-offs between versions.
+    A valid JSON object conforming to the ProfessionalSummary model:
+    - "drafts": 2 objects, each with version_name, strategy_used, evidence_used, content
+      (80-110 words), critique, and score.
+    - "recommended_version": the version_name of the best draft.
+    - "writing_notes": trade-offs between drafts, plus anything the audit tool flagged.
 
-  context:
-    - create_alignment_strategy_task
   agent: professional_summary_writer
   output_file: content/professional_summary.txt
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- kept for reference, not loaded (run_agent_task reads
+# only `description` and `expected_output`; `context`/`agent`/`output_file` are
+# ignored by the current runtime). Key fixes in the version above:
+#   * Removed "Do NOT attempt to use tools" -- the agent HAS the audit_summary tool
+#     wired in src/agents/professional_summary/agent.py, so the old line contradicted
+#     the wiring. Now the tool is used as the final check.
+#   * Removed the "perform tests internally then output JSON" instruction, which asked
+#     for hidden reasoning the forced-JSON response_format cannot emit. Reasoning now
+#     lives in the evidence_used / critique fields (see models.py field order).
+#   * Made angles and examples domain-neutral (old Drafts B/C assumed software:
+#     "backend/API/cloud", "datasets/pipelines").
+#   * Fixed the word-count contradiction (was 75-125 in description, 75-150 in
+#     expected_output) -> a single 80-110 words.
+# -----------------------------------------------------------------------------
+# write_professional_summary_task:
+#   description: >
+#     Write a concise, fact-based professional summary tailored to the target job.
+#     Your task is to generate 4 distinct drafts using different positioning angles.
+#
+#     IMPORTANT: You must output a valid JSON object directly. Do NOT attempt to use tools.
+#     Perform all analysis and self-critique internally, then output the final structured result.
+#
+#     SOURCE-OF-TRUTH RULES:
+#     - Use only facts supported by the provided resume and alignment strategy.
+#     - Never invent years of experience, tools, platforms, domains, metrics, seniority,
+#       credentials, employers, or business impact.
+#     - A JD keyword may appear only when the resume evidence supports that capability.
+#     - If the JD uses a broader category and the resume has narrower evidence, write the
+#       narrower truthful evidence (for example, "REST APIs" instead of unsupported "GraphQL").
+#     - Do not infer product/company categories such as SaaS, enterprise software, open source,
+#       or observability unless the resume evidence explicitly supports them.
+#     - If a number is not present in source evidence, do not create a number.
+#
+#     STYLE RULES:
+#     - Write for fast human and ATS scanning: specific, active, plain, and fact-based.
+#     - Avoid first person, narrative phrasing ("once upon a time", "and now"), hype,
+#       cliches, and flowery marketing language.
+#     - Prefer 3-4 tight sentences, 75-125 words total.
+#     - Integrate 3-6 supported JD keywords naturally; do not stuff keywords.
+#
+#     Generate these 4 drafts:
+#
+#     1. Draft A (Role Fit):
+#        - Lead with the closest truthful match to the target role.
+#        - Connect supported technical strengths to business or engineering outcomes.
+#
+#     2. Draft B (Backend / Platform Emphasis):
+#        - Emphasize backend, API, data, platform, reliability, or cloud evidence only
+#          where it exists in the resume.
+#
+#     3. Draft C (Technical Depth):
+#        - Emphasize concrete tools, architectures, datasets, pipelines, and measurable
+#          outcomes already present in the evidence.
+#
+#     4. Draft D (Balanced):
+#        - Balance readability, truthful differentiation, and supported ATS keywords.
+#
+#     For each draft, internally perform:
+#     - "Evidence Test": Ensure every claim is traceable to resume or strategy evidence.
+#     - "Keyword Truth Test": Remove any JD keyword that is not supported by resume evidence.
+#     - "Specificity Test": Prefer concrete tech, outcome, or scope over generic claims.
+#     - Self-critique: Note strengths/weaknesses and assign a confidence score (0-100).
+#
+#     Then output the complete JSON structure with all 4 drafts and your recommendation.
+#
+#   expected_output: >
+#     A valid JSON object conforming to the ProfessionalSummary model structure with:
+#     - "drafts": list of 4 draft objects, each containing version_name, strategy_used,
+#       content (75-150 words), critique, and score.
+#     - "recommended_version": name of the recommended draft.
+#     - "writing_notes": overall notes about trade-offs between versions.
+#
+#   context:
+#     - create_alignment_strategy_task
+#   agent: professional_summary_writer
+#   output_file: content/professional_summary.txt

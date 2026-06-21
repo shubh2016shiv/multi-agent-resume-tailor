@@ -23,6 +23,7 @@ def _make_draft(content: str, version_name: str = "test-draft") -> SummaryDraft:
     return SummaryDraft(
         version_name=version_name,
         strategy_used="Test strategy.",
+        evidence_used="Test evidence: resume fact -> keyword.",
         content=content,
         score=80,
     )

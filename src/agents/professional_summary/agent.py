@@ -15,9 +15,10 @@ Output contract: ProfessionalSummary (via Task output_pydantic=ProfessionalSumma
 
 from crewai import LLM, Agent
 
+from src.agents.agent_config import load_agent_config
 from src.core.logger import get_logger
-from src.core.settings import get_agents_config, get_config
-from src.tools.agent_facing_tools import audit_summary
+from src.core.settings import get_config
+from src.tools.agent_tools import audit_summary
 
 logger = get_logger(__name__)
 
@@ -26,29 +27,6 @@ logger = get_logger(__name__)
 _SUMMARY_TOOLS: list = [
     audit_summary,
 ]
-
-
-# ── config ────────────────────────────────────────────────────────────────────
-
-
-def _load_agent_config(name: str) -> dict:
-    """Load and validate an agent config block from agents.yaml.
-
-    Expects: agents.yaml has a key matching `name` with role, goal, backstory, llm.
-    Returns: the config dict.
-    Raises: RuntimeError if any required field is missing.
-    """
-    agents_config = get_agents_config()
-    config = agents_config.get(name, {})
-
-    required = ["role", "goal", "backstory", "llm"]
-    missing = [f for f in required if not config.get(f)]
-    if missing:
-        raise RuntimeError(
-            f"FATAL: Missing required field(s) in '{name}' agent config: {missing}\n"
-            f"Add all required fields to src/config/agents.yaml."
-        )
-    return config
 
 
 # ── factory ───────────────────────────────────────────────────────────────────
@@ -62,11 +40,16 @@ def create_professional_summary_agent() -> Agent:
     Returns: a configured CrewAI Agent.
     Raises: RuntimeError if required config fields are missing.
     """
-    config = _load_agent_config("professional_summary_writer")
+    ####################################################
+    # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
+    ####################################################
+    config = load_agent_config("professional_summary_writer")
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.7))
 
-    app_config = get_config()
-    defaults = app_config.llm.agent_defaults
+    ####################################################
+    # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS
+    ####################################################
+    defaults = get_config().llm.agent_defaults
 
     agent = Agent(
         role=config["role"],
@@ -83,10 +66,12 @@ def create_professional_summary_agent() -> Agent:
         respect_context_window=defaults.respect_context_window,
     )
 
-    tool_names = [t.name for t in _SUMMARY_TOOLS]
+    ####################################################
+    # STEP 3: LOG AND RETURN
+    ####################################################
     logger.info(
         "Professional Summary agent created",
         model=config["llm"],
-        tools=tool_names,
+        tools=[tool.name for tool in _SUMMARY_TOOLS],
     )
     return agent

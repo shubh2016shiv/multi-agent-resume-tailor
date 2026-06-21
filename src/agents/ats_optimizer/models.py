@@ -59,12 +59,15 @@ class AtsOptimizedResume(BaseModel):
     ] = []
 
     model_config = ConfigDict(
+        # Domain-neutral example: [PLACEHOLDERS] stand for the candidate's real field.
+        # keyword_integration_notes reports what the coverage tool found -- it does NOT
+        # self-assert a density number (density/score are graded in code).
         json_schema_extra={
             "example": {
                 "final_resume": {
-                    "full_name": "Jane Doe",
-                    "email": "jane@example.com",
-                    "professional_summary": "Senior ML Engineer with 5+ years...",
+                    "full_name": "[FULL_NAME]",
+                    "email": "[EMAIL]",
+                    "professional_summary": "[assembled summary text]",
                     "work_experience": [],
                     "education": [],
                     "skills": [],
@@ -76,7 +79,7 @@ class AtsOptimizedResume(BaseModel):
                     "Education",
                 ],
                 "optimization_summary": "Assembled all sections, standardized headers, ordered summary first.",
-                "keyword_integration_notes": "All 8 must-have keywords present; density within 2-5%.",
+                "keyword_integration_notes": "Coverage tool confirmed all must-have keywords present; [KEYWORD] had no truthful support and was left out.",
                 "unresolved_issues": [],
             }
         }

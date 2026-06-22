@@ -1,7 +1,7 @@
 """Explicit token budget guards."""
 
+from src.core.llm_token_tracker.counter import get_token_counter
 from src.core.llm_token_tracker.exceptions import TokenBudgetExceeded
-from src.core.llm_token_tracker.llm_token_counter import get_token_counter
 
 
 def ensure_token_budget(text: str, model: str, max_tokens: int) -> int:

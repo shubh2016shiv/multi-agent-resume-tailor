@@ -1,19 +1,30 @@
-"""Context manager for token-aware agent execution logging.
+"""Context manager for estimated token logging around one execution boundary.
 
-Wrap a higher-level agent execution block with this context manager when you
-want one small, reusable place to:
-- estimate input tokens before the block runs,
-- log that the agent execution started,
-- hand the shared token counter to the block,
-- and always log completion when the block exits.
+IMPORTANT: this helper does NOT capture the real provider-reported token usage.
+It only estimates input tokens locally from the prompt/task text you pass in.
 
-Example:
-    with track_agent_tokens("summary_writer", model, task_text) as counter:
-        result = run_agent()
-        counter.log_token_usage(...)
+In this repo, the true observability source of truth for LLM calls is
+``src/observability``:
+- LiteLLM -> LangSmith callback captures real prompt/completion tokens, cost,
+  and latency for actual provider calls.
+- ``trace_agent`` / ``trace_tool`` are the right place for readable span
+  boundaries in observability.
 
-This helper is about execution-boundary logging, not about performing the LLM
-call itself. The calling code still owns the actual agent or tool work.
+So where would this helper belong if we use it?
+- NOT inside individual files under ``src/agents/``.
+  That would spread infrastructure concerns across every agent definition.
+- ONLY at one execution choke point, such as:
+  - ``src/orchestration/crew_task_execution.py:run_agent_task`` for CrewAI agent runs
+  - ``src/tools/llm_gateway/structured_output.py`` for tool-owned direct LLM calls
+
+Why it exists:
+- to log an estimated input-token number before a block starts,
+- to yield the shared counter into that block,
+- and to always emit a completion log on block exit.
+
+Current repo status:
+- this helper is not wired into any production ``src/`` call site today.
+- it is therefore optional infrastructure, not an active part of the pipeline.
 """
 
 from collections.abc import Iterator
@@ -38,6 +49,11 @@ def track_agent_tokens(
 
     Yields:
         Shared token counter for optional in-block usage logging.
+
+    Notes:
+        This is a local logging helper, not the authoritative observability path.
+        Use it only at a shared execution boundary if you need estimated token
+        context in structlog. Do not sprinkle it through individual agent files.
     """
     ####################################################
     # STEP 1: FETCH THE SHARED TOKEN COUNTER#

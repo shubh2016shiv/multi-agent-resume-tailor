@@ -1,10 +1,10 @@
-"""Resilience for LLM provider calls.
+"""Resilience wrappers for direct LLM provider calls."""
 
-    from src.core.resiliency import resilient_llm_call
+from src.core.resiliency.circuit_breaker import get_resilience_stats, reset_circuit_breakers
+from src.core.resiliency.resilient_call import resilient_llm_call
 
-See ``resilient_llm_call.py`` for the implementation.
-"""
-
-from src.core.resiliency.resilient_llm_call import resilient_llm_call
-
-__all__ = ["resilient_llm_call"]
+__all__ = [
+    "get_resilience_stats",
+    "resilient_llm_call",
+    "reset_circuit_breakers",
+]

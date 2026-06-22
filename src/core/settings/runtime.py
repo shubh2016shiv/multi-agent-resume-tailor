@@ -22,6 +22,7 @@ from src.core.settings.schema import (
     LLMConfig,
     LoggingConfig,
     ObservabilityConfig,
+    PromptCatalogConfig,
     ServicesConfig,
     WorkflowConfig,
 )
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
     file_paths: FilePathsConfig = Field(default_factory=FilePathsConfig)
+    prompt_catalog: PromptCatalogConfig = Field(default_factory=PromptCatalogConfig)
     services: ServicesConfig = Field(default_factory=ServicesConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
 

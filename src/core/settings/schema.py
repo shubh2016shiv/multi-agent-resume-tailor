@@ -167,6 +167,18 @@ class FilePathsConfig(BaseModel):
     output_dir: str = "tailored_resumes"
 
 
+class PromptCatalogConfig(BaseModel):
+    """Central locations for application-owned prompt files."""
+
+    tool_prompts_dir: str = Field(
+        default="src/config/tool_prompts",
+        description=(
+            "Project-relative or absolute path to the centralized tool prompt catalog. "
+            "This is application configuration, not agent configuration."
+        ),
+    )
+
+
 class ServicesConfig(BaseModel):
     """External service URLs."""
 

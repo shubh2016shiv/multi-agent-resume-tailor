@@ -12,3 +12,4 @@ PROJECT_ROOT = SRC_ROOT.parent
 SETTINGS_YAML_PATH = SRC_ROOT / "config" / "settings.yaml"
 AGENTS_CONFIG_DIR = SRC_ROOT / "config" / "agents"
 TASKS_CONFIG_DIR = SRC_ROOT / "config" / "tasks"
+TOOL_PROMPTS_DIR = SRC_ROOT / "config" / "tool_prompts"

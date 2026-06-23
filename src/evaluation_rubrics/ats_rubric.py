@@ -18,9 +18,9 @@ import re
 from src.core.logger import get_logger
 from src.data_models.evaluation import AtsCheckStatus, AtsRenderedOutcome
 from src.data_models.resume import Resume
-from src.tools.ats_compliance import audit_section_headers
-from src.tools.document_rendering.resume_renderer import build_resume_tex
-from src.tools.review_contract.review_models import Severity
+from src.tools.contracts import Severity
+from src.tools.engines.ats_compliance import audit_section_headers
+from src.tools.engines.document_rendering.resume_renderer import build_resume_tex
 
 logger = get_logger(__name__)
 
@@ -67,9 +67,7 @@ def grade_ats(final_resume: Resume) -> AtsRenderedOutcome:
     # Only MAJOR comments are missing ESSENTIAL sections; SUGGESTION comments are missing
     # OPTIONAL ones and must not fail the gate.
     violations = [
-        comment.message
-        for comment in header_review.comments
-        if comment.severity is Severity.MAJOR
+        comment.message for comment in header_review.comments if comment.severity is Severity.MAJOR
     ]
     if violations:
         return AtsRenderedOutcome(

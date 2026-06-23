@@ -9,9 +9,9 @@ introduced) and a skill-presence check (skills absent from the original resume t
 
 from src.data_models.evaluation import AccuracyMetrics
 from src.data_models.resume import Resume
-from src.tools.job_matching import keyword_present_in_text
-from src.tools.shared.resume_rendering import render_resume
-from src.tools.truthfulness import detect_claim_inflation
+from src.tools.engines.document_rendering.resume_text_renderer import render_resume
+from src.tools.engines.job_matching import keyword_present_in_text
+from src.tools.engines.truthfulness import detect_claim_inflation
 
 # Each mechanically-detected fabrication (introduced fact or unsupported skill) costs
 # this many accuracy points. accuracy_score is 100 minus the total penalty, floored at 0.

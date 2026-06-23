@@ -9,8 +9,8 @@ keywords present in the optimized resume text.
 from src.data_models.evaluation import RelevanceMetrics
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
-from src.tools.job_matching import keyword_present_in_text
-from src.tools.shared.resume_rendering import render_resume
+from src.tools.engines.document_rendering.resume_text_renderer import render_resume
+from src.tools.engines.job_matching import keyword_present_in_text
 
 
 def grade_relevance(revised: Resume, job: JobDescription) -> RelevanceMetrics:

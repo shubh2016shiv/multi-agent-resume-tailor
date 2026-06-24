@@ -8,10 +8,10 @@ import pytest
 
 from src.agents.professional_summary.models import ProfessionalSummary, SummaryDraft
 from src.data_models.evaluation import (
-    AccuracyMetrics,
     ATSMetrics,
-    QualityReport,
-    RelevanceMetrics,
+    JobAlignmentEvaluation,
+    ResumeQualityReport,
+    TruthfulnessEvaluation,
 )
 from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy, SkillGap, SkillMatch
@@ -71,8 +71,8 @@ def complete_alignment_strategy() -> AlignmentStrategy:
 # ── quality report fixtures ────────────────────────────────────────────────────
 
 
-def _make_accuracy() -> AccuracyMetrics:
-    return AccuracyMetrics(
+def _make_accuracy() -> TruthfulnessEvaluation:
+    return TruthfulnessEvaluation(
         accuracy_score=90.0,
         exaggerated_claims=[],
         unsupported_skills=[],
@@ -80,8 +80,8 @@ def _make_accuracy() -> AccuracyMetrics:
     )
 
 
-def _make_relevance() -> RelevanceMetrics:
-    return RelevanceMetrics(
+def _make_relevance() -> JobAlignmentEvaluation:
+    return JobAlignmentEvaluation(
         relevance_score=85.0,
         must_have_skills_coverage=100.0,
         missed_requirements=[],
@@ -99,11 +99,11 @@ def _make_ats_metrics() -> ATSMetrics:
 
 
 @pytest.fixture
-def passing_quality_report() -> QualityReport:
-    """A QualityReport with a score above the 80.0 pass threshold."""
-    return QualityReport(
+def passing_quality_report() -> ResumeQualityReport:
+    """A ResumeQualityReport with a score above the pass threshold."""
+    return ResumeQualityReport(
         overall_quality_score=85.0,
-        passed_quality_threshold=False,  # intentionally wrong — apply_quality_gate corrects it
+        passes_quality_gate=False,
         assessment_summary="High-quality tailored resume.",
         accuracy=_make_accuracy(),
         relevance=_make_relevance(),
@@ -113,11 +113,11 @@ def passing_quality_report() -> QualityReport:
 
 
 @pytest.fixture
-def failing_quality_report() -> QualityReport:
-    """A QualityReport with a score below the 80.0 pass threshold."""
-    return QualityReport(
+def failing_quality_report() -> ResumeQualityReport:
+    """A ResumeQualityReport with a score below the pass threshold."""
+    return ResumeQualityReport(
         overall_quality_score=72.0,
-        passed_quality_threshold=True,  # intentionally wrong — apply_quality_gate corrects it
+        passes_quality_gate=True,
         assessment_summary="Resume needs improvement.",
         accuracy=_make_accuracy(),
         relevance=_make_relevance(),

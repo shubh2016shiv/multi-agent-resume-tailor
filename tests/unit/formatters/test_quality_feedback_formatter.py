@@ -1,23 +1,23 @@
-"""Unit tests for src/formatters/quality_assurance_formatter.py.
+"""Unit tests for src/formatters/quality_feedback_formatter.py.
 
 Contract under test: the QA formatter passes the original resume, the final
 tailored resume, and the target job without leaking ATS wrapper metadata.
 """
 
-from src.formatters.quality_assurance_formatter import format_quality_assurance_context
+from src.formatters.quality_feedback_formatter import format_quality_feedback_context
 
 
-class TestFormatQualityAssuranceContext:
-    """Tests for the quality assurance context builder."""
+class TestFormatQualityFeedbackContext:
+    """Tests for the quality feedback context builder."""
 
-    def test_format_quality_assurance_context_uses_final_resume_and_drops_wrapper_metadata(
+    def test_quality_feedback_context_uses_final_resume_and_drops_wrapper_metadata(
         self,
         sample_optimized_resume,
         sample_resume,
         sample_job_description,
     ):
         """Contract: QA context contains the final resume, not ATS wrapper fields like section_order."""
-        result = format_quality_assurance_context(
+        result = format_quality_feedback_context(
             sample_optimized_resume,
             sample_resume,
             sample_job_description,

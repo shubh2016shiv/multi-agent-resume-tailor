@@ -14,7 +14,8 @@ it mislabelled common tech terms ("Python", "AWS", "PyTorch") as introduced ORGs
 they were present in the original -- false positives that tanked the accuracy score. Entity
 fabrication (an invented company, role, or degree) is a SEMANTIC judgment and is owned by
 the complementary rewrite_drift_detector (LLM, confidence-gated). Introduced SKILLS are
-owned by accuracy_rubric.grade_accuracy via keyword_present_in_text. This engine deliberately
+owned by resume_quality_evaluation.evaluate_resume_truthfulness via
+keyword_present_in_text. This engine deliberately
 does ONE thing -- numbers -- so nothing it reports overlaps those two, and every comment is
 HIGH confidence because the presence of a value is a measurement, not a judgment.
 """

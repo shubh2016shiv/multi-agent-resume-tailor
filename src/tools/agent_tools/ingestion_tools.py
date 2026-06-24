@@ -3,7 +3,7 @@
 from crewai.tools import tool
 
 from src.core.pii_mapping_store import assert_extraction_input_redacted, save_pii_mapping
-from src.core.run_context import get_current_run_id
+from src.core.run_id_binding import get_current_run_id
 from src.core.settings import get_config
 from src.tools.engines.document_ingestion import (
     audit_extraction_quality,

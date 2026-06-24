@@ -1,286 +1,132 @@
-# Resume Tailor Crew
+# Resume Tailor
 
-An enterprise-grade CrewAI system for intelligent resume tailoring based on job descriptions. This system uses specialized AI agents to analyze job requirements, extract resume data, and generate tailored resumes optimized for both Applicant Tracking Systems (ATS) and human reviewers.
+A multi-agent pipeline that reads a resume and a job description, then produces a tailored resume optimized for both applicant tracking systems and human reviewers. Built on CrewAI and LangGraph.
 
-## Overview
+## What it does
 
-Resume Tailor Crew automates the labor-intensive process of customizing resumes for different job applications. By leveraging multi-agent AI:
+You provide two files — your existing resume and a target job description (PDF, DOCX, Markdown, or plain text). The pipeline runs a sequence of specialized LLM agents that analyze the job requirements, identify gaps between your resume and what the job asks for, then rewrite each resume section to close those gaps. The output is a tailored resume in Markdown, DOCX, and optionally PDF.
 
-- **Job Analysis Agent**: Extracts requirements, skills, and context from job descriptions
-- **Resume Parsing Agent**: Structures existing resume data for comparison
-- **Gap Analysis Agent**: Identifies alignment between resume and job requirements
-- **Content Generation Agents**: Creates tailored professional summary, experience bullets, and skills
-- **Quality Assurance Agents**: Validates ATS compatibility and professional standards
-
-## Features
-
-- Multi-agent workflow for comprehensive resume analysis and tailoring
-- ATS-optimized formatting and keyword integration
-- Professional summary generation with strategic keyword placement
-- Experience section optimization with achievement metrics
-- Skills section reordering and prioritization
-- Quality assurance and consistency validation
-- Enterprise-grade logging and error handling
-- Type-safe configurations with Pydantic
-- Comprehensive testing framework
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.10 - 3.12
-- UV package manager (or pip)
-- OpenAI API key (or alternative LLM provider)
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/your-org/resume-tailor-crew.git
-cd resume-tailor-crew
-```
-
-2. Install dependencies using UV:
-```bash
-uv sync
-```
-
-Or using pip:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure environment:
-```bash
-cp env_example .env
-# Edit .env with your API keys and configuration
-```
-
-### Basic Usage
-
-```python
-from resume_tailor_crew.flows.resume_tailoring_flow import ResumeTailoringFlow
-
-# Initialize the flow
-flow = ResumeTailoringFlow()
-
-# Execute resume tailoring
-result = flow.kickoff(
-    resume_file_path="./path/to/resume.md",
-    job_description_file_path="./path/to/job_description.txt"
-)
-
-# Result contains tailored resume and analysis
-print(result.tailored_resume)
-print(result.analysis_report)
-```
-
-## Project Structure
-
-```
-resume-tailor-crew/
-├── src/resume_tailor_crew/
-│   ├── core/                 # Core infrastructure
-│   │   ├── config.py        # Configuration management
-│   │   └── logger.py        # Logging setup
-│   ├── models/              # Data models and schemas
-│   │   ├── resume.py
-│   │   ├── job_description.py
-│   │   └── strategy.py
-│   ├── tools/               # Custom tools for agents
-│   │   ├── resume_parser.py
-│   │   ├── job_analyzer.py
-│   │   └── document_formatter.py
-│   ├── agents/              # CrewAI agents and tasks
-│   │   ├── config/
-│   │   │   ├── agents.yaml
-│   │   │   └── tasks.yaml
-│   │   └── crew.py
-│   ├── flows/               # Business workflows
-│   │   └── resume_tailoring_flow.py
-│   ├── utils/               # Utility functions
-│   │   ├── file_handlers.py
-│   │   └── validators.py
-│   └── main.py              # Entry point
-├── tests/                   # Test suite
-│   ├── unit/               # Unit tests
-│   ├── integration/        # Integration tests
-│   └── fixtures/           # Test data
-├── docs/                   # Documentation
-├── scripts/                # Utility scripts
-├── examples/               # Example usage
-├── pyproject.toml          # Project configuration
-└── README.md
-```
-
-## Configuration
-
-### Environment Variables
-
-Key environment variables (see `env_example` for complete list):
-
-- `OPENAI_API_KEY` - OpenAI API key for GPT models
-- `ANTHROPIC_API_KEY` - Anthropic API key for Claude models
-- `ENVIRONMENT` - Deployment environment (development/staging/production)
-- `LOG_LEVEL` - Logging verbosity (DEBUG/INFO/WARNING/ERROR)
-
-### Application Config
-
-Configure application behavior via `config.py`:
-
-```python
-from resume_tailor_crew.core.config import AppConfig
-
-config = AppConfig()
-config.max_resume_iterations  # Max refinement iterations
-config.quality_threshold      # Minimum quality score required
-config.ats_keyword_density   # Optimal keyword density for ATS
-```
-
-## Development
-
-### Setup Development Environment
-
-```bash
-# Install with development dependencies
-uv sync --extra dev
-
-# Install pre-commit hooks
-pre-commit install
-```
-
-### Code Quality
-
-```bash
-# Format code
-black src/ tests/
-
-# Lint
-ruff check src/ tests/
-mypy src/
-
-# Run tests
-pytest tests/ -v --cov=src/resume_tailor_crew
-
-# Full quality check
-make quality  # if using Makefile
-```
-
-### Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run specific test category
-pytest tests/unit/ -v
-pytest tests/integration/ -v
-
-# Run with coverage
-pytest --cov=src/resume_tailor_crew --cov-report=html
-```
+Every run is scored by a deterministic quality gate before the resume is released. If the score falls below the threshold, the output is withheld so you can inspect the quality report and decide whether to adjust inputs or accept the draft.
 
 ## Architecture
 
-### Agent Workflow
-
 ```
-1. Job Description Analyzer
-   └─> Structured job requirements
-
-2. Resume Content Extractor  
-   └─> Structured resume data
-
-3. Gap & Alignment Strategist
-   └─> Strategy document
-
-4. Professional Summary Writer, Experience Optimizer, Skills Strategist (parallel)
-   └─> Tailored content
-
-5. ATS Optimizer
-   └─> ATS-compliant version
-
-6. Quality Assurance Reviewer
-   └─> Final validated resume
+         tailor_resume()
+             |
+    ┌────────┼─────────┐
+    ▼        ▼         |
+ extract  analyze      |          Stage 1 — parallel ingestion
+ resume    job         |
+    |        |         |
+    └────┬───┘         |
+         ▼             |
+    run_gap_analysis   |          Stage 2 — identify gaps, build strategy
+         |             |
+    ┌────┼────────┐    |
+    ▼    ▼        ▼    |
+ summary exp   skills  |          Stage 3 — parallel content generation
+    |    |        |    |
+    └────┼────────┘    |
+         ▼             |
+   assemble_ats        |          Stage 4 — merge into ATS-compliant resume
+         |             |
+         ▼             |
+   evaluate_quality ───|          Stage 5 — deterministic quality gate
+    |    |             |
+    |    └─► patch_ats |          Stage 5b — recover missing sections (no LLM)
+    |              |   |
+    └──────────────┼───┘
+         ▼         |
+   rehydrate_pii ◄─┘             Stage 6 — restore redacted personal data
+         |
+         ▼
+   render_final                  Stage 7 — write .md, .docx, .pdf to disk
 ```
 
-### Process Flow
+The pipeline is a LangGraph StateGraph. Parallel stages fan out across threads; sequential stages wait for all upstream nodes before running. A conditional edge after quality evaluation decides whether to render the resume or stop.
 
-- **Sequential Processing**: Tasks execute sequentially with context passing
-- **Type-Safe Models**: Pydantic models for all data structures
-- **Error Handling**: Comprehensive error handling with recovery mechanisms
-- **Logging**: Structured logging for debugging and monitoring
+## Pipeline stages
 
-## Documentation
+**Stage 1 — Ingestion.** The resume and job description are converted to Markdown, redacted for personally identifiable information, and parsed into typed data structures. These two nodes run in parallel.
 
-See `docs/` directory for detailed documentation:
+**Stage 2 — Gap analysis.** A code-owned matching engine computes requirement coverage and keyword overlap between the resume and the job description. The gap analysis agent reads those pre-computed facts and produces an alignment strategy — which sections need rewriting and how.
 
-- [Architecture](docs/ARCHITECTURE.md) - System design and principles
-- [Setup Guide](docs/SETUP.md) - Detailed installation instructions
-- [Agent Documentation](docs/AGENTS.md) - Agent descriptions and capabilities
-- [API Reference](docs/API.md) - Complete API documentation
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+**Stage 3 — Content generation.** Three agents run in parallel, each responsible for one resume section: professional summary, work experience, and skills. The experience node runs one agent call per past role, using a thread pool. A code-owned evidence audit checks the skills output and triggers one rewrite if it finds unsupported claims.
 
-## Usage Examples
+**Stage 4 — ATS assembly.** A single agent merges all optimized sections into one ATS-compliant resume. Code then replaces the assembler's experience section with the verified upstream entries, so no claim the LLM wrote can sneak past the guardrails.
 
-See `examples/` directory for complete examples:
+**Stage 5 — Quality evaluation.** Three deterministic engines score the resume on accuracy (are claims supported by the original resume?), relevance (do the requirements match the job?), and ATS structure (does the rendered document pass automated checks?). An LLM provides advisory narrative feedback, but the scores and the pass/fail gate are owned by code — the agent cannot self-certify.
 
-- [Basic Usage](examples/basic_usage.py) - Simple resume tailoring
-- [Advanced Workflow](examples/advanced_workflow.py) - Complex scenarios
+**Stage 5b — ATS section recovery.** If the ATS structure check finds an empty essential section (experience, education, or skills), a deterministic patch restores it from the canonical upstream state. No LLM is involved. If the restore does not fix the failure, the run escalates to human review.
 
-## Best Practices
+**Stage 6 — PII rehydration.** Placeholders that masked personal data during LLM processing are swapped back to real values. This runs on every path out of quality evaluation, so the returned resume always carries real names, phone numbers, and addresses.
 
-1. **Keep Resume Data Updated**: Maintain accurate employment history and achievements
-2. **Use Specific Job Descriptions**: More detailed job descriptions yield better results
-3. **Review Generated Content**: Always review AI-generated content for accuracy
-4. **Test Before Using**: Validate tailored resumes before submission
-5. **Version Control**: Keep versions of resumes for different roles
+**Stage 7 — Rendering.** The final resume is written to disk as Markdown and DOCX (always) and PDF (best-effort, if a LaTeX toolchain is installed). Files land under the configured output directory, organized by candidate name and job designation.
 
-## Troubleshooting
+## Quality evaluation
 
-See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and solutions.
+The quality gate is deterministic, not LLM-judged. Three dimensions are scored by code-owned engines:
 
-## Performance Considerations
+- **Accuracy (40%)** — Checks whether every skill and claim in the tailored resume is supported by evidence in the original resume. Skills with no trace in the source are flagged as unsupported.
+- **Relevance (35%)** — Measures how many job requirements are addressed by the tailored resume, using keyword coverage against the job description.
+- **ATS compliance (25%)** — Renders the resume to LaTeX and inspects the output for structural issues like missing section headers or empty required sections.
 
-- Average processing time: 2-5 minutes per resume
-- Token usage: ~3000-5000 tokens (depends on resume/job description length)
-- Estimated cost: $0.10-0.30 per resume (using GPT-4)
+The blended score is compared against a configurable threshold. A non-passing ATS structure check overrides any passing blended score — the rendered document is authoritative over self-assessment.
 
-## Contributing
+Each run writes a full JSON artifact (including the original resume, the tailored resume, and the quality report) to the output directory. This survives caller crashes and lets you inspect gate-fail runs without re-running the paid pipeline.
 
-Contributions are welcome! Please:
+## Prerequisites
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/improvement`)
-3. Commit changes with clear messages
-4. Submit a pull request
+- Python 3.12 or later
+- [uv](https://docs.astral.sh/uv/) package manager
+- An LLM provider API key (OpenAI, Anthropic, or any LiteLLM-compatible provider)
+- [Tectonic](https://tectonic-typesetting.github.io/) LaTeX engine (optional; only needed for PDF output)
+
+## Quick start
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd resume_tailor
+uv sync
+
+# Set your API key
+cp env_example .env
+# Edit .env — add your LLM_API_KEY and preferred model
+
+# Run the pipeline
+uv run python src/agent_orchestrator.py
+```
+
+The orchestrator script prompts for resume and job description file paths. Output lands in the configured `output_dir`.
+
+## Configuration
+
+All settings live in `src/config/settings.yaml` and can be overridden via environment variables or a `.env` file.
+
+Key settings:
+
+- `llm.model` — the model used by every agent (any LiteLLM-supported model string)
+- `llm.temperature` — creativity control for generated content
+- `quality.threshold` — minimum blended score to pass the quality gate (default: 65)
+- `feature_flags.enable_pii_redaction` — mask personal data before LLM processing
+- `feature_flags.render_draft_on_gate_fail` — write output files even when the gate fails (useful during development)
+- `file_paths.output_dir` — where rendered resumes and run artifacts are written
+
+## Observability
+
+The pipeline emits structured logs at every stage boundary, agent call, routing decision, and quality evaluation. Logs are key-value events (not prose), so they are searchable and chartable in any log platform.
+
+[LangSmith](https://smith.langchain.com) integration is available for distributed tracing. When enabled, every agent run appears as a traced span with token usage, latency, and cost metadata. Set `LANGSMITH_API_KEY` in your environment to enable it — the pipeline runs normally without it.
+
+## Design principles
+
+- **Code owns the scores.** LLM agents generate content; deterministic engines evaluate it. The quality gate cannot be passed by an agent claiming its own output is good.
+- **Guardrails, not suggestions.** The experience node rejects any LLM output that changes source bullet text. The skills node re-adds any truthful skill the agent dropped. The ATS patch restores empty sections from typed state without calling an LLM.
+- **One model string in config.** Every agent reads the same model setting. Changing providers means changing one YAML value.
+- **PII never reaches an LLM.** Personal data is redacted before extraction, stored in a run-scoped Redis mapping, and rehydrated after all agent work is complete.
+- **Every run is auditable.** The full pipeline state — inputs, strategy, scores, and final resume — is persisted as a JSON artifact whether the gate passes or fails.
 
 ## License
 
-This project is licensed under the MIT License - see LICENSE file for details.
-
-## Support
-
-For issues, questions, or suggestions:
-
-- Open an issue on GitHub
-- Check [Troubleshooting](docs/TROUBLESHOOTING.md)
-- Review [Architecture](docs/ARCHITECTURE.md) for design decisions
-
-## Roadmap
-
-- [ ] Cover letter generation
-- [ ] Multiple language support
-- [ ] Persistent storage with database
-- [ ] Web UI interface
-- [ ] API service deployment
-- [ ] Advanced analytics and feedback
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
-
----
-
-**Note**: This tool generates resume content based on AI analysis. Always review and verify accuracy before submitting to employers.
-
+MIT

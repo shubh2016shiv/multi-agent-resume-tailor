@@ -1,15 +1,10 @@
-assess_quality_task:
+write_quality_feedback_task:
   description: >
     Review the optimized resume against the original resume and the job, and produce an
-    honest QualityReport. Works for any field.
+    honest advisory feedback. Works for any field.
 
-    READ THIS FIRST -- what is yours vs what code owns:
-    - The numeric dimensions (accuracy, relevance, ats_optimization), the
-      overall_quality_score, and passed_quality_threshold are ALL recomputed in code from
-      mechanical engines and the rendered document, and will REPLACE whatever you put. So
-      do not agonize over calibrating numbers -- emit reasonable placeholders and move on.
-    - What survives and reaches a human is your `assessment_summary` and
-      `feedback_for_improvement`. Spend your effort there.
+    Code owns every score and release decision. Return only assessment_summary and
+    feedback_for_improvement.
 
     HOW TO REVIEW (ground everything in tools, not impressions):
     1. Call "Audit Truthfulness" with the ORIGINAL resume and the OPTIMIZED resume. This is
@@ -29,18 +24,14 @@ assess_quality_task:
       protects the candidate from sending a dishonest resume.
 
   expected_output: >
-    A single QualityReport JSON object: overall_quality_score (placeholder float; code
-    recomputes), passed_quality_threshold (placeholder bool; code recomputes),
-    assessment_summary (honest high-level verdict), accuracy / relevance / ats_optimization
-    (best-effort metric objects; code overwrites them), and feedback_for_improvement
-    (specific, fixable guidance grounded in the audit tools, or null if nothing is wrong).
+    A single JSON object containing assessment_summary and feedback_for_improvement.
 
-  agent: quality_assurance_reviewer
+  agent: quality_feedback_reviewer
 
 # =============================================================================
 # SUPERSEDED 2026-06-22 -- refinements to the live task above:
 #   * Old note said only the ATS dimension was overwritten ("spend effort on accuracy and
-#     relevance instead"). STALE: quality.py:_ground_quality_dimensions overwrites ALL three
+#     relevance instead"). STALE: resume_quality.py:_ground_quality_dimensions overwrites ALL three
 #     dimensions, the overall score, AND the gate. Effort is now pointed at the only outputs
 #     that survive: assessment_summary + feedback_for_improvement.
 #   * Added an explicit conservatism / anti-false-positive rule -- the code comments note the
@@ -48,7 +39,7 @@ assess_quality_task:
 #     exaggerations, single-column called multi-column).
 #
 # Also commented out below: the DEAD `quality_assurance_task`. The live pipeline runs
-# `assess_quality_task` (src/orchestration/nodes/quality.py). The dead task had no tool
+# `assess_quality_task` (src/orchestration/nodes/resume_quality.py). The dead task had no tool
 # grounding and self-owned the verdict.
 # -----------------------------------------------------------------------------
 # quality_assurance_task:

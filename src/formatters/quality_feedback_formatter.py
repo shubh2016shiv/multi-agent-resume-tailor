@@ -1,10 +1,10 @@
-"""Build context for the quality assurance reviewer.
+"""Build context for the optional quality feedback reviewer.
 
 Caller:
-- `src/orchestration/nodes/quality.py`
+- `src/orchestration/nodes/resume_quality.py`
 
 Consumer:
-- the `assess_quality_task`
+- the `write_quality_feedback_task`
 
 This formatter keeps:
 - the original resume for truthfulness comparison
@@ -50,7 +50,7 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
     }
 
 
-def build_quality_assurance_payload(
+def build_quality_feedback_payload(
     optimized_resume: AtsOptimizedResume,
     original_resume: Resume,
     job: JobDescription,
@@ -78,7 +78,7 @@ def build_quality_assurance_payload(
     }
 
 
-def format_quality_assurance_context(
+def format_quality_feedback_context(
     optimized_resume: AtsOptimizedResume,
     original_resume: Resume,
     job: JobDescription,
@@ -88,7 +88,7 @@ def format_quality_assurance_context(
     ####################################################
     # STEP 1: BUILD THE SMALL DATA PAYLOAD THE REVIEWER ACTUALLY NEEDS#
     ####################################################
-    payload = build_quality_assurance_payload(optimized_resume, original_resume, job)
+    payload = build_quality_feedback_payload(optimized_resume, original_resume, job)
 
     ####################################################
     # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#

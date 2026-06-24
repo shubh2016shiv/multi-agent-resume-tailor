@@ -1,8 +1,7 @@
 """
-Quality Assessment agent factory.
+Quality Feedback agent factory.
 
-Builds a CrewAI Agent that audits the optimized resume against the original and the
-job, then produces a QualityReport. The agent is the final gatekeeper before render.
+Builds a CrewAI Agent that audits the tailored resume and writes advisory feedback.
 
 It is wired with two read-only audit tools the agent calls WHILE reasoning:
   - audit_truthfulness          -> accuracy  (original vs revised: invented/inflated facts)
@@ -10,15 +9,13 @@ It is wired with two read-only audit tools the agent calls WHILE reasoning:
 The tools never mutate the resume.
 
 ATS is NOT an agent tool here. ATS compatibility is graded by code on the REAL rendered
-artifact (evaluation_rubrics.grade_ats inspects the .tex). The agent has no rendered
+artifact (resume_quality_evaluation.evaluate_rendered_structure inspects the .tex).
+The agent has no rendered
 artifact, only its lossy context, so any self-cert it made would be a false positive that
 code discards anyway -- so the tool is removed rather than overridden.
 
-Neither the dimension scores nor the pass/fail decision are ultimately the agent's: the
-QA node overrides all three dimensions with code-owned grounded scores and apply_quality_gate
-sets passed_quality_threshold deterministically. That code-owned boolean gates PDF rendering.
-
-Output contract: QualityReport (src/data_models/evaluation.py), via Task output_pydantic.
+Output contract: QualityFeedback (src/data_models/evaluation.py). The agent cannot
+write scores or release decisions.
 """
 
 from crewai import LLM, Agent
@@ -34,10 +31,11 @@ from src.tools.agent_tools import (
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
-# ATS is graded by code on the rendered .tex (evaluation_rubrics.grade_ats), not by the
+# ATS is graded by code on the rendered .tex
+# (resume_quality_evaluation.evaluate_rendered_structure), not by the
 # agent -- so validate_ats_compliance is intentionally NOT in this list.
 
-_QA_TOOLS: list = [
+_QUALITY_FEEDBACK_TOOLS: list = [
     audit_truthfulness,
     analyze_jd_keyword_coverage,
 ]
@@ -46,19 +44,18 @@ _QA_TOOLS: list = [
 # ── factory ───────────────────────────────────────────────────────────────────
 
 
-def create_quality_assessment_agent() -> Agent:
-    """Build a CrewAI Agent for final quality assessment of the optimized resume.
+def create_quality_feedback_agent() -> Agent:
+    """Build the optional agent that writes grounded resume quality feedback.
 
-    Expects: agents.yaml has a 'quality_assurance_reviewer' key with
+    Expects: agent config has a 'quality_feedback_reviewer' key with
              role, goal, backstory, and llm fields.
-    Returns: a configured CrewAI Agent wired with the two QA audit tools
-             (truthfulness + keyword coverage; ATS is graded by code, not a tool).
+    Returns a configured agent with truthfulness and keyword-coverage tools.
     Raises: RuntimeError if required config fields are missing.
     """
     ####################################################
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
-    config = load_agent_config("quality_assurance_reviewer")
+    config = load_agent_config("quality_feedback_reviewer")
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.2))
 
     ####################################################
@@ -73,7 +70,7 @@ def create_quality_assessment_agent() -> Agent:
         llm=llm_instance,
         verbose=config.get("verbose", True),
         allow_delegation=False,
-        tools=_QA_TOOLS,
+        tools=_QUALITY_FEEDBACK_TOOLS,
         max_retry_limit=defaults.max_retry_limit,
         max_rpm=defaults.max_rpm,
         max_iter=defaults.max_iter,
@@ -85,8 +82,8 @@ def create_quality_assessment_agent() -> Agent:
     # STEP 3: LOG AND RETURN
     ####################################################
     logger.info(
-        "Quality Assessment agent created",
+        "Quality Feedback agent created",
         model=config["llm"],
-        tools=[tool.name for tool in _QA_TOOLS],
+        tools=[tool.name for tool in _QUALITY_FEEDBACK_TOOLS],
     )
     return agent

@@ -13,12 +13,12 @@ from typing import TypedDict
 from src.agents.ats_optimizer.models import AtsOptimizedResume
 from src.agents.professional_experience.models import OptimizedExperienceSection
 from src.agents.professional_summary.models import ProfessionalSummary
-from src.data_models.evaluation import AtsRenderedOutcome, QualityReport
+from src.data_models.evaluation import RenderedStructureEvaluation, ResumeQualityReport
 from src.data_models.job import JobDescription
 from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
-from src.tools.review_contract.review_models import ReviewResult
+from src.tools.contracts import ReviewResult
 
 
 class ResumeEnhancementPipelineState(TypedDict):
@@ -50,10 +50,10 @@ class ResumeEnhancementPipelineState(TypedDict):
     optimized_resume: AtsOptimizedResume | None
 
     # --- Stage 5: sequential quality assurance ---
-    qa_report: QualityReport | None
+    quality_report: ResumeQualityReport | None
     # Code-owned rendered-ATS verdict (authoritative over the agent's self-cert).
-    # A non-PASS status here forces qa_report.passed_quality_threshold to False.
-    ats_rendered_outcome: AtsRenderedOutcome | None
+    # A non-PASS status here forces quality_report.passes_quality_gate to False.
+    rendered_structure_evaluation: RenderedStructureEvaluation | None
 
     # --- Stage 5b: conditional ATS section recovery (only when the ATS check FAILed) ---
     # Terminal disposition: True when the ATS failure is unrecoverable (the essential

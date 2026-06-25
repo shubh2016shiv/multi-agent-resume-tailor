@@ -20,7 +20,16 @@ class ApplicationConfig(BaseModel):
 class FeatureFlags(BaseModel):
     """Feature flags for enabling/disabling experimental functionality."""
 
-    enable_cache: bool = True
+    enable_cache: bool = Field(
+        default=True,
+        description=(
+            "Cache LLM responses on disk (.litellm_cache/). When True, an identical "
+            "(model, messages, params) call is served from disk instead of re-billing the "
+            "provider -- so repeated development runs cost nothing after the first. The key "
+            "includes the full request, so different resumes/JDs never collide. Set False to "
+            "force every call to hit the provider."
+        ),
+    )
     enable_web_search: bool = False
     enable_human_in_the_loop: bool = False
     enable_pii_redaction: bool = Field(
@@ -156,6 +165,18 @@ class FilePathsConfig(BaseModel):
     # Base directory for produced resume artifacts. Renderers nest under it as
     # <output_dir>/<candidate>/<designation>/ (see document_rendering.output_location).
     output_dir: str = "tailored_resumes"
+
+
+class PromptCatalogConfig(BaseModel):
+    """Central locations for application-owned prompt files."""
+
+    tool_prompts_dir: str = Field(
+        default="src/config/tool_prompts",
+        description=(
+            "Project-relative or absolute path to the centralized tool prompt catalog. "
+            "This is application configuration, not agent configuration."
+        ),
+    )
 
 
 class ServicesConfig(BaseModel):

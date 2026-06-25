@@ -1,89 +1,173 @@
 create_alignment_strategy_task:
   description: >
-    Create a comprehensive strategy for aligning the resume with the job requirements.
+    Build ONE alignment strategy that three downstream agents (Summary Writer,
+    Experience Optimizer, Skills Optimizer) will follow. They do not re-analyze, so
+    your strategy is the plan of record. Works for any field.
 
-    CRITICAL: You MUST output a valid JSON object that includes ALL of the following required fields.
-    Missing any of these fields will cause validation errors.
+    INPUTS (in the CONTEXT section below):
+    - candidate_profile: the candidate's summary, skills, work_experience (with
+      achievements and skills_used), education, certifications, languages.
+    - target_job: job title, level, summary, requirements (each with importance),
+      and ats_keywords.
+    - current_match_report: the CODE-COMPUTED ground truth. It contains
+      `score` (authoritative must-have requirement coverage, 0-100),
+      `summary`, and `findings` (each with severity, section, message, advice --
+      these are the per-requirement gaps/partial matches and the missing JD keywords).
+    Treat current_match_report as fact. Do not contradict it or recompute it; build on it.
 
-    REQUIRED FIELDS (ALL MANDATORY):
-    1. overall_fit_score (float, 0-100): Numeric score representing overall compatibility
-    2. summary_of_strategy (string): High-level strategic summary (2-3 sentences)
-    3. professional_summary_guidance (string): Specific instructions for the Professional Summary Writer
-    4. experience_guidance (string): Specific instructions for the Experience Optimizer
-    5. skills_guidance (string): Specific instructions for the Skills Optimizer
-    6. identified_matches (list): List of SkillMatch objects (can be empty list if no matches)
-    7. identified_gaps (list): List of SkillGap objects (can be empty list if no gaps)
-    8. keywords_to_integrate (list): List of keyword strings (at least 15 keywords)
+    HOW TO WORK (follow the output field order -- it is the procedure):
+    1. identified_matches: list requirements the candidate genuinely satisfies, grounded
+       in candidate_profile and consistent with current_match_report. For each, give the
+       resume_skill, the job_requirement, a match_score, and a one-line justification.
+       Direct, transferable, and terminology-difference matches all count -- but only when
+       real resume evidence supports them.
+    2. identified_gaps: take the gaps from current_match_report.findings. For each, set
+       importance from the requirement and write a TRUTHFUL suggestion: surface existing
+       related evidence by emphasis/ordering, or acknowledge the gap honestly. Never
+       suggest inventing experience.
+    3. keywords_to_integrate: prioritized JD keywords (must-haves first). Include every
+       missing must-have keyword named in current_match_report. Do NOT pad to a fixed
+       count, and do not include a keyword the candidate cannot truthfully support.
+    4. overall_fit_score: ANCHOR to current_match_report.score. You may nudge it a few
+       points if matches/gaps justify it, but say why in summary_of_strategy. Do NOT
+       recompute it with a hand-weighted formula.
+    5. summary_of_strategy: 2-3 sentences -- the core focus and any score adjustment.
+    6-8. The three guidance fields. Each must be executable by its agent's real limits:
+       - professional_summary_guidance: which truthful strengths to lead with and which
+         supported keywords to prioritize. The writer keyword-gates against resume
+         evidence, so never ask it to claim something unsupported.
+       - experience_guidance: the Experience Optimizer may ONLY REORDER existing bullets
+         verbatim -- it cannot reword, reframe, add metrics, split, or merge. Guide it on
+         WHICH roles/bullets to rank first for this job. Never tell it to rewrite or
+         "reframe" a bullet.
+       - skills_guidance: the Skills Optimizer reorders/groups skills and adds only
+         evidence-backed ones; it never drops a truthful skill. Guide it on ordering,
+         grouping, and which supported JD terms to surface first.
 
-    The context includes a `match_findings` section: a code-computed report of
-    must-have requirement coverage, per-requirement gaps/partial matches, and missing
-    ATS keywords. Treat it as ground truth for matches, gaps, and keywords -- do not
-    contradict it. Use the candidate_profile and job_requirements sections to add
-    detail and write the guidance.
-
-    YOUR ANALYSIS WORKFLOW:
-    1. Compare the extracted job requirements against the candidate's experience and skills.
-    2. Identify all skill matches, categorizing them as direct, transferable, or implicit.
-    3. Calculate a match percentage for each requirement.
-    4. Identify all skill gaps, assessing whether they are deal-breakers or addressable.
-    5. Create strategic recommendations on which experiences to emphasize, how to reframe
-       achievements, which skills to prioritize, and which keywords must be incorporated.
-    6. Develop content guidance for each section of the resume (summary, experience, skills).
-    7. Set a target keyword density and identify high-priority keywords for ATS optimization.
-
-    FIELD-BY-FIELD GUIDANCE:
-
-    - overall_fit_score: Calculate a numeric score (0-100) based on:
-      * Percentage of must-have requirements met (40% weight)
-      * Percentage of should-have requirements met (30% weight)
-      * Years of experience alignment (20% weight)
-      * Domain/industry match (10% weight)
-
-    - summary_of_strategy: Write 2-3 sentences describing the core strategy.
-
-    - professional_summary_guidance: Provide specific instructions for the summary writer.
-
-    - experience_guidance: Provide specific instructions for each major role.
-
-    - skills_guidance: Provide specific instructions for skills organization.
-
-    - identified_matches: List of objects with structure:
-      {
-        "resume_skill": "Django Framework",
-        "job_requirement": "Experience with Python web frameworks",
-        "match_score": 90.0,
-        "justification": "Django is a popular Python web framework, directly fulfilling the requirement."
-      }
-
-    - identified_gaps: List of objects with structure:
-      {
-        "missing_skill": "Kubernetes",
-        "importance": "must_have",
-        "suggestion": "Review project experience for any container orchestration work that can be highlighted."
-      }
-
-    - keywords_to_integrate: List of at least 15 high-priority keywords from the job description.
-
-    PRE-OUTPUT VALIDATION CHECKLIST:
-    Before outputting your JSON, verify:
-    - overall_fit_score is a number between 0-100
-    - summary_of_strategy is a non-empty string (2-3 sentences)
-    - All guidance fields must contain specific, actionable instructions
-    - keywords_to_integrate is a list with at least 15 keywords
-    - identified_matches and identified_gaps are lists (can be empty)
-
-    Be analytical but also creative in identifying matches. Many apparent gaps are simply
-    differences in terminology. Remain honest about true gaps and suggest how to address them
-    without fabrication.
+    STRUCTURE EXAMPLES (domain-neutral -- [PLACEHOLDERS] stand for the candidate's real
+    field; copy the SHAPE, never these words):
+      identified_matches item:
+        {"resume_skill": "[SKILL_FROM_RESUME]",
+         "job_requirement": "[REQUIREMENT_FROM_JD]",
+         "match_score": 90.0,
+         "justification": "[why the resume evidence satisfies it]"}
+      identified_gaps item:
+        {"missing_skill": "[REQUIRED_SKILL]",
+         "importance": "must_have",
+         "suggestion": "Resume shows [related evidence]; prioritize where it appears. If truly absent, acknowledge honestly -- do not fabricate."}
 
   expected_output: >
-    A complete JSON object conforming to the AlignmentStrategy model structure with all 8
-    required fields present. All guidance fields must contain specific, actionable instructions.
-    keywords_to_integrate must have at least 15 keywords. identified_matches and identified_gaps
-    can be empty lists but must be present. overall_fit_score must be a number (0-100).
+    A valid JSON object conforming to the AlignmentStrategy model: identified_matches,
+    identified_gaps, keywords_to_integrate, overall_fit_score (anchored to the match
+    report), summary_of_strategy, and the three guidance fields. Lists may be empty only
+    when the match report supports that. Guidance must be specific and executable within
+    each downstream agent's stated limits.
 
-  context:
-    - analyze_job_description_task
-    - extract_resume_content_task
-  agent: gap_alignment_strategist
+  agent: gap_analysis_specialist
   output_file: analysis/alignment_strategy.json
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- kept for reference, not loaded (run_agent_task reads only
+# `description` + `expected_output`; `context`/`agent`/`output_file` are ignored).
+# Why replaced:
+#   * Read the WRONG context keys: it referenced `match_findings` / `job_requirements`,
+#     but the formatter emits `candidate_profile` / `target_job` / `current_match_report`.
+#   * Hand-computed overall_fit_score via a 40/30/20/10 formula -- unreliable LLM
+#     arithmetic when current_match_report.score is already authoritative. Now anchored.
+#   * Forced ">= 15 keywords" -- arbitrary count that pressures padding with weak/
+#     unsupported keywords. Now: cover all missing must-haves, no padding.
+#   * experience_guidance / "reframe achievements" pushed the REORDER-ONLY Experience
+#     Optimizer to break its verbatim contract. Now guidance respects each agent's limits.
+#   * Software-biased examples (Django, Kubernetes) -> domain-neutral placeholders.
+#   * Dropped the redundant "MUST output valid JSON / all 8 fields" pleading (the runtime
+#     enforces the schema via response_format).
+# -----------------------------------------------------------------------------
+# create_alignment_strategy_task:
+#   description: >
+#     Create a comprehensive strategy for aligning the resume with the job requirements.
+# 
+#     CRITICAL: You MUST output a valid JSON object that includes ALL of the following required fields.
+#     Missing any of these fields will cause validation errors.
+# 
+#     REQUIRED FIELDS (ALL MANDATORY):
+#     1. overall_fit_score (float, 0-100): Numeric score representing overall compatibility
+#     2. summary_of_strategy (string): High-level strategic summary (2-3 sentences)
+#     3. professional_summary_guidance (string): Specific instructions for the Professional Summary Writer
+#     4. experience_guidance (string): Specific instructions for the Experience Optimizer
+#     5. skills_guidance (string): Specific instructions for the Skills Optimizer
+#     6. identified_matches (list): List of SkillMatch objects (can be empty list if no matches)
+#     7. identified_gaps (list): List of SkillGap objects (can be empty list if no gaps)
+#     8. keywords_to_integrate (list): List of keyword strings (at least 15 keywords)
+# 
+#     The context includes a `match_findings` section: a code-computed report of
+#     must-have requirement coverage, per-requirement gaps/partial matches, and missing
+#     ATS keywords. Treat it as ground truth for matches, gaps, and keywords -- do not
+#     contradict it. Use the candidate_profile and job_requirements sections to add
+#     detail and write the guidance.
+# 
+#     YOUR ANALYSIS WORKFLOW:
+#     1. Compare the extracted job requirements against the candidate's experience and skills.
+#     2. Identify all skill matches, categorizing them as direct, transferable, or implicit.
+#     3. Calculate a match percentage for each requirement.
+#     4. Identify all skill gaps, assessing whether they are deal-breakers or addressable.
+#     5. Create strategic recommendations on which experiences to emphasize, how to reframe
+#        achievements, which skills to prioritize, and which keywords must be incorporated.
+#     6. Develop content guidance for each section of the resume (summary, experience, skills).
+#     7. Set a target keyword density and identify high-priority keywords for ATS optimization.
+# 
+#     FIELD-BY-FIELD GUIDANCE:
+# 
+#     - overall_fit_score: Calculate a numeric score (0-100) based on:
+#       * Percentage of must-have requirements met (40% weight)
+#       * Percentage of should-have requirements met (30% weight)
+#       * Years of experience alignment (20% weight)
+#       * Domain/industry match (10% weight)
+# 
+#     - summary_of_strategy: Write 2-3 sentences describing the core strategy.
+# 
+#     - professional_summary_guidance: Provide specific instructions for the summary writer.
+# 
+#     - experience_guidance: Provide specific instructions for each major role.
+# 
+#     - skills_guidance: Provide specific instructions for skills organization.
+# 
+#     - identified_matches: List of objects with structure:
+#       {
+#         "resume_skill": "Django Framework",
+#         "job_requirement": "Experience with Python web frameworks",
+#         "match_score": 90.0,
+#         "justification": "Django is a popular Python web framework, directly fulfilling the requirement."
+#       }
+# 
+#     - identified_gaps: List of objects with structure:
+#       {
+#         "missing_skill": "Kubernetes",
+#         "importance": "must_have",
+#         "suggestion": "Review project experience for any container orchestration work that can be highlighted."
+#       }
+# 
+#     - keywords_to_integrate: List of at least 15 high-priority keywords from the job description.
+# 
+#     PRE-OUTPUT VALIDATION CHECKLIST:
+#     Before outputting your JSON, verify:
+#     - overall_fit_score is a number between 0-100
+#     - summary_of_strategy is a non-empty string (2-3 sentences)
+#     - All guidance fields must contain specific, actionable instructions
+#     - keywords_to_integrate is a list with at least 15 keywords
+#     - identified_matches and identified_gaps are lists (can be empty)
+# 
+#     Be analytical but also creative in identifying matches. Many apparent gaps are simply
+#     differences in terminology. Remain honest about true gaps and suggest how to address them
+#     without fabrication.
+# 
+#   expected_output: >
+#     A complete JSON object conforming to the AlignmentStrategy model structure with all 8
+#     required fields present. All guidance fields must contain specific, actionable instructions.
+#     keywords_to_integrate must have at least 15 keywords. identified_matches and identified_gaps
+#     can be empty lists but must be present. overall_fit_score must be a number (0-100).
+# 
+#   context:
+#     - analyze_job_description_task
+#     - extract_resume_content_task
+#   agent: gap_alignment_strategist
+#   output_file: analysis/alignment_strategy.json

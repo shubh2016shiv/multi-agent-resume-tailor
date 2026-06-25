@@ -1,9 +1,13 @@
-from .llm_reviewer import request_review
-from .structured_llm import request_structured_output
-from .tool_prompts import load_tool_prompt
+"""Shared LLM entry points for tool-layer judgment calls."""
+
+from .embedding_similarity import cosine_similarity, embed_texts, max_similarity
+from .review_requests import request_review
+from .structured_output import request_structured_output
 
 __all__ = [
-    "request_structured_output",
+    "cosine_similarity",
+    "embed_texts",
+    "max_similarity",
     "request_review",
-    "load_tool_prompt",
+    "request_structured_output",
 ]

@@ -1,85 +1,149 @@
 optimize_skills_section_task:
   description: >
-    Reorder and categorize the skills section for maximum ATS matching and relevance,
-    without adding unsupported capabilities and without dropping the candidate's truthful skills.
-    Your task is to:
-    1. Review skills from the original resume, experience evidence, alignment strategy,
-       and the job description.
-    2. Build a truthful skills inventory from resume evidence first.
-    3. Reorder skills strategically: must-have skills first, then should-have, then nice-to-have.
-    4. Use the exact terminology from the job posting only when accurate.
-    5. Group skills logically (e.g., Technical Skills, Programming Languages, Tools & Platforms).
-    6. Add only evidence-backed transferable or synonymous skills.
-    7. Keep every skill the candidate truthfully listed. Do NOT drop a real, specific skill
-       (e.g. LangChain, Azure AI Search, Kubernetes) because it seems less relevant — every
-       truthful skill is an ATS keyword, and removing one only loses a match. Reordering, not
-       deletion, is how you de-emphasize a skill.
+    Order, group, and truthfully normalize the candidate's skills for this job. Works for
+    any field. Your durable contribution is PRIORITIZATION and GROUPING -- the surrounding
+    system guarantees the rest in code (see "WHAT CODE HANDLES" below), so spend your effort
+    where judgement matters.
 
-    CRITICAL TRUTHFULNESS RULES:
+    INPUTS (in the CONTEXT section): the candidate's resume skills and experience, the
+    alignment strategy's skills_guidance, and the job's requirements + ats_keywords.
 
-    ALLOWED:
-    - Keep original resume skills that are still relevant.
-    - Normalize terminology when the resume evidence clearly supports the JD term
-      (for example, "RESTful APIs" may match "REST APIs").
-    - Add a JD keyword only when experience, project, education, certification, or
-      existing skills evidence proves the candidate has that capability.
-    - Add a broader category only when the resume gives concrete examples inside it
-      (for example, "cloud platforms" may be supported by AWS Lambda evidence).
+    YOUR JOB:
+    1. Prioritize: evidenced must-have skills first, then evidenced should-have, then the
+       candidate's strongest proven strengths, then other relevant evidenced skills.
+    2. Group into clear, domain-appropriate categories (skill_categories).
+    3. Normalize terminology to the job's exact wording ONLY when the candidate's evidence
+       genuinely matches it (e.g. a near-synonym the resume clearly supports).
+    4. Assign proficiency_level where the evidence supports it.
+    5. For every skill you ADD or NORMALIZE, fill justification + evidence (from the resume,
+       never quoting the job description) and a confidence_score.
 
-    FORBIDDEN:
-    - Do not treat job description requirements as candidate evidence.
-    - Do not add a tool because it is common in a domain.
-    - Do not add database, framework, language, observability, stream-processing,
-      SaaS, enterprise software, open-source, GraphQL, Kubernetes, Terraform, or
-      MLOps claims unless the resume evidence explicitly supports them.
-    - Do not add skills based only on company names or employer reputation.
+    TRUTHFULNESS (audited downstream -- violations force a costly rewrite):
+    - Add a skill ONLY when experience, projects, education, certifications, or existing
+      skills prove it. Never treat a job requirement as proof the candidate has it.
+    - Do not add a skill just because it is common in a field, or based on an employer's
+      name or reputation.
+    - If a job keyword has no truthful support, leave it out and note it in
+      optimization_notes -- do not invent it.
 
-    YOUR WORKFLOW:
-    1. Extract candidate-evidenced skills from resume skills and experience.
-    2. Compare evidenced skills against must-have, should-have, and nice-to-have JD targets.
-    3. Add missing JD keywords only when supported by candidate evidence.
-    4. Leave unsupported JD keywords out of optimized_skills; mention them in
-       optimization_notes as unresolved rather than inventing them.
-    5. Prioritize skills: evidenced must-have then evidenced should-have then domain strengths.
-    6. Categorize skills using domain-appropriate categories.
-    7. Remove only exact duplicates. Never remove a truthful candidate skill to shorten the list.
+    WHAT CODE HANDLES (so you don't have to):
+    - Completeness: any truthful skill you omit is re-added automatically, and evidenced job
+      keywords you miss are recovered. So do NOT pad the list or chase every keyword -- order
+      the important skills well; do not delete truthful skills to shorten the list.
+    - Removal of unsupported skills: a downstream audit flags and removes them.
 
-    VALIDATION REQUIREMENTS:
-    For EVERY optimized skill:
-    1. Provide specific evidence from the candidate resume or experience.
-    2. The evidence field must not quote the job description.
-    3. Explain the logical connection clearly in justification.
-    4. Rate confidence (0-100%) and include only if >= 70.
-    5. Consider: Would a recruiter in this field accept this inference?
-
-    SKILL PRIORITIZATION STRATEGY:
-    1. EVIDENCED MUST-HAVE: List first, using exact JD terminology when truthful.
-    2. EVIDENCED SHOULD-HAVE: List second.
-    3. DOMAIN STRENGTHS: Highlight candidate's strongest proven expertise.
-    4. ADDITIONAL: Other relevant evidenced skills.
-    5. COMPLETENESS: Include every truthful skill the candidate listed. There is no cap —
-       order them by relevance rather than dropping any.
-
-    ATS OPTIMIZATION:
-    - Use exact keywords from job posting where accurate.
-    - Include variations (e.g., "ML" and "Machine Learning").
-    - Place highest-priority keywords in first category.
-    - Ensure must-have skills are captured.
+    REWRITE PASS: if the CONTEXT contains SKILLS_AUDIT_FEEDBACK and
+    PREVIOUS_OPTIMIZED_SKILLS_JSON, this is a correction round -- remove every flagged
+    unsupported skill and return the corrected OptimizedSkillsSection, keeping the rest.
 
   expected_output: >
-    A complete JSON object conforming to the OptimizedSkillsSection model with:
-    - "optimized_skills": list of skill objects with skill_name, category, proficiency_level,
-      justification, and evidence.
-    - "skill_categories": dict mapping category names to skill lists.
-    - "added_skills": list of inferred skill objects including confidence_score.
-    - "removed_skills": list of removed skill names.
-    - "optimization_notes": summary of what changed and why.
-    - "ats_match_score": float 0-100.
-    All optimized and added skills must have candidate-evidence-based justifications and
-    confidence >= 70. Do not use job description text as evidence.
+    A complete OptimizedSkillsSection JSON: "optimized_skills" (Skill objects ordered by
+    priority, each with category and -- for added/normalized skills -- justification,
+    evidence, confidence_score), "skill_categories" (logical groups), "added_skills"
+    (inferred skills with evidence + confidence), "removed_skills" (only exact duplicates or
+    audit-flagged items), "optimization_notes" (<100 words; include any unsupported job
+    keyword left out), and "ats_match_score" (0-100 estimate). Evidence must never quote the
+    job description.
 
-  context:
-    - create_alignment_strategy_task
-    - extract_resume_content_task
   agent: skills_section_strategist
   output_file: content/optimized_skills.json
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- kept for reference, not loaded. Why replaced:
+#   * Refocused on ordering + grouping + truthful normalization. The skills node guarantees
+#     completeness (_preserve_original_skills), recovers evidenced JD keywords
+#     (_add_evidenced_jd_keywords), and audits/forces removal of unsupported skills. The old
+#     task spent most of its length re-demanding those code-owned guarantees ("COMPLETENESS:
+#     include every skill", exhaustive keyword capture), diluting the ordering job.
+#   * Documented the actual REWRITE contract the node implements (SKILLS_AUDIT_FEEDBACK +
+#     PREVIOUS_OPTIMIZED_SKILLS_JSON) so the correction pass is explicit (Pattern 6).
+#   * Made the FORBIDDEN list domain-neutral (was GraphQL/Kubernetes/Terraform/MLOps;
+#     examples were LangChain/Azure AI Search). Now states the principle, not a tech list.
+#   * Dropped the hard "confidence >= 70" gate from the prompt -- the code audit
+#     (validate_skills_evidence) owns the evidence threshold, not a self-reported number.
+# -----------------------------------------------------------------------------
+# optimize_skills_section_task:
+#   description: >
+#     Reorder and categorize the skills section for maximum ATS matching and relevance,
+#     without adding unsupported capabilities and without dropping the candidate's truthful skills.
+#     Your task is to:
+#     1. Review skills from the original resume, experience evidence, alignment strategy,
+#        and the job description.
+#     2. Build a truthful skills inventory from resume evidence first.
+#     3. Reorder skills strategically: must-have skills first, then should-have, then nice-to-have.
+#     4. Use the exact terminology from the job posting only when accurate.
+#     5. Group skills logically (e.g., Technical Skills, Programming Languages, Tools & Platforms).
+#     6. Add only evidence-backed transferable or synonymous skills.
+#     7. Keep every skill the candidate truthfully listed. Do NOT drop a real, specific skill
+#        (e.g. LangChain, Azure AI Search, Kubernetes) because it seems less relevant — every
+#        truthful skill is an ATS keyword, and removing one only loses a match. Reordering, not
+#        deletion, is how you de-emphasize a skill.
+# 
+#     CRITICAL TRUTHFULNESS RULES:
+# 
+#     ALLOWED:
+#     - Keep original resume skills that are still relevant.
+#     - Normalize terminology when the resume evidence clearly supports the JD term
+#       (for example, "RESTful APIs" may match "REST APIs").
+#     - Add a JD keyword only when experience, project, education, certification, or
+#       existing skills evidence proves the candidate has that capability.
+#     - Add a broader category only when the resume gives concrete examples inside it
+#       (for example, "cloud platforms" may be supported by AWS Lambda evidence).
+# 
+#     FORBIDDEN:
+#     - Do not treat job description requirements as candidate evidence.
+#     - Do not add a tool because it is common in a domain.
+#     - Do not add database, framework, language, observability, stream-processing,
+#       SaaS, enterprise software, open-source, GraphQL, Kubernetes, Terraform, or
+#       MLOps claims unless the resume evidence explicitly supports them.
+#     - Do not add skills based only on company names or employer reputation.
+# 
+#     YOUR WORKFLOW:
+#     1. Extract candidate-evidenced skills from resume skills and experience.
+#     2. Compare evidenced skills against must-have, should-have, and nice-to-have JD targets.
+#     3. Add missing JD keywords only when supported by candidate evidence.
+#     4. Leave unsupported JD keywords out of optimized_skills; mention them in
+#        optimization_notes as unresolved rather than inventing them.
+#     5. Prioritize skills: evidenced must-have then evidenced should-have then domain strengths.
+#     6. Categorize skills using domain-appropriate categories.
+#     7. Remove only exact duplicates. Never remove a truthful candidate skill to shorten the list.
+# 
+#     VALIDATION REQUIREMENTS:
+#     For EVERY optimized skill:
+#     1. Provide specific evidence from the candidate resume or experience.
+#     2. The evidence field must not quote the job description.
+#     3. Explain the logical connection clearly in justification.
+#     4. Rate confidence (0-100%) and include only if >= 70.
+#     5. Consider: Would a recruiter in this field accept this inference?
+# 
+#     SKILL PRIORITIZATION STRATEGY:
+#     1. EVIDENCED MUST-HAVE: List first, using exact JD terminology when truthful.
+#     2. EVIDENCED SHOULD-HAVE: List second.
+#     3. DOMAIN STRENGTHS: Highlight candidate's strongest proven expertise.
+#     4. ADDITIONAL: Other relevant evidenced skills.
+#     5. COMPLETENESS: Include every truthful skill the candidate listed. There is no cap —
+#        order them by relevance rather than dropping any.
+# 
+#     ATS OPTIMIZATION:
+#     - Use exact keywords from job posting where accurate.
+#     - Include variations (e.g., "ML" and "Machine Learning").
+#     - Place highest-priority keywords in first category.
+#     - Ensure must-have skills are captured.
+# 
+#   expected_output: >
+#     A complete JSON object conforming to the OptimizedSkillsSection model with:
+#     - "optimized_skills": list of skill objects with skill_name, category, proficiency_level,
+#       justification, and evidence.
+#     - "skill_categories": dict mapping category names to skill lists.
+#     - "added_skills": list of inferred skill objects including confidence_score.
+#     - "removed_skills": list of removed skill names.
+#     - "optimization_notes": summary of what changed and why.
+#     - "ats_match_score": float 0-100.
+#     All optimized and added skills must have candidate-evidence-based justifications and
+#     confidence >= 70. Do not use job description text as evidence.
+# 
+#   context:
+#     - create_alignment_strategy_task
+#     - extract_resume_content_task
+#   agent: skills_section_strategist
+#   output_file: content/optimized_skills.json

@@ -1,0 +1,148 @@
+"""
+Resume layout policy -- domain-neutral ergonomics, not professional content judgment.
+
+Where each section goes depends on the candidate's stage: an experienced hire leads
+with Experience; a new graduate floats Education and Skills up to offset thin
+experience; a student/intern leads with Education. These are presentation
+conventions (TOOLING_PLAN section 1/9 explicitly permits freezing ergonomics like
+this), NOT field-specific content knowledge -- the renderer only ORDERS already-
+decided content, it never rewrites it.
+"""
+
+from enum import Enum
+
+from src.data_models.resume import Experience, Resume, Skill
+
+# Skills with no category land in one bucket, rendered last.
+_UNCATEGORIZED = "Skills"
+
+# Total years of experience at/above which a resume is laid out as EXPERIENCED.
+# TODO: calibrate on real resumes — Proposed: tune against a labelled sample —
+#       Deferred because: this is an unmeasured starting point.
+EXPERIENCED_MIN_YEARS = 2.5
+
+
+class RenderProfile(str, Enum):
+    """Which layout a resume gets, by career stage."""
+
+    EXPERIENCED = "experienced"
+    ENTRY = "entry"
+    STUDENT = "student"
+
+
+class ResumeSection(str, Enum):
+    """A renderable section (ordering is decided per profile)."""
+
+    SUMMARY = "summary"
+    SKILLS = "skills"
+    EXPERIENCE = "experience"
+    EDUCATION = "education"
+    CERTIFICATIONS = "certifications"
+    LANGUAGES = "languages"
+
+
+_SECTION_ORDERS: dict[RenderProfile, list[ResumeSection]] = {
+    RenderProfile.EXPERIENCED: [
+        ResumeSection.SUMMARY,
+        ResumeSection.SKILLS,
+        ResumeSection.EXPERIENCE,
+        ResumeSection.EDUCATION,
+        ResumeSection.CERTIFICATIONS,
+        ResumeSection.LANGUAGES,
+    ],
+    RenderProfile.ENTRY: [
+        ResumeSection.SUMMARY,
+        ResumeSection.EDUCATION,
+        ResumeSection.SKILLS,
+        ResumeSection.EXPERIENCE,
+        ResumeSection.CERTIFICATIONS,
+        ResumeSection.LANGUAGES,
+    ],
+    RenderProfile.STUDENT: [
+        ResumeSection.EDUCATION,
+        ResumeSection.SKILLS,
+        ResumeSection.EXPERIENCE,
+        ResumeSection.CERTIFICATIONS,
+        ResumeSection.LANGUAGES,
+    ],
+}
+
+
+def infer_profile(resume: Resume) -> RenderProfile:
+    """Pick a layout profile from the resume's total experience.
+
+    No work experience -> STUDENT (lead with education); below the experienced
+    threshold -> ENTRY; at or above it -> EXPERIENCED. Callers may override by
+    passing a profile explicitly to the renderer.
+    """
+    ####################################################
+    # STEP 1: TREAT RESUMES WITH NO WORK EXPERIENCE AS STUDENT LAYOUTS#
+    ####################################################
+    # When there is no experience section to lead with, education becomes
+    # the strongest signal to place first.
+    if not resume.work_experience:
+        return RenderProfile.STUDENT
+
+    ####################################################
+    # STEP 2: USE TOTAL EXPERIENCE TO SPLIT ENTRY VS EXPERIENCED#
+    ####################################################
+    # This keeps the layout rule simple and predictable for all renderers.
+    if resume.total_years_of_experience >= EXPERIENCED_MIN_YEARS:
+        return RenderProfile.EXPERIENCED
+    return RenderProfile.ENTRY
+
+
+def section_order(profile: RenderProfile) -> list[ResumeSection]:
+    """Return the section order for a profile (the caller skips empty sections)."""
+    ####################################################
+    # STEP 1: RETURN A COPY OF THE PROFILE'S SECTION ORDER#
+    ####################################################
+    # Returning a new list keeps the shared policy table immutable.
+    return list(_SECTION_ORDERS[profile])
+
+
+def experience_date_range(experience: Experience) -> str:
+    """Format a role's dates as 'Mon YYYY -- Mon YYYY', or 'Mon YYYY -- Present' if current.
+
+    Shared by every renderer (markdown, docx, latex) so the date format stays identical
+    across output formats -- a single source of truth.
+    """
+    ####################################################
+    # STEP 1: FORMAT THE START DATE IN THE SHARED HUMAN-READABLE STYLE#
+    ####################################################
+    start = experience.start_date.strftime("%b %Y")
+
+    ####################################################
+    # STEP 2: SHOW 'PRESENT' FOR CURRENT ROLES, ELSE FORMAT THE END DATE#
+    ####################################################
+    if experience.is_current_position or experience.end_date is None:
+        return f"{start} -- Present"
+    return f"{start} -- {experience.end_date.strftime('%b %Y')}"
+
+
+def group_skills(skills: list[Skill]) -> list[tuple[str, list[str]]]:
+    """Group skill names by category, preserving the resume's given order.
+
+    Category order follows first appearance in the resume (the upstream skills
+    optimizer already orders them by relevance, so the renderer does not re-rank
+    them -- that would be content judgment, not ergonomics). Uncategorized skills
+    collect into one "Skills" bucket placed last. Returns (category, names) pairs.
+    """
+    ####################################################
+    # STEP 1: COLLECT SKILLS INTO BUCKETS BY THEIR GIVEN CATEGORY#
+    ####################################################
+    # We preserve the incoming order so the renderer does not undo
+    # relevance ordering decided upstream.
+    grouped: dict[str, list[str]] = {}
+    for skill in skills:
+        grouped.setdefault(skill.category or _UNCATEGORIZED, []).append(skill.skill_name)
+
+    ####################################################
+    # STEP 2: KEEP UNCATEGORIZED SKILLS IN A SINGLE LAST BUCKET#
+    ####################################################
+    # This prevents uncategorized items from being mixed unpredictably
+    # into the named categories.
+    categorized = [(cat, names) for cat, names in grouped.items() if cat != _UNCATEGORIZED]
+    if _UNCATEGORIZED in grouped:
+        categorized.append((_UNCATEGORIZED, grouped[_UNCATEGORIZED]))
+    return categorized

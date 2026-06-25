@@ -1,41 +1,54 @@
-"""Stage 3 professional experience optimization flow.
+"""Stage 3 professional experience prioritization flow.
 
-This module owns the role-scoped writer -> audit -> optional rewrite -> merge
-flow. Keeping it separate makes the multi-agent boundary explicit: the LLM
-writes experience content, while code owns typed audit decisions and ID repair.
+The LLM may propose only an ordering of existing bullets. Code accepts the proposal
+only when it is an exact permutation of the source bullets, then rebuilds the role
+from the original typed object. New or altered claims can never enter pipeline state.
 """
 
+import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 from src.agents.professional_experience import create_professional_experience_agent
 from src.agents.professional_experience.models import OptimizedExperienceSection
+from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Experience, Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.experience_optimizer_formatter import format_experience_optimizer_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.state import ResumeEnhancementPipelineState
-from src.tools.resume_diagnostics import audit_experience_quality_for_experiences
-from src.tools.review_contract.review_models import ReviewResult, Severity
 
-_LANGUAGE_QUALITY_ENGINE_ID = "language_quality_auditor"
-_BULLET_STRUCTURE_ENGINE_ID = "bullet_structure_auditor"
+logger = get_logger(__name__)
 
 
 def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
-    """Rewrite work experience bullets with one role-scoped call per entry.
+    """Prioritize existing work-experience bullets with one role-scoped call per entry.
 
     Reads: resume, job_description, and alignment_strategy.
     Writes: optimized_experience.
     Returns: partial state with merged OptimizedExperienceSection output.
     """
+    start_time = time.monotonic()
     resume = state["resume"]
     job_description = state["job_description"]
     strategy = state["alignment_strategy"]
+    logger.info(
+        "pipeline_stage_started",
+        stage="optimize_experience",
+        run_id=state["run_id"],
+    )
     if resume is None or job_description is None or strategy is None:
         raise ValueError("resume, job_description, and alignment_strategy must be set.")
 
     optimized_experience = _optimize_experience_entries(resume, job_description, strategy)
+    duration_ms = round((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "pipeline_stage_completed",
+        stage="optimize_experience",
+        run_id=state["run_id"],
+        duration_ms=duration_ms,
+    )
     return {"optimized_experience": optimized_experience}
 
 
@@ -82,82 +95,30 @@ def _require_single_optimized_experience(section: OptimizedExperienceSection) ->
     return section.optimized_experiences[0]
 
 
-def _restore_original_experience_id(
+def _accept_bullet_order_or_preserve_source(
     section: OptimizedExperienceSection,
     original_experience: Experience,
 ) -> OptimizedExperienceSection:
-    """Copy the code-owned experience_id onto the LLM-written experience.
+    """Accept only an exact source-bullet permutation; otherwise preserve the source role.
 
-    Expects one optimized experience and the original source Experience.
-    Returns a section whose optimized experience keeps the original ID.
+    The accepted role is always rebuilt from original_experience, so metadata,
+    descriptions, and skills_used cannot be changed by the LLM.
     """
-    optimized = _require_single_optimized_experience(section)
-    fixed = optimized.model_copy(update={"experience_id": original_experience.experience_id})
-    return section.model_copy(update={"optimized_experiences": [fixed]})
-
-
-def _experience_audit_needs_rewrite(audit_result: ReviewResult) -> bool:
-    """Return True when audit findings are serious enough for one rewrite.
-
-    Expects a ReviewResult from the code-owned diagnostics layer.
-    Returns True for blocker/major, language-quality, bullet-count, or multiple
-    non-trivial findings.
-    """
-    serious = {Severity.BLOCKER, Severity.MAJOR}
-    non_trivial = {Severity.MINOR, Severity.SUGGESTION}
-    comments = audit_result.comments
-
-    if any(comment.severity in serious for comment in comments):
-        return True
-    if any(comment.engine_id == _LANGUAGE_QUALITY_ENGINE_ID for comment in comments):
-        return True
-    has_bullet_structure_issue = any(
-        _is_bullet_structure_finding(comment.engine_id, comment.message)
-        for comment in comments
+    proposed = _require_single_optimized_experience(section)
+    if Counter(proposed.achievements) != Counter(original_experience.achievements):
+        return _source_preserved_section(original_experience)
+    prioritized = original_experience.model_copy(update={"achievements": proposed.achievements})
+    return OptimizedExperienceSection(
+        optimized_experiences=[prioritized],
+        optimization_notes="Reordered source bullets without changing their text.",
     )
-    if has_bullet_structure_issue:
-        return True
-    return sum(1 for comment in comments if comment.severity in non_trivial) >= 2
 
 
-def _is_bullet_structure_finding(engine_id: str, message: str) -> bool:
-    """Return True when an audit comment flags bullet structure.
-
-    Expects a review engine ID and message string.
-    Returns True for bullet-structure auditor comments mentioning bullets.
-    """
-    return engine_id == _BULLET_STRUCTURE_ENGINE_ID and "bullet" in message.lower()
-
-
-def _render_experience_audit_feedback(audit_result: ReviewResult) -> str:
-    """Render audit comments into compact feedback for one rewrite attempt.
-
-    Expects a ReviewResult from the experience audit helper.
-    Returns plain text suitable for a CrewAI task context.
-    """
-    lines = [audit_result.summary or "Experience audit found serious issues."]
-    for comment in audit_result.comments:
-        lines.append(f"- {comment.severity.value}: {comment.message}")
-        lines.append(f"  advice: {comment.advice}")
-    return "\n".join(lines)
-
-
-def _build_experience_rewrite_context(
-    original_context: str,
-    section: OptimizedExperienceSection,
-    audit_result: ReviewResult,
-) -> str:
-    """Add previous output and audit feedback to the original role context.
-
-    Expects original TOON context, prior structured output, and audit result.
-    Returns context for exactly one rewrite attempt.
-    """
-    return (
-        f"{original_context}\n\n"
-        f"PREVIOUS_OPTIMIZED_EXPERIENCE_JSON:\n{section.model_dump_json()}\n\n"
-        f"EXPERIENCE_AUDIT_FEEDBACK:\n{_render_experience_audit_feedback(audit_result)}\n\n"
-        "Rewrite once to address blocker or major audit findings. "
-        "Return only OptimizedExperienceSection JSON."
+def _source_preserved_section(experience: Experience) -> OptimizedExperienceSection:
+    """Return the untouched source role after an invalid LLM proposal."""
+    return OptimizedExperienceSection(
+        optimized_experiences=[experience],
+        optimization_notes="LLM proposal changed source claims; original role preserved.",
     )
 
 
@@ -175,39 +136,16 @@ def _write_experience_section(context: str) -> OptimizedExperienceSection:
     )
 
 
-def _audit_experience_section(section: OptimizedExperienceSection) -> ReviewResult:
-    """Run code-owned quality checks on optimized experience output.
-
-    Expects a role-scoped OptimizedExperienceSection.
-    Returns the merged ReviewResult from the diagnostics layer.
-    """
-    return audit_experience_quality_for_experiences(section.optimized_experiences)
-
-
-def _rewrite_experience_section_once(
-    context: str,
-    section: OptimizedExperienceSection,
-    audit_result: ReviewResult,
-) -> OptimizedExperienceSection:
-    """Ask for one rewrite using the previous output and audit feedback.
-
-    Expects a serious audit result for the first optimized section.
-    Returns one rewritten OptimizedExperienceSection.
-    """
-    rewrite_context = _build_experience_rewrite_context(context, section, audit_result)
-    return _write_experience_section(rewrite_context)
-
-
 def _run_single_experience_optimization(
     resume: Resume,
     job_description: JobDescription,
     strategy: AlignmentStrategy,
     experience: Experience,
 ) -> OptimizedExperienceSection:
-    """Optimize one experience entry with a role-scoped CrewAI call.
+    """Prioritize one role's existing bullets with a role-scoped CrewAI call.
 
     Expects job_description and strategy to be present in pipeline state.
-    Returns an OptimizedExperienceSection containing the optimized role entry.
+    Returns an exact source role, optionally with its original bullets reordered.
     """
     role_resume = _build_resume_with_single_experience(resume, experience)
     context = format_experience_optimizer_context(
@@ -216,15 +154,8 @@ def _run_single_experience_optimization(
         strategy=strategy,
         format_type="toon",
     )
-    optimized_section = _write_experience_section(context)
-    optimized_section = _restore_original_experience_id(optimized_section, experience)
-    audit_result = _audit_experience_section(optimized_section)
-
-    if not _experience_audit_needs_rewrite(audit_result):
-        return optimized_section
-
-    rewritten_section = _rewrite_experience_section_once(context, optimized_section, audit_result)
-    return _restore_original_experience_id(rewritten_section, experience)
+    proposal = _write_experience_section(context)
+    return _accept_bullet_order_or_preserve_source(proposal, experience)
 
 
 def _merge_optimized_experience_sections(
@@ -238,14 +169,14 @@ def _merge_optimized_experience_sections(
     optimized_experiences = []
     optimization_notes = []
     keywords_integrated = []
-    relevance_scores = {}
+    relevance_scores = []
 
     for section in sections:
         optimized_experiences.extend(section.optimized_experiences)
         if section.optimization_notes:
             optimization_notes.append(section.optimization_notes)
         keywords_integrated.extend(section.keywords_integrated)
-        relevance_scores.update(section.relevance_scores)
+        relevance_scores.extend(section.relevance_scores)
 
     return OptimizedExperienceSection(
         optimized_experiences=optimized_experiences,
@@ -267,6 +198,11 @@ def _run_experience_optimization_workers(
     Returns one OptimizedExperienceSection per input experience.
     """
     max_workers = min(len(experiences), 4)
+    logger.debug(
+        "experience_optimization_parallelism",
+        experience_count=len(experiences),
+        max_workers=max_workers,
+    )
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         return list(
             executor.map(

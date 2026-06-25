@@ -1,4 +1,10 @@
-"""YAML loading and validation for project configuration."""
+"""YAML loading and validation for project configuration.
+
+This module intentionally uses stdlib logging instead of `src.core.logger`.
+It sits on the bootstrap path for settings resolution, so depending on the
+configured application logger here would create a circular "settings need
+logger, logger needs settings" dependency.
+"""
 
 import logging
 from pathlib import Path
@@ -25,9 +31,17 @@ def read_yaml_mapping(path: Path, label: str) -> dict[str, Any]:
     Raises:
         ConfigurationError: If the YAML is invalid or not a mapping.
     """
+    ####################################################
+    # STEP 1: TREAT A MISSING FILE AS "NO OVERRIDES"#
+    ####################################################
+    # The higher-level settings/cataloag loaders decide whether a missing file
+    # is acceptable. This low-level helper only says "nothing was found here."
     if not path.exists():
         return {}
 
+    ####################################################
+    # STEP 2: LOAD THE YAML DOCUMENT FROM DISK#
+    ####################################################
     try:
         with path.open(encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
@@ -36,6 +50,11 @@ def read_yaml_mapping(path: Path, label: str) -> dict[str, Any]:
         logger.warning(message)
         raise ConfigurationError(message) from exc
 
+    ####################################################
+    # STEP 3: REQUIRE A TOP-LEVEL YAML MAPPING#
+    ####################################################
+    # All config entry points in this project expect key/value mappings, not
+    # YAML lists or scalar values.
     if not isinstance(data, dict):
         message = f"{label} configuration at {path} must be a YAML mapping"
         logger.warning(message)
@@ -46,4 +65,7 @@ def read_yaml_mapping(path: Path, label: str) -> dict[str, Any]:
 
 def yaml_config_settings_source() -> dict[str, Any]:
     """Load settings.yaml as a Pydantic settings source."""
+    ####################################################
+    # STEP 1: REUSE THE SHARED YAML-MAPPING LOADER FOR settings.yaml#
+    ####################################################
     return read_yaml_mapping(SETTINGS_YAML_PATH, "settings")

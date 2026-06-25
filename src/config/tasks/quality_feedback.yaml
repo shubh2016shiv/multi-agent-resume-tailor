@@ -1,0 +1,74 @@
+write_quality_feedback_task:
+  description: >
+    Review the optimized resume against the original resume and the job, and produce an
+    honest advisory feedback. Works for any field.
+
+    Code owns every score and release decision. Return only assessment_summary and
+    feedback_for_improvement.
+
+    HOW TO REVIEW (ground everything in tools, not impressions):
+    1. Call "Audit Truthfulness" with the ORIGINAL resume and the OPTIMIZED resume. This is
+       the heart of the job: find claims that are genuinely invented, inflated, or
+       unsupported by the original.
+    2. Call "Analyze Keyword Coverage" with the optimized resume text and the job's
+       keywords to judge how well the resume answers the role.
+    3. Write feedback_for_improvement: specific and fixable -- name the exact item, why it
+       is a problem, and the concrete fix. If nothing is wrong, set it to null.
+    4. Write assessment_summary: a short, honest high-level verdict.
+
+    BE CONSERVATIVE (this is the main quality rule):
+    - If a claim traces to the original resume, it is NOT an exaggeration -- do not flag it.
+    - Do not call a clean, single-column, standard-header layout "broken".
+    - Only raise an issue you can evidence from a tool result or a direct comparison. Never
+      invent problems to look thorough. An over-eager review creates noise; a precise one
+      protects the candidate from sending a dishonest resume.
+
+  expected_output: >
+    A single JSON object containing assessment_summary and feedback_for_improvement.
+
+  agent: quality_feedback_reviewer
+
+# =============================================================================
+# SUPERSEDED 2026-06-22 -- refinements to the live task above:
+#   * Old note said only the ATS dimension was overwritten ("spend effort on accuracy and
+#     relevance instead"). STALE: resume_quality.py:_ground_quality_dimensions overwrites ALL three
+#     dimensions, the overall score, AND the gate. Effort is now pointed at the only outputs
+#     that survive: assessment_summary + feedback_for_improvement.
+#   * Added an explicit conservatism / anti-false-positive rule -- the code comments note the
+#     LLM narration is exactly where false positives came from (supported facts flagged as
+#     exaggerations, single-column called multi-column).
+#
+# Also commented out below: the DEAD `quality_assurance_task`. The live pipeline runs
+# `assess_quality_task` (src/orchestration/nodes/resume_quality.py). The dead task had no tool
+# grounding and self-owned the verdict.
+# -----------------------------------------------------------------------------
+# quality_assurance_task:
+#   description: >
+#     Conduct the final comprehensive quality review of the tailored resume.
+#     Your task is to:
+#     1. Review the complete resume for accuracy, ensuring no exaggerations or false claims.
+#     2. Check for internal consistency between the summary, experience, and skills sections.
+#     3. Validate writing quality for grammar, spelling, and professional tone.
+#     4. Verify strategic alignment, ensuring all critical job requirements are addressed.
+#     5. Confirm the truthfulness of all claims against the original resume.
+#     You are the final gatekeeper. Be thorough, critical, and fair.
+# 
+#   expected_output: >
+#     A comprehensive quality assurance report as a JSON object containing:
+#     - "approved": a boolean indicating the final decision.
+#     - "overall_quality_score": a 0-100 rating.
+#     - Detailed checks for accuracy, consistency, writing quality, and strategic alignment.
+#     - "final_recommendation": "APPROVED FOR SUBMISSION" or "REQUIRES CORRECTIONS".
+#     - "corrections_needed": a specific, prioritized list of corrections if not approved.
+#     This is the final validation before the resume is considered complete.
+# 
+#   context:
+#     - ats_optimization_task
+#     - write_professional_summary_task
+#     - optimize_experience_section_task
+#     - optimize_skills_section_task
+#     - extract_resume_content_task
+#     - create_alignment_strategy_task
+#   agent: quality_assurance_reviewer
+#   output_file: validation/final_qa_report.json
+# 

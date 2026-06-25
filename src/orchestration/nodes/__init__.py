@@ -9,9 +9,9 @@ from src.orchestration.nodes.assembly import assemble_ats_resume
 from src.orchestration.nodes.ats_patch import patch_ats_assembly
 from src.orchestration.nodes.experience import optimize_experience
 from src.orchestration.nodes.ingestion import analyze_job, extract_resume
-from src.orchestration.nodes.quality import run_quality_assurance
 from src.orchestration.nodes.rehydrate_pii import rehydrate_pii
 from src.orchestration.nodes.render import render_final_resume
+from src.orchestration.nodes.resume_quality import evaluate_resume_quality
 from src.orchestration.nodes.skills import optimize_skills
 from src.orchestration.nodes.strategy import run_gap_analysis
 from src.orchestration.nodes.summary import write_professional_summary
@@ -19,6 +19,7 @@ from src.orchestration.nodes.summary import write_professional_summary
 __all__ = [
     "analyze_job",
     "assemble_ats_resume",
+    "evaluate_resume_quality",
     "extract_resume",
     "optimize_experience",
     "optimize_skills",
@@ -26,6 +27,5 @@ __all__ = [
     "rehydrate_pii",
     "render_final_resume",
     "run_gap_analysis",
-    "run_quality_assurance",
     "write_professional_summary",
 ]

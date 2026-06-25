@@ -16,37 +16,11 @@ Output contract: AlignmentStrategy (via Task output_pydantic=AlignmentStrategy).
 
 from crewai import LLM, Agent
 
+from src.agents.agent_config import load_agent_config
 from src.core.logger import get_logger
-from src.core.settings import get_agents_config, get_config
+from src.core.settings import get_config
 
 logger = get_logger(__name__)
-
-# ── tool set ──────────────────────────────────────────────────────────────────
-
-_GAP_TOOLS: list = []
-
-
-# ── config ────────────────────────────────────────────────────────────────────
-
-
-def _load_agent_config(name: str) -> dict:
-    """Load and validate an agent config block from agents.yaml.
-
-    Expects: agents.yaml has a key matching `name` with role, goal, backstory, llm.
-    Returns: the config dict.
-    Raises: RuntimeError if any required field is missing.
-    """
-    agents_config = get_agents_config()
-    config = agents_config.get(name, {})
-
-    required = ["role", "goal", "backstory", "llm"]
-    missing = [f for f in required if not config.get(f)]
-    if missing:
-        raise RuntimeError(
-            f"FATAL: Missing required field(s) in '{name}' agent config: {missing}\n"
-            f"Add all required fields to src/config/agents.yaml."
-        )
-    return config
 
 
 # ── factory ───────────────────────────────────────────────────────────────────
@@ -60,11 +34,16 @@ def create_gap_analysis_agent() -> Agent:
     Returns: a configured CrewAI Agent.
     Raises: RuntimeError if required config fields are missing.
     """
-    config = _load_agent_config("gap_analysis_specialist")
+    ####################################################
+    # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
+    ####################################################
+    config = load_agent_config("gap_analysis_specialist")
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.3))
 
-    app_config = get_config()
-    defaults = app_config.llm.agent_defaults
+    ####################################################
+    # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS
+    ####################################################
+    defaults = get_config().llm.agent_defaults
 
     agent = Agent(
         role=config["role"],
@@ -73,7 +52,7 @@ def create_gap_analysis_agent() -> Agent:
         llm=llm_instance,
         verbose=config.get("verbose", True),
         allow_delegation=False,
-        tools=_GAP_TOOLS,
+        tools=[],
         max_retry_limit=defaults.max_retry_limit,
         max_rpm=defaults.max_rpm,
         max_iter=defaults.max_iter,
@@ -81,10 +60,12 @@ def create_gap_analysis_agent() -> Agent:
         respect_context_window=defaults.respect_context_window,
     )
 
-    tool_names = [t.name for t in _GAP_TOOLS]
+    ####################################################
+    # STEP 3: LOG AND RETURN
+    ####################################################
     logger.info(
         "Gap Analysis agent created",
         model=config["llm"],
-        tools=tool_names,
+        tools="none (match findings are pre-computed in context)",
     )
     return agent

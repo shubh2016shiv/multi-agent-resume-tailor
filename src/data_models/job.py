@@ -81,6 +81,19 @@ class JobRequirement(BaseModel):
         description="The specific skill, technology, or competency required (e.g., 'Python', 'Project Management').",
     )
 
+    # The canonicalized form of requirement, used only for matching. Set by extraction to the
+    # standard name for this same requirement (acronyms expanded, spelling/spacing normalized) so
+    # two surface forms of one concept share a value. Never overwrites requirement; lets
+    # downstream match job requirements to resume skills without a synonym table.
+    canonicalized_requirement: str | None = Field(
+        None,
+        description=(
+            "Standardized form of requirement for matching only (an acronym and its spelled-out "
+            "form share one value). Denotes the exact same requirement, never a broader or "
+            "different one. Null when not normalized."
+        ),
+    )
+
     # Its importance level, as determined by the analysis agent.
     importance: SkillImportance = Field(
         default=SkillImportance.SHOULD_HAVE,
@@ -116,9 +129,10 @@ class JobRequirement(BaseModel):
         return v
 
     class Config:
+        # Domain-neutral example: [PLACEHOLDER] stands for the posting's actual requirement.
         json_schema_extra = {
             "example": {
-                "requirement": "Experience with AWS",
+                "requirement": "[REQUIREMENT_FROM_POSTING]",
                 "importance": "must_have",
                 "years_required": 5,
             }
@@ -225,18 +239,23 @@ class JobDescription(BaseModel):
         ]
 
     class Config:
+        # Domain-neutral example. [PLACEHOLDERS] stand for whatever the posting's field is
+        # (nursing, finance, logistics, law, software, ...). Shows STRUCTURE, not a domain:
+        # full_text is the verbatim posting, ats_keywords are source terms only (no company
+        # name / job title / locations), and a requirement omits years_required when none is
+        # stated.
         json_schema_extra = {
             "example": {
-                "job_title": "Senior Backend Engineer",
-                "company_name": "Cloud Solutions Inc.",
+                "job_title": "[ROLE_TITLE]",
+                "company_name": "[COMPANY]",
                 "job_level": "senior",
-                "location": "Remote",
-                "summary": "Join our team to build the next generation of cloud services.",
-                "full_text": "...",
+                "location": None,
+                "summary": "[1-3 sentence role overview taken from the posting].",
+                "full_text": "[the complete original posting text, verbatim]",
                 "requirements": [
-                    {"requirement": "Python", "importance": "must_have", "years_required": 5},
-                    {"requirement": "Go", "importance": "nice_to_have"},
+                    {"requirement": "[MUST_HAVE_SKILL]", "importance": "must_have", "years_required": 5},
+                    {"requirement": "[BONUS_SKILL]", "importance": "nice_to_have"},
                 ],
-                "ats_keywords": ["Python", "AWS", "API"],
+                "ats_keywords": ["[SKILL_A]", "[SKILL_B]", "[QUALIFICATION]"],
             }
         }

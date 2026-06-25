@@ -8,7 +8,7 @@ Stage 1 (parallel):   extract_resume + analyze_job
 Stage 2 (sequential): run_gap_analysis          (waits for Stage 1)
 Stage 3 (parallel):   write_professional_summary + optimize_experience + optimize_skills
 Stage 4 (sequential): assemble_ats_resume        (waits for Stage 3)
-Stage 5 (sequential): run_quality_assurance
+Stage 5 (sequential): evaluate_resume_quality
 Stage 6 (sequential): rehydrate_pii              (restore PII after QA, on every path)
 Stage 7 (conditional): render_final_resume       (gate passed, or render_draft_on_gate_fail=True)
 """
@@ -16,11 +16,14 @@ Stage 7 (conditional): render_final_resume       (gate passed, or render_draft_o
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from src.agents.quality_assessment.engines import should_render_resume
+from src.core.logger import get_logger
 from src.core.settings import get_config
 from src.data_models.evaluation import AtsCheckStatus
 from src.orchestration import nodes
 from src.orchestration.state import ResumeEnhancementPipelineState
+from src.resume_quality_evaluation import should_render_resume
+
+logger = get_logger(__name__)
 
 
 def _route_after_ats_check(state: ResumeEnhancementPipelineState) -> str:
@@ -31,12 +34,19 @@ def _route_after_ats_check(state: ResumeEnhancementPipelineState) -> str:
     otherwise: PASS proceeds to the render gate, and INCONCLUSIVE was already flagged for
     human review in the QA node (nothing was built to patch), so it falls through to end.
 
-    Precondition: run_quality_assurance has populated ats_rendered_outcome.
+    Precondition: evaluate_resume_quality has populated rendered_structure_evaluation.
     """
-    ats_outcome = state["ats_rendered_outcome"]
+    ats_outcome = state["rendered_structure_evaluation"]
     if ats_outcome is None:
-        raise ValueError("ats_rendered_outcome is None after quality assurance; cannot route ATS patch.")
-    return "patch" if ats_outcome.status is AtsCheckStatus.FAIL else "continue"
+        raise ValueError("rendered_structure_evaluation is None after quality evaluation.")
+    decision = "patch" if ats_outcome.status is AtsCheckStatus.FAIL else "continue"
+    logger.info(
+        "graph_routing_decision",
+        from_node="evaluate_resume_quality",
+        decision=decision,
+        ats_status=ats_outcome.status.value,
+    )
+    return decision
 
 
 def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
@@ -46,16 +56,30 @@ def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
     when it failed but render_draft_on_gate_fail is True (development mode: write md+docx
     so the draft is viewable without inspecting the JSON). Returns "end" otherwise.
 
-    Precondition: run_quality_assurance has populated qa_report.
+    Precondition: evaluate_resume_quality has populated quality_report.
     """
-    qa_report = state["qa_report"]
-    if qa_report is None:
-        raise ValueError("qa_report is None after quality assurance node; cannot route render gate.")
-    if should_render_resume(qa_report):
-        return "render"
-    if get_config().feature_flags.render_draft_on_gate_fail:
-        return "render"
-    return "end"
+    quality_report = state["quality_report"]
+    if quality_report is None:
+        raise ValueError(
+            "quality_report is None after quality evaluation; cannot route render gate."
+        )
+    if should_render_resume(quality_report):
+        decision = "render"
+        reason = "gate_passed"
+    elif get_config().feature_flags.render_draft_on_gate_fail:
+        decision = "render"
+        reason = "draft_on_gate_fail"
+    else:
+        decision = "end"
+        reason = "gate_failed"
+    logger.info(
+        "graph_routing_decision",
+        from_node="rehydrate_pii",
+        decision=decision,
+        reason=reason,
+        overall_score=quality_report.overall_quality_score,
+    )
+    return decision
 
 
 def build_resume_enhancement_graph() -> CompiledStateGraph:
@@ -76,7 +100,7 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_node("optimize_experience", nodes.optimize_experience)
     graph.add_node("optimize_skills", nodes.optimize_skills)
     graph.add_node("assemble_ats_resume", nodes.assemble_ats_resume)
-    graph.add_node("run_quality_assurance", nodes.run_quality_assurance)
+    graph.add_node("evaluate_resume_quality", nodes.evaluate_resume_quality)
     graph.add_node("patch_ats_assembly", nodes.patch_ats_assembly)
     graph.add_node("rehydrate_pii", nodes.rehydrate_pii)
     graph.add_node("render_final_resume", nodes.render_final_resume)
@@ -100,12 +124,12 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_edge("optimize_skills", "assemble_ats_resume")
 
     # -- Stage 5: sequential quality assurance --
-    graph.add_edge("assemble_ats_resume", "run_quality_assurance")
+    graph.add_edge("assemble_ats_resume", "evaluate_resume_quality")
 
     # -- Stage 5b: conditional ATS section recovery -- a FAIL (an essential section
     # rendered empty) routes through the deterministic patch; PASS/INCONCLUSIVE skip it.
     graph.add_conditional_edges(
-        "run_quality_assurance",
+        "evaluate_resume_quality",
         _route_after_ats_check,
         {"patch": "patch_ats_assembly", "continue": "rehydrate_pii"},
     )

@@ -14,5 +14,13 @@ Rules:
   Never collapse a group into a single skill named after the group label, and never discard the
   individual items — they are the specific, ATS-matchable technologies. When a skill is listed
   with no group, set category to null.
+- For each skill ALSO set canonicalized_skill: the bare core skill, technology, tool, or credential,
+  normalized so it matches the same skill written any other way. Two steps: (1) strip any wrapper or
+  trailing generic noun ("experience", "skills", "training", "certification", proficiency labels) so
+  only the concept remains; (2) expand any acronym/abbreviation to its full common form and normalize
+  spelling, casing, and spacing. The GOAL is convergence: any two surface forms of the SAME skill must
+  produce the SAME canonicalized_skill (e.g. an acronym and its spelled-out form collapse to one
+  value). It must denote the exact same skill as skill_name (never broader or different). Leave
+  skill_name exactly as written.
 - Education graduation_year is the year the qualification was (or will be) completed.
 - If an optional field is absent, leave it null or an empty list. Do not fabricate values.

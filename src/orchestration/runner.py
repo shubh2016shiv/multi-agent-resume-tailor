@@ -8,9 +8,10 @@ and returns an OrchestrationResult with the optimized resume, QA report, and
 Every run is also written to <output_dir>/<candidate>/<designation>/run_<timestamp>.json
 before returning, so the result survives a caller crash and can be re-read for free
 without running the (paid) pipeline again -- including gate-fail runs, whose JSON still
-carries the qa_report explaining why.
+carries the quality_report explaining why.
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -25,7 +26,7 @@ from src.data_models.orchestration import OrchestrationResult
 from src.observability import init_observability
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.state import ResumeEnhancementPipelineState
-from src.tools.document_rendering.output_location import resume_output_dir
+from src.tools.engines.document_rendering.output_paths import resume_output_dir
 
 logger = get_logger(__name__)
 
@@ -46,6 +47,13 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
     Raises: ValueError if any agent node fails to produce a valid typed output.
     """
     run_id = uuid4().hex
+    start_time = time.monotonic()
+    logger.info(
+        "pipeline_run_started",
+        run_id=run_id,
+        resume_path=resume_path,
+        jd_path=jd_path,
+    )
     initial_state: ResumeEnhancementPipelineState = {
         "run_id": run_id,
         "resume_path": resume_path,
@@ -58,8 +66,8 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
         "optimized_experience": None,
         "optimized_skills": None,
         "optimized_resume": None,
-        "qa_report": None,
-        "ats_rendered_outcome": None,
+        "quality_report": None,
+        "rendered_structure_evaluation": None,
         "human_review_required": False,
         "rendered_artifacts": None,
     }
@@ -67,10 +75,26 @@ def tailor_resume(resume_path: str, jd_path: str) -> OrchestrationResult:
     # The run's PII mapping is sensitive run-state; delete it on every terminal
     # path (success, quality-gate end, or exception) once rehydration is done.
     try:
-        final_state = cast(ResumeEnhancementPipelineState, _PIPELINE.invoke(initial_state))
-        result = _build_orchestration_result(final_state)
-        _persist_result(result)
-        return result
+        try:
+            final_state = cast(ResumeEnhancementPipelineState, _PIPELINE.invoke(initial_state))
+            result = _build_orchestration_result(final_state)
+            _persist_result(result)
+            duration_ms = round((time.monotonic() - start_time) * 1000)
+            logger.info(
+                "pipeline_run_completed",
+                run_id=run_id,
+                gate_passed=result.quality_report.passes_quality_gate,
+                duration_ms=duration_ms,
+            )
+            return result
+        except Exception:
+            duration_ms = round((time.monotonic() - start_time) * 1000)
+            logger.exception(
+                "pipeline_run_failed",
+                run_id=run_id,
+                duration_ms=duration_ms,
+            )
+            raise
     finally:
         if get_config().feature_flags.enable_pii_redaction:
             delete_pii_mapping(run_id)
@@ -81,15 +105,21 @@ def _persist_result(result: OrchestrationResult) -> str:
     inspected later without paying for another run.
 
     Saved on EVERY run, whether or not the quality gate passed -- a gate-fail result still
-    carries the qa_report explaining why. Lands next to any rendered files at
+    carries the quality_report explaining why. Lands next to any rendered files at
     <output_dir>/<candidate>/<designation>/run_<timestamp>.json. Returns the written path.
     """
     base_dir = Path(get_config().file_paths.output_dir)
-    output_dir = resume_output_dir(result.optimized_resume.final_resume, result.job_description, base_dir)
+    output_dir = resume_output_dir(
+        result.optimized_resume.final_resume, result.job_description, base_dir
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
-    logger.info("Run result saved", path=str(path), gate_passed=result.qa_report.passed_quality_threshold)
+    logger.info(
+        "Run result saved",
+        path=str(path),
+        gate_passed=result.quality_report.passes_quality_gate,
+    )
     return str(path)
 
 
@@ -102,10 +132,18 @@ def _build_orchestration_result(
     Raises: ValueError if any required field is still None after the graph finishes.
     """
     assert state["resume"] is not None, "Pipeline completed but 'resume' is still None"
-    assert state["job_description"] is not None, "Pipeline completed but 'job_description' is still None"
-    assert state["alignment_strategy"] is not None, "Pipeline completed but 'alignment_strategy' is still None"
-    assert state["optimized_resume"] is not None, "Pipeline completed but 'optimized_resume' is still None"
-    assert state["qa_report"] is not None, "Pipeline completed but 'qa_report' is still None"
+    assert state["job_description"] is not None, (
+        "Pipeline completed but 'job_description' is still None"
+    )
+    assert state["alignment_strategy"] is not None, (
+        "Pipeline completed but 'alignment_strategy' is still None"
+    )
+    assert state["optimized_resume"] is not None, (
+        "Pipeline completed but 'optimized_resume' is still None"
+    )
+    assert state["quality_report"] is not None, (
+        "Pipeline completed but 'quality_report' is still None"
+    )
 
     # TODO: surface state["human_review_required"] on OrchestrationResult so callers can
     #       distinguish "rendered" / "rejected on score" / "needs a human" (the terminal
@@ -117,6 +155,6 @@ def _build_orchestration_result(
         job_description=state["job_description"],
         strategy=state["alignment_strategy"],
         optimized_resume=state["optimized_resume"],
-        qa_report=state["qa_report"],
+        quality_report=state["quality_report"],
         rendered_artifacts=state["rendered_artifacts"],
     )

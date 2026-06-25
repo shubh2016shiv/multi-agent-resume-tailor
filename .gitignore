@@ -50,3 +50,6 @@ HANDOFF.md
 **/*_OBSELETE.py
 **/*_OBSELETE
 **/*_OBSELETE*
+
+# litellm on-disk LLM response cache (feature_flags.enable_cache)
+.litellm_cache/

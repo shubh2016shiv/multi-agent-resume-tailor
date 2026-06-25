@@ -6,12 +6,17 @@ configured task into one typed Pydantic result.
 """
 
 import threading
+import time
 from typing import Any
 
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel
 
+from src.core.llm_cache import configure_llm_cache
+from src.core.logger import get_logger
 from src.core.settings import get_tasks_config
+
+logger = get_logger(__name__)
 
 # -----------------------------------------------------------------------------
 # WHY A THREAD LOCK LIVES HERE  (read before removing it -- it is not decoration)
@@ -72,17 +77,48 @@ def run_agent_task(
     Returns: a validated instance of output_model.
     Raises: ValueError if CrewAI does not produce output_model.
     """
+    start_time = time.monotonic()
+    configure_llm_cache()
+    logger.info(
+        "agent_task_started",
+        agent_role=agent.role,
+        task_name=task_name,
+        output_model=output_model.__name__,
+    )
     tasks_config = get_tasks_config()
     task_config = tasks_config.get(task_name, {})
     task_description = task_config.get("description", "") + "\n\nCONTEXT:\n" + context
     task_expected_output = task_config.get("expected_output", "Structured output.")
 
-    task = Task(
-        description=task_description,
-        expected_output=task_expected_output,
-        agent=agent,
-        output_pydantic=output_model,
-    )
+    # Tool-using agents must call tools before they can produce the output. Setting
+    # response_format on the LLM instructs the provider to return structured JSON in
+    # the FIRST response, which bypasses the tool-call loop entirely -- the model
+    # skips its tools and returns an empty schema skeleton instead. So for agents that
+    # carry tools we leave response_format unset and let the tool chain run; we still
+    # validate the final raw output ourselves below (same path, no output_pydantic
+    # coercion that crashes on our PEP 604 "X | None" fields).
+    # For tool-free agents, response_format is safe and guarantees well-formed JSON
+    # on the first try without any coercion retry.
+    if agent.tools:
+        agent.llm.response_format = None
+        # output_pydantic constrains the agent to return a JSON object matching
+        # output_model, the same way the trigger scripts do. Without this, the agent
+        # can decide to return a prose error string instead of JSON (e.g. when it sees
+        # a quality-check WARNING and chooses to stop). We still validate result.raw
+        # ourselves below so we never hit CrewAI's PEP 604 schema-parser path.
+        task = Task(
+            description=task_description,
+            expected_output=task_expected_output,
+            agent=agent,
+            output_pydantic=output_model,
+        )
+    else:
+        agent.llm.response_format = output_model
+        task = Task(
+            description=task_description,
+            expected_output=task_expected_output,
+            agent=agent,
+        )
     # Serialize the kickoff so concurrent pipeline nodes never write CrewAI's shared
     # SQLite store at the same time (see _KICKOFF_LOCK above).
     with _KICKOFF_LOCK:
@@ -93,6 +129,44 @@ def run_agent_task(
             verbose=True,
         ).kickoff()
 
-    if hasattr(result, "pydantic") and result.pydantic:
-        return result.pydantic
-    raise ValueError(f"Agent {agent.role} did not return a valid {output_model.__name__} object.")
+    validated = _validate_agent_output(result.raw, output_model, agent.role)
+    duration_ms = round((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "agent_task_completed",
+        agent_role=agent.role,
+        task_name=task_name,
+        output_model=output_model.__name__,
+        duration_ms=duration_ms,
+    )
+    return validated
+
+
+def _validate_agent_output(raw_output: str, output_model: type[BaseModel], agent_role: str) -> Any:
+    """Validate an agent's raw text output into output_model.
+
+    Agents are asked to emit JSON, but LLMs often wrap it in ```json fences or a line
+    of prose. We take the outermost {...} block and validate that against the model.
+
+    Raises: ValueError if no JSON object is present or it does not satisfy output_model.
+    """
+    json_text = _extract_json_object(raw_output)
+    if json_text is None:
+        raise ValueError(f"Agent {agent_role} returned no JSON object: {raw_output[:200]!r}")
+    try:
+        return output_model.model_validate_json(json_text)
+    except ValueError as error:
+        raise ValueError(
+            f"Agent {agent_role} output did not match {output_model.__name__}: {error}"
+        ) from error
+
+
+def _extract_json_object(text: str) -> str | None:
+    """Return the outermost {...} JSON object in text, ignoring code fences and prose.
+
+    Returns None when no braces are present.
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        return None
+    return text[start : end + 1]

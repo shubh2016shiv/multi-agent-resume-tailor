@@ -44,12 +44,13 @@ class AtsCheckStatus(str, Enum):
     INCONCLUSIVE = "inconclusive"
 
 
-class AtsRenderedOutcome(BaseModel):
+class RenderedStructureEvaluation(BaseModel):
     """The result of grading ATS compatibility on the rendered .tex artifact.
 
-    Produced by evaluation_rubrics.grade_ats and persisted to pipeline state. The QA
+    Produced by resume_quality_evaluation.evaluate_rendered_structure and persisted to
+    pipeline state. The QA
     node reads `status` to gate release: any status other than PASS forces the report's
-    passed_quality_threshold to False. `ats_score` feeds the weighted overall blend.
+    passes_quality_gate to False. `ats_score` feeds the weighted overall blend.
     """
 
     status: AtsCheckStatus = Field(
@@ -75,7 +76,7 @@ class AtsRenderedOutcome(BaseModel):
 # Measures the truthfulness of the tailored resume against the original.
 
 
-class AccuracyMetrics(BaseModel):
+class TruthfulnessEvaluation(BaseModel):
     """
     Measures the truthfulness of the tailored resume by comparing it against the original.
 
@@ -126,7 +127,7 @@ class AccuracyMetrics(BaseModel):
 # Measures how well the tailored resume addresses the job description.
 
 
-class RelevanceMetrics(BaseModel):
+class JobAlignmentEvaluation(BaseModel):
     """
     Measures how relevant the tailored resume is to the target job description.
 
@@ -149,6 +150,18 @@ class RelevanceMetrics(BaseModel):
         ge=0,
         le=100,
         description="The percentage of 'must-have' job requirements that are addressed in the resume.",
+    )
+
+    ats_keyword_coverage: float = Field(
+        default=0.0,
+        ge=0,
+        le=100,
+        description="Percentage of target-job ATS keywords present in the tailored resume.",
+    )
+
+    is_conclusive: bool = Field(
+        default=True,
+        description="Whether the target job supplied enough structured evidence to score alignment.",
     )
 
     # A list of important requirements from the job that were not adequately addressed.
@@ -229,12 +242,31 @@ class ATSMetrics(BaseModel):
 
 
 # ==============================================================================
-# 4. Quality Report Model (Aggregator)
+# 4. Advisory Quality Feedback
+# ==============================================================================
+
+
+class QualityFeedback(BaseModel):
+    """Narrative feedback written by the optional quality feedback agent."""
+
+    assessment_summary: str = Field(
+        ...,
+        description="A concise human-readable summary of the tailored resume review.",
+    )
+
+    feedback_for_improvement: str | None = Field(
+        None,
+        description="Specific improvement guidance, or null when no correction is recommended.",
+    )
+
+
+# ==============================================================================
+# 5. Quality Report Model (Aggregator)
 # ==============================================================================
 # The main model that aggregates all evaluation metrics into a final report.
 
 
-class QualityReport(BaseModel):
+class ResumeQualityReport(BaseModel):
     """
     A comprehensive, structured report on the quality of the tailored resume.
 
@@ -248,7 +280,7 @@ class QualityReport(BaseModel):
     )
 
     # A boolean flag indicating if the resume met the required quality threshold.
-    passed_quality_threshold: bool = Field(
+    passes_quality_gate: bool = Field(
         ..., description="Whether the resume's score meets the minimum required quality threshold."
     )
 
@@ -258,8 +290,8 @@ class QualityReport(BaseModel):
     )
 
     # Detailed breakdown of the three core quality dimensions.
-    accuracy: AccuracyMetrics
-    relevance: RelevanceMetrics
+    accuracy: TruthfulnessEvaluation
+    relevance: JobAlignmentEvaluation
     ats_optimization: ATSMetrics
 
     # If the quality check failed, this field contains specific, actionable
@@ -273,7 +305,7 @@ class QualityReport(BaseModel):
         json_schema_extra = {
             "example": {
                 "overall_quality_score": 88.0,
-                "passed_quality_threshold": True,
+                "passes_quality_gate": True,
                 "assessment_summary": "The resume is of high quality, accurately reflects the candidate's skills, and is well-aligned with the job.",
                 "accuracy": {
                     "accuracy_score": 90.0,

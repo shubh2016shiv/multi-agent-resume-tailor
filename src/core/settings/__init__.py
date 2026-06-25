@@ -1,28 +1,21 @@
 """Public facade for the Python settings subsystem.
 
-Use this package when Python code needs typed settings:
+Most callers only need one of these three entry points:
 
-    from src.core.settings import get_config, get_agents_config, get_tasks_config
+- `get_config()` for typed application settings from `src/config/settings.yaml`
+  plus environment variables and `.env`
+- `get_agents_config()` for merged YAML under `src/config/agents/`
+- `get_tasks_config()` for merged YAML under `src/config/tasks/`
 
-Do not put YAML files here. Declarative configuration files live in `src/config/`.
+Do not put declarative YAML files in this package. This package owns the Python
+code that locates, loads, validates, caches, and exposes them.
 
-Where to look:
-- `schema.py`: every typed, settable application settings section.
-- `runtime.py`: `Settings`, source precedence, `.env` behavior, `get_config()`.
-- `paths.py`: project roots and YAML file locations.
-- `yaml_source.py`: YAML loading and validation.
-- `agent_task_catalog.py`: `agents.yaml` and `tasks.yaml` accessors.
-- `exceptions.py`: package-specific settings exceptions.
-
-Settable sections exposed by `get_config()` from `src/config/settings.yaml`:
-- `application`: environment and debug mode.
-- `feature_flags`: feature toggles and formatter token optimization.
-- `llm`: provider, model, temperature, native agent defaults, resilience.
-- `logging`: log level, format, and log file destination.
-- `workflow`: iteration count, quality threshold, QA metric thresholds.
-- `file_paths`: default resume and job-description input paths.
-- `services`: optional Redis/database URLs.
-- API keys: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `SERPER_API_KEY`, `LANGSMITH_API_KEY`.
+Where to look when you need details:
+- `schema.py`: every typed settings section and field
+- `runtime.py`: source precedence, `.env` loading, and `get_config()`
+- `agent_task_catalog.py`: merged CrewAI agent/task YAML accessors
+- `yaml_source.py`: low-level YAML mapping loading and validation
+- `paths.py`: filesystem locations for settings and catalogs
 """
 
 from src.core.settings.agent_task_catalog import get_agents_config, get_tasks_config

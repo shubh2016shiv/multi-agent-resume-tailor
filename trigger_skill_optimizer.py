@@ -19,7 +19,7 @@ from src.agents.gap_analysis import create_gap_analysis_agent
 from src.agents.job_description_analyser import create_job_analyzer_agent
 from src.agents.resume_parser import create_resume_extractor_agent
 from src.agents.skill_optimizer import create_skill_optimizer_agent
-from src.core.config import get_tasks_config
+from src.core.settings import get_tasks_config
 from src.data_models.job import JobDescription
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
@@ -140,12 +140,12 @@ section = result.pydantic
 
 print("\n=== OPTIMIZED SKILLS ===")
 print("  Skills optimized :", len(section.optimized_skills))
-print("  Categories       :", list(section.skill_categories.keys()))
+print("  Categories       :", [group.name for group in section.skill_categories])
 print("  Added            :", len(section.added_skills))
 print("  Removed          :", len(section.removed_skills))
 print("  ATS match score  :", section.ats_match_score)
 print("  Notes            :", section.optimization_notes[:150], "...")
 print("\n  Categories:")
-for category, skills in section.skill_categories.items():
-    print(f"    {category}: {', '.join(skills[:5])}...")
+for group in section.skill_categories:
+    print(f"    {group.name}: {', '.join(group.skills[:5])}...")
 print("\n  CONTRACT: valid OptimizedSkillsSection ready for assembly")

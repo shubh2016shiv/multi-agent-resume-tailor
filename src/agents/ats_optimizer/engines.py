@@ -11,10 +11,10 @@ ATS engines (no LLM, no I/O) so scoring is deterministic and never self-graded.
 
 from src.agents.ats_optimizer.models import AtsOptimizedResume
 from src.data_models.job import JobDescription
-from src.tools.ats_compliance import audit_ats_formatting, audit_section_headers
-from src.tools.job_matching import analyze_keyword_coverage
-from src.tools.review_contract.review_models import ReviewResult, Severity
-from src.tools.shared.resume_rendering import render_resume
+from src.tools.contracts import ReviewResult, Severity
+from src.tools.engines.ats_compliance import audit_ats_formatting, audit_section_headers
+from src.tools.engines.document_rendering.resume_text_renderer import render_resume
+from src.tools.engines.job_matching import analyze_keyword_coverage
 
 _SERIOUS_SEVERITIES = {Severity.BLOCKER, Severity.MAJOR}
 
@@ -30,31 +30,40 @@ def check_ats_quality(optimized: AtsOptimizedResume, job: JobDescription) -> dic
              (0.0-1.0 or None), per-engine issue messages, and the list of
              serious (BLOCKER/MAJOR) findings that would block submission.
     """
+    ####################################################
+    # STEP 1: RENDER THE FINAL RESUME TO PLAIN TEXT
+    ####################################################
     resume_text = render_resume(optimized.final_resume)
 
+    ####################################################
+    # STEP 2: RUN THE THREE MECHANICAL ATS ENGINES
+    ####################################################
     formatting = audit_ats_formatting(resume_text)
     headers = audit_section_headers(resume_text)
     coverage = analyze_keyword_coverage(resume_text, job.ats_keywords)
 
-    serious = _collect_serious_findings([formatting, headers, coverage])
+    ####################################################
+    # STEP 3: COLLECT BLOCKERS AND BUILD THE RESULT
+    ####################################################
+    serious_findings = _collect_blocker_and_major_findings([formatting, headers, coverage])
 
     return {
-        "overall_status": "pass" if not serious else "needs_review",
+        "overall_status": "pass" if not serious_findings else "needs_review",
         "keyword_coverage": coverage.score,
-        "formatting_issues": _messages(formatting),
-        "header_issues": _messages(headers),
-        "keyword_findings": _messages(coverage),
-        "serious_findings": serious,
+        "formatting_issues": _format_review_comments(formatting),
+        "header_issues": _format_review_comments(headers),
+        "keyword_findings": _format_review_comments(coverage),
+        "serious_findings": serious_findings,
     }
 
 
-def _messages(result: ReviewResult) -> list[str]:
-    """Return each comment in a ReviewResult as 'SEVERITY: message'."""
+def _format_review_comments(result: ReviewResult) -> list[str]:
+    """Format each comment in a ReviewResult as 'SEVERITY: message'."""
     return [f"{comment.severity.value}: {comment.message}" for comment in result.comments]
 
 
-def _collect_serious_findings(results: list[ReviewResult]) -> list[str]:
-    """Return BLOCKER/MAJOR comment messages across several ReviewResults."""
+def _collect_blocker_and_major_findings(results: list[ReviewResult]) -> list[str]:
+    """Return formatted BLOCKER/MAJOR comment messages across several ReviewResults."""
     serious: list[str] = []
     for result in results:
         for comment in result.comments:

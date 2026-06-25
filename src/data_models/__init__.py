@@ -22,10 +22,12 @@ This is a common practice in Python packages to improve the developer experience
 # From resume.py
 # From evaluation.py
 from .evaluation import (
-    AccuracyMetrics,
     ATSMetrics,
-    QualityReport,
-    RelevanceMetrics,
+    JobAlignmentEvaluation,
+    QualityFeedback,
+    RenderedStructureEvaluation,
+    ResumeQualityReport,
+    TruthfulnessEvaluation,
 )
 
 # From job.py
@@ -69,8 +71,10 @@ __all__ = [
     "SkillMatch",
     "SkillGap",
     # Evaluation models
-    "QualityReport",
-    "AccuracyMetrics",
-    "RelevanceMetrics",
+    "ResumeQualityReport",
+    "QualityFeedback",
+    "TruthfulnessEvaluation",
+    "JobAlignmentEvaluation",
+    "RenderedStructureEvaluation",
     "ATSMetrics",
 ]

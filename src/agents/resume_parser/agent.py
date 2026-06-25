@@ -4,10 +4,9 @@ Resume Extractor agent factory.
 Builds a CrewAI Agent wired with 4 document-ingestion tools:
   1. convert_resume_document_to_markdown  — PDF/DOCX -> Markdown
   2. check_resume_markdown_quality        — audit extraction completeness
-  3. redact_pii_from_resume_markdown      — mask PII before LLM sees it
+  3. redact_pii_from_resume_markdown      — mask PII before LLM sees it (feature-flagged)
   4. extract_structured_resume_from_markdown — schema-constrained Resume extraction
 
-All tools are defined in src/tools/agent_facing_tools.py.
 The agent orchestrates them in order: convert -> quality check -> redact -> extract.
 
 Output contract: Resume (via Task output_pydantic=Resume).
@@ -15,9 +14,10 @@ Output contract: Resume (via Task output_pydantic=Resume).
 
 from crewai import LLM, Agent
 
+from src.agents.agent_config import load_agent_config
 from src.core.logger import get_logger
-from src.core.settings import get_agents_config, get_config
-from src.tools.agent_facing_tools import (
+from src.core.settings import get_config
+from src.tools.agent_tools import (
     check_resume_markdown_quality,
     convert_resume_document_to_markdown,
     extract_structured_resume_from_markdown,
@@ -26,14 +26,18 @@ from src.tools.agent_facing_tools import (
 
 logger = get_logger(__name__)
 
+
 # ── tool set ──────────────────────────────────────────────────────────────────
 
 
-def _build_resume_tools(enable_pii_redaction: bool) -> list:
-    """Return the document-ingestion tools, including PII redaction only when enabled.
+def build_resume_ingestion_tools(enable_pii_redaction: bool) -> list:
+    """Return the document-ingestion tool list for this agent.
 
-    With redaction off, the redact tool is dropped entirely so the agent never has
-    a redaction step to invoke (see feature_flags.enable_pii_redaction).
+    PII redaction is included only when the feature flag is on — when off, the
+    redact tool is dropped entirely so the agent never has a redaction step to invoke.
+
+    Expects: the feature_flags.enable_pii_redaction setting from app config.
+    Returns: ordered list of CrewAI tools (convert -> quality -> [redact] -> extract).
     """
     tools = [convert_resume_document_to_markdown, check_resume_markdown_quality]
     if enable_pii_redaction:
@@ -42,47 +46,33 @@ def _build_resume_tools(enable_pii_redaction: bool) -> list:
     return tools
 
 
-# ── config ────────────────────────────────────────────────────────────────────
-
-
-def _load_agent_config(name: str) -> dict:
-    """Load and validate an agent config block from agents.yaml.
-
-    Expects: agents.yaml has a key matching `name` with role, goal, backstory, llm.
-    Returns: the config dict.
-    Raises: RuntimeError if any required field is missing.
-    """
-    agents_config = get_agents_config()
-    config = agents_config.get(name, {})
-
-    required = ["role", "goal", "backstory", "llm"]
-    missing = [f for f in required if not config.get(f)]
-    if missing:
-        raise RuntimeError(
-            f"FATAL: Missing required field(s) in '{name}' agent config: {missing}\n"
-            f"Add all required fields to src/config/agents.yaml."
-        )
-    return config
-
-
 # ── factory ───────────────────────────────────────────────────────────────────
 
 
 def create_resume_extractor_agent() -> Agent:
-    """Build a CrewAI Agent with 4 document-ingestion tools.
+    """Build a CrewAI Agent with document-ingestion tools.
 
     Expects: agents.yaml has a 'resume_content_extractor' key with
              role, goal, backstory, and llm fields.
     Returns: a configured CrewAI Agent.
     Raises: RuntimeError if required config fields are missing.
     """
-    config = _load_agent_config("resume_content_extractor")
+    ####################################################
+    # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
+    ####################################################
+    config = load_agent_config("resume_content_extractor")
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.0))
 
+    ####################################################
+    # STEP 2: ASSEMBLE TOOLS AND RUNTIME DEFAULTS
+    ####################################################
     app_config = get_config()
     defaults = app_config.llm.agent_defaults
-    resume_tools = _build_resume_tools(app_config.feature_flags.enable_pii_redaction)
+    resume_tools = build_resume_ingestion_tools(app_config.feature_flags.enable_pii_redaction)
 
+    ####################################################
+    # STEP 3: BUILD THE AGENT
+    ####################################################
     agent = Agent(
         role=config["role"],
         goal=config["goal"],
@@ -98,7 +88,10 @@ def create_resume_extractor_agent() -> Agent:
         respect_context_window=defaults.respect_context_window,
     )
 
-    tool_names = [t.name for t in resume_tools]
+    ####################################################
+    # STEP 4: LOG AND RETURN
+    ####################################################
+    tool_names = [tool.name for tool in resume_tools]
     logger.info(
         "Resume Extractor agent created",
         model=config["llm"],

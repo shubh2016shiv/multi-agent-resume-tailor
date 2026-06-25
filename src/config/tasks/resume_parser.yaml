@@ -6,8 +6,11 @@ extract_resume_content_task:
 
     INGESTION SEQUENCE (you own these tools; run in order):
     1. "Convert Resume Document to Markdown" on the file path.
-    2. "Check Resume Markdown Quality". If it reports a BLOCKER, STOP and explain the
-       conversion problem instead of extracting from unreliable text.
+    2. "Check Resume Markdown Quality". Read the FIRST line of its output -- it says
+       "N extraction issue(s), M blocker(s)". Stop ONLY when M > 0 (the word "blocker"
+       appears with a non-zero count). MAJOR or WARNING severity entries are advisory;
+       they mean proceed anyway. Do NOT stop for font artifacts, encoding warnings, or
+       any non-zero issue count that the summary still calls "0 blocker(s)".
     3. If a "Redact PII from Resume Markdown" tool is available to you, run it now (before
        extraction). If no such tool is present, skip this step.
     4. "Extract Structured Resume from Markdown".
@@ -19,6 +22,10 @@ extract_resume_content_task:
       description, achievements, and skills_used -- copied as written.
     - education, certifications, languages as listed.
     - skills as listed (use the resume's own categories where given).
+    - for each skill ALSO set canonicalized_skill: the bare core skill with acronyms expanded
+      and spelling/casing/spacing normalized (strip wrappers and trailing generic nouns like
+      "experience"/"skills"/"certification"), so two surface forms of the SAME skill yield the
+      SAME value. This is a matching key only -- leave skill_name exactly as written.
 
     SOURCE-FIDELITY RULES (the point of this agent):
     - Do NOT infer "implicit" skills, invent metrics/numbers, upgrade titles, or rephrase

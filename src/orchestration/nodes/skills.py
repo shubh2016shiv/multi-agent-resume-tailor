@@ -4,16 +4,21 @@ Flow: write -> code-owned evidence audit -> one rewrite if the audit finds
 unsupported skill claims with high or medium confidence.
 """
 
+import time
+
 from src.agents.skill_optimizer import create_skill_optimizer_agent
+from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import OptimizedSkillsSection, Resume, Skill
 from src.formatters.skills_optimizer_formatter import format_skills_optimizer_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.state import ResumeEnhancementPipelineState
-from src.tools.job_matching import keyword_present_in_text
-from src.tools.review_contract.review_models import Confidence, ReviewResult, Severity
-from src.tools.shared.resume_rendering import render_resume
-from src.tools.truthfulness.skills_evidence_validator import validate_skills_evidence
+from src.tools.contracts import Confidence, ReviewResult, Severity
+from src.tools.engines.document_rendering.resume_text_renderer import render_resume
+from src.tools.engines.job_matching import keyword_present_in_text
+from src.tools.engines.truthfulness.skills_evidence import validate_skills_evidence
+
+logger = get_logger(__name__)
 
 # Mechanical whole-token matches are certain, so recovered skills carry full confidence.
 _RECOVERED_SKILL_CONFIDENCE = 100.0
@@ -28,6 +33,12 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_skills.
     Returns: partial state with the typed OptimizedSkillsSection.
     """
+    start_time = time.monotonic()
+    logger.info(
+        "pipeline_stage_started",
+        stage="optimize_skills",
+        run_id=state["run_id"],
+    )
     assert state["resume"] is not None, "resume must be set before skills optimization"
     assert state["job_description"] is not None, (
         "job_description must be set before skills optimization"
@@ -45,8 +56,15 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
 
     optimized_skills = _write_skills_section(context)
     audit_result = _audit_skills_section(resume, optimized_skills)
+    needs_rewrite = _skills_audit_needs_rewrite(audit_result)
+    logger.info(
+        "skills_audit_completed",
+        findings_count=len(audit_result.comments),
+        needs_rewrite=needs_rewrite,
+    )
 
-    if _skills_audit_needs_rewrite(audit_result):
+    if needs_rewrite:
+        logger.info("skills_rewrite_triggered", findings_count=len(audit_result.comments))
         rewrite_context = _build_skills_rewrite_context(context, optimized_skills, audit_result)
         optimized_skills = _write_skills_section(rewrite_context)
 
@@ -59,6 +77,13 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     # (e.g. Docker/Kubernetes present in experience but absent from a thin skills list).
     optimized_skills = _add_evidenced_jd_keywords(
         optimized_skills, resume, state["job_description"]
+    )
+    duration_ms = round((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "pipeline_stage_completed",
+        stage="optimize_skills",
+        run_id=state["run_id"],
+        duration_ms=duration_ms,
     )
     return {"optimized_skills": optimized_skills}
 

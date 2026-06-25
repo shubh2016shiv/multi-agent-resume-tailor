@@ -21,10 +21,10 @@ A plain FAIL at the QA stage is NOT escalation: it is recoverable and routes to 
 patch node first. Only after recovery is exhausted does a non-PASS become human review.
 """
 
-from src.data_models.evaluation import AtsCheckStatus, AtsRenderedOutcome
+from src.data_models.evaluation import AtsCheckStatus, RenderedStructureEvaluation
 
 
-def is_ats_unverifiable(outcome: AtsRenderedOutcome) -> bool:
+def is_ats_unverifiable(outcome: RenderedStructureEvaluation) -> bool:
     """Return True when the ATS artifact could not be built/inspected (INCONCLUSIVE).
 
     Used at the QA stage: an unverifiable outcome escalates straight to human review,
@@ -33,7 +33,7 @@ def is_ats_unverifiable(outcome: AtsRenderedOutcome) -> bool:
     return outcome.status is AtsCheckStatus.INCONCLUSIVE
 
 
-def is_ats_unrecoverable(outcome: AtsRenderedOutcome) -> bool:
+def is_ats_unrecoverable(outcome: RenderedStructureEvaluation) -> bool:
     """Return True when an ATS outcome is anything other than PASS after recovery ran.
 
     Used at the patch stage, AFTER the deterministic section restore: any remaining

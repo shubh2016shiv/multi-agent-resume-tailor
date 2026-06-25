@@ -7,12 +7,16 @@ whether or not it goes on to render. The mapping comes from the run-scoped Redis
 store; the LLM never sees it.
 """
 
+import time
 from typing import Any
 
+from src.core.logger import get_logger
 from src.core.pii_mapping_store import load_pii_mapping
 from src.core.settings import get_config
 from src.data_models.resume import Resume
 from src.orchestration.state import ResumeEnhancementPipelineState
+
+logger = get_logger(__name__)
 
 
 def rehydrate_pii(state: ResumeEnhancementPipelineState) -> dict:
@@ -24,15 +28,47 @@ def rehydrate_pii(state: ResumeEnhancementPipelineState) -> dict:
     Runs on every path out of QA, before the render gate.
     Raises: RedactionNotCompletedError if the mapping is missing or expired.
     """
+    start_time = time.monotonic()
+    logger.info(
+        "pipeline_stage_started",
+        stage="rehydrate_pii",
+        run_id=state["run_id"],
+    )
     assert state["optimized_resume"] is not None, "optimized_resume must be set before rehydration"
     if not get_config().feature_flags.enable_pii_redaction:
         # PII pipeline disabled: nothing was redacted, so there is nothing to restore.
+        logger.debug("pii_rehydration_skipped", reason="pii_redaction_disabled")
+        duration_ms = round((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "pipeline_stage_completed",
+            stage="rehydrate_pii",
+            run_id=state["run_id"],
+            duration_ms=duration_ms,
+        )
         return {"optimized_resume": state["optimized_resume"]}
     mapping = load_pii_mapping(state["run_id"])
     if not mapping:
+        logger.info("pii_rehydration_skipped", reason="mapping_empty")
+        duration_ms = round((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "pipeline_stage_completed",
+            stage="rehydrate_pii",
+            run_id=state["run_id"],
+            duration_ms=duration_ms,
+        )
         return {"optimized_resume": state["optimized_resume"]}
-    restored_fields = _replace_in_structure(state["optimized_resume"].final_resume.model_dump(), mapping)
+    restored_fields = _replace_in_structure(
+        state["optimized_resume"].final_resume.model_dump(), mapping
+    )
     rehydrated_resume = Resume.model_validate(restored_fields)
+    logger.info("pii_rehydration_completed", placeholder_count=len(mapping))
+    duration_ms = round((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "pipeline_stage_completed",
+        stage="rehydrate_pii",
+        run_id=state["run_id"],
+        duration_ms=duration_ms,
+    )
     return {
         "optimized_resume": state["optimized_resume"].model_copy(
             update={"final_resume": rehydrated_resume}

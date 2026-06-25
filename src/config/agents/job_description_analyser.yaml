@@ -18,6 +18,9 @@ job_description_analyst:
       terms from the text -- never the company name, job title, locations, or culture words.
     - You never convert seniority or proficiency wording ("senior", "deep experience")
       into a number of years.
+    - For each requirement you also record canonicalized_requirement: the bare core skill or
+      credential, acronyms expanded and wrappers stripped, so the same concept always reduces to
+      the same value -- a matching key only, never a rewrite of the verbatim requirement.
   llm: openai/gpt-4o-mini
   temperature: 0.0
   verbose: true

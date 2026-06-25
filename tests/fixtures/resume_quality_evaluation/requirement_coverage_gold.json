@@ -1,0 +1,222 @@
+[
+  {
+    "domain": "ai_engineering",
+    "requirement": "Azure AI Foundry (hands-on must)",
+    "expected_groups": [["Azure AI Foundry"]],
+    "covered_groups": [["Azure AI Foundry"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Hands-on with Azure AI Foundry, Model Context Protocol, and agent orchestration tools.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "MCP (Model Context Protocol)",
+    "expected_groups": [["MCP", "Model Context Protocol"]],
+    "covered_groups": [["MCP", "Model Context Protocol"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Built agent tools using Model Context Protocol servers and tool invocation workflows.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "RAG systems (advanced level)",
+    "expected_groups": [["RAG", "RAG systems", "Retrieval Augmented Generation"]],
+    "covered_groups": [["RAG", "RAG systems", "Retrieval Augmented Generation"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Architected multi-agent RAG pipelines with vector retrieval and cited responses.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "Semantic Kernel / AutoGen (knowledge required)",
+    "expected_groups": [["Semantic Kernel", "AutoGen"]],
+    "covered_groups": [["Semantic Kernel", "AutoGen"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Implemented AutoGen-based agent orchestration experiments for specialist task agents.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "Entra ID / RBAC / Managed Identity",
+    "expected_groups": [["Entra ID"], ["RBAC"], ["Managed Identity"]],
+    "covered_groups": [["RBAC"]],
+    "missed_groups": [["Entra ID"], ["Managed Identity"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.3333,
+    "resume_span": "Configured Azure RBAC for deployment pipelines and service access.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "Azure Container Apps / App Service / ACR",
+    "expected_groups": [["Azure Container Apps"], ["App Service"], ["ACR", "Azure Container Registry"]],
+    "covered_groups": [["Azure Container Apps"]],
+    "missed_groups": [["App Service"], ["ACR", "Azure Container Registry"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.3333,
+    "resume_span": "Built MCP servers using Azure Container Apps for isolated tool execution.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "Azure AI Search / OpenAI / AI Foundry",
+    "expected_groups": [["Azure AI Search"], ["OpenAI", "Azure OpenAI"], ["AI Foundry", "Azure AI Foundry"]],
+    "covered_groups": [["OpenAI", "Azure OpenAI"], ["AI Foundry", "Azure AI Foundry"]],
+    "missed_groups": [["Azure AI Search"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.6667,
+    "resume_span": "Prevented failures caused by Azure OpenAI token limits and configured Azure AI Foundry projects.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "ai_engineering",
+    "requirement": "Python (Advanced)",
+    "expected_groups": [["Python"]],
+    "covered_groups": [["Python"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Used advanced Python to build FastAPI services and agentic workflows.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "C# / .NET (Advanced)",
+    "expected_groups": [["C#", ".NET"]],
+    "covered_groups": [["C#", ".NET"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Built backend services in .NET with REST APIs and SQL integrations.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "FastAPI / .NET backend services",
+    "expected_groups": [["FastAPI"], [".NET"], ["backend services"]],
+    "covered_groups": [["FastAPI"], ["backend services"]],
+    "missed_groups": [[".NET"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.6667,
+    "resume_span": "Built production FastAPI backend services for clinical data workflows.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "Docker / Container Apps / App Service",
+    "expected_groups": [["Docker"], ["Container Apps", "Azure Container Apps"], ["App Service"]],
+    "covered_groups": [["Docker"]],
+    "missed_groups": [["Container Apps", "Azure Container Apps"], ["App Service"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.3333,
+    "resume_span": "Containerized services with Docker and deployed CI/CD workflows.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "CI/CD pipelines",
+    "expected_groups": [["CI/CD", "CI/CD pipelines"]],
+    "covered_groups": [["CI/CD", "CI/CD pipelines"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Implemented CI/CD pipelines across private-cloud environments.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "MongoDB / PostgreSQL",
+    "expected_groups": [["MongoDB"], ["PostgreSQL"]],
+    "covered_groups": [["MongoDB"]],
+    "missed_groups": [["PostgreSQL"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.5,
+    "resume_span": "Fetched patient data from MongoDB in parallel retrieval workflows.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "AWS S3 (basic integration knowledge)",
+    "expected_groups": [["AWS S3", "S3"]],
+    "covered_groups": [],
+    "missed_groups": [["AWS S3", "S3"]],
+    "needs_judgment": [],
+    "expected_coverage": 0.0,
+    "resume_span": "Deployed inference workloads on AWS Lambda and EventBridge.",
+    "entailment": "NOT"
+  },
+  {
+    "domain": "backend_engineering",
+    "requirement": "Kubernetes / K8s",
+    "expected_groups": [["Kubernetes", "K8s"]],
+    "covered_groups": [["Kubernetes", "K8s"]],
+    "missed_groups": [],
+    "needs_judgment": [],
+    "expected_coverage": 1.0,
+    "resume_span": "Operated container workloads with Kubernetes and Docker.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "leadership",
+    "requirement": "Ability to influence senior stakeholders",
+    "expected_groups": [["influence senior stakeholders"]],
+    "covered_groups": [],
+    "missed_groups": [],
+    "needs_judgment": [["influence senior stakeholders"]],
+    "expected_coverage": 0.0,
+    "resume_span": "Led cross-functional delivery reviews with product and engineering leaders.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "healthcare_operations",
+    "requirement": "Experience managing regulated clinical workflows",
+    "expected_groups": [["regulated clinical workflows"]],
+    "covered_groups": [],
+    "missed_groups": [],
+    "needs_judgment": [["regulated clinical workflows"]],
+    "expected_coverage": 0.0,
+    "resume_span": "Built clinical assistants over patient FHIR records and comorbidity guidelines.",
+    "entailment": "ENTAILED"
+  },
+  {
+    "domain": "finance_compliance",
+    "requirement": "Strong understanding of credit risk governance",
+    "expected_groups": [["credit risk governance"]],
+    "covered_groups": [],
+    "missed_groups": [],
+    "needs_judgment": [["credit risk governance"]],
+    "expected_coverage": 0.0,
+    "resume_span": "Worked on banking document workflows and trade-message classification.",
+    "entailment": "NOT"
+  },
+  {
+    "domain": "sales",
+    "requirement": "Drive enterprise sales cycles",
+    "expected_groups": [["enterprise sales cycles"]],
+    "covered_groups": [],
+    "missed_groups": [],
+    "needs_judgment": [["enterprise sales cycles"]],
+    "expected_coverage": 0.0,
+    "resume_span": "Presented technical architecture and delivery risks to enterprise clients.",
+    "entailment": "NOT"
+  },
+  {
+    "domain": "research",
+    "requirement": "Translate ambiguous business requirements into delivery plans",
+    "expected_groups": [["ambiguous business requirements"], ["delivery plans"]],
+    "covered_groups": [],
+    "missed_groups": [],
+    "needs_judgment": [["ambiguous business requirements"], ["delivery plans"]],
+    "expected_coverage": 0.0,
+    "resume_span": "Created implementation plans for multi-agent code review workflows.",
+    "entailment": "ENTAILED"
+  }
+]

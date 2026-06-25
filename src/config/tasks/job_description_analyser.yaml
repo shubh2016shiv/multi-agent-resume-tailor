@@ -30,13 +30,25 @@ analyze_job_description_task:
       and any inferred synonyms not in the text.
     - full_text: copy the supplied posting text into this field VERBATIM and unmodified.
       Do not summarize, translate, or truncate it -- later stages rely on the original text.
+    - canonicalized_requirement: for each requirement ALSO set this to the SINGLE core skill,
+      technology, tool, or credential the requirement is about -- NOT the full sentence. Two steps:
+      (1) reduce to the bare concept: strip action/qualifier wrappers ("experience with",
+      "proficiency in", "knowledge of", "hands-on", "strong", "familiarity with"), duration
+      ("N+ years of"), priority words ("required", "preferred", "mandatory", "essential"), and
+      trailing generic nouns ("experience", "skills", "training", "certification");
+      (2) normalize: expand any acronym/abbreviation to its full common form and normalize spelling,
+      casing, and spacing. The GOAL is convergence: two requirements about the SAME underlying skill
+      must produce the SAME canonicalized_requirement -- e.g. an acronym and its spelled-out form, or
+      a "... certification" and a "... training" phrasing, collapse to one bare concept. It must name
+      the exact same skill (never broader or different); if a requirement genuinely covers two
+      distinct skills, use the primary one. Leave `requirement` itself exactly as written.
 
     STEPS:
     1. Read the posting in CONTEXT.
     2. Extract job_title, company_name, and the seniority level (job_level); use
        "unspecified" if the posting does not state a level.
     3. Extract each requirement with its importance (and years_required only if numerically
-       stated).
+       stated), and set its canonicalized_requirement per the rule above.
     4. Write a 1-3 sentence summary of the role from the posting.
     5. Compile ats_keywords per the rule above.
     6. Set full_text to the verbatim posting text.

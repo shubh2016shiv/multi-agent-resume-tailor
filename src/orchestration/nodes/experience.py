@@ -5,17 +5,21 @@ only when it is an exact permutation of the source bullets, then rebuilds the ro
 from the original typed object. New or altered claims can never enter pipeline state.
 """
 
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 from src.agents.professional_experience import create_professional_experience_agent
 from src.agents.professional_experience.models import OptimizedExperienceSection
+from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Experience, Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.experience_optimizer_formatter import format_experience_optimizer_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.state import ResumeEnhancementPipelineState
+
+logger = get_logger(__name__)
 
 
 def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
@@ -25,13 +29,26 @@ def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_experience.
     Returns: partial state with merged OptimizedExperienceSection output.
     """
+    start_time = time.monotonic()
     resume = state["resume"]
     job_description = state["job_description"]
     strategy = state["alignment_strategy"]
+    logger.info(
+        "pipeline_stage_started",
+        stage="optimize_experience",
+        run_id=state["run_id"],
+    )
     if resume is None or job_description is None or strategy is None:
         raise ValueError("resume, job_description, and alignment_strategy must be set.")
 
     optimized_experience = _optimize_experience_entries(resume, job_description, strategy)
+    duration_ms = round((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "pipeline_stage_completed",
+        stage="optimize_experience",
+        run_id=state["run_id"],
+        duration_ms=duration_ms,
+    )
     return {"optimized_experience": optimized_experience}
 
 
@@ -181,6 +198,11 @@ def _run_experience_optimization_workers(
     Returns one OptimizedExperienceSection per input experience.
     """
     max_workers = min(len(experiences), 4)
+    logger.debug(
+        "experience_optimization_parallelism",
+        experience_count=len(experiences),
+        max_workers=max_workers,
+    )
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         return list(
             executor.map(

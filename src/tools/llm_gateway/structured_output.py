@@ -20,18 +20,27 @@ from src.core.settings import get_config
 logger = get_logger(__name__)
 
 
-def build_structured_llm(output_model: type[BaseModel]) -> LLM:
-    """Construct an LLM that returns JSON shaped like output_model."""
+def build_structured_llm(
+    output_model: type[BaseModel], temperature: float | None = None
+) -> LLM:
+    """Construct an LLM that returns JSON shaped like output_model.
+
+    Uses the configured default temperature unless an explicit temperature is given
+    (e.g. 0.0 for deterministic gate decisions like the entailment judge).
+    """
     llm_config = get_config().llm
     return LLM(
         model=llm_config.model,
-        temperature=llm_config.temperature,
+        temperature=llm_config.temperature if temperature is None else temperature,
         response_format=output_model,
     )
 
 
 def request_structured_output[OutputModel: BaseModel](
-    output_model: type[OutputModel], system_prompt: str, user_content: str
+    output_model: type[OutputModel],
+    system_prompt: str,
+    user_content: str,
+    temperature: float | None = None,
 ) -> OutputModel:
     """Call the LLM and return a validated instance of output_model.
 
@@ -39,6 +48,8 @@ def request_structured_output[OutputModel: BaseModel](
         output_model: The Pydantic model the response must conform to.
         system_prompt: Instructions defining the task (rubric or extraction spec).
         user_content: The text to act on.
+        temperature: Optional override; pass 0.0 for deterministic gate decisions.
+            Defaults to the configured agent temperature when None.
 
     Returns:
         A validated instance of output_model.
@@ -64,18 +75,21 @@ def request_structured_output[OutputModel: BaseModel](
     ####################################################
     # STEP 2: HAND THE VALIDATED INPUT TO THE RESILIENT CALL PATH#
     ####################################################
-    return _request_structured_output(output_model, system_prompt, user_content)
+    return _request_structured_output(output_model, system_prompt, user_content, temperature)
 
 
 @resilient_llm_call()
 def _request_structured_output[OutputModel: BaseModel](
-    output_model: type[OutputModel], system_prompt: str, user_content: str
+    output_model: type[OutputModel],
+    system_prompt: str,
+    user_content: str,
+    temperature: float | None = None,
 ) -> OutputModel:
     """Call the configured LLM after input validation has already passed."""
     ####################################################
     # STEP 1: BUILD THE STRUCTURED LLM AND MESSAGE PAYLOAD#
     ####################################################
-    structured_llm = build_structured_llm(output_model)
+    structured_llm = build_structured_llm(output_model, temperature)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},

@@ -3,7 +3,7 @@
 Plain code, no agent: rendering an already-decided Resume into files is mechanical.
 This node runs when the quality gate passed, or when render_draft_on_gate_fail is True
 (see _route_after_quality in graph.py). When it runs on a gate-fail, the files are drafts
-and qa_report.passed_quality_threshold is False -- the caller decides what to do with them.
+and quality_report.passes_quality_gate is False -- the caller decides what to do with them.
 
 It always writes Markdown and DOCX (both pure Python, every OS). PDF is best-effort: if the
 LaTeX toolchain (tectonic) is absent or compilation fails, the PDF is skipped with a recorded
@@ -12,6 +12,7 @@ the configured output_dir, nested <output_dir>/<candidate>/<designation>/ with a
 self-describing file name (see document_rendering.output_location).
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -21,10 +22,10 @@ from src.data_models.job import JobDescription
 from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import Resume
 from src.orchestration.state import ResumeEnhancementPipelineState
-from src.tools.document_rendering import is_render_available, render_resume_document
-from src.tools.document_rendering.docx_renderer import render_resume_docx
-from src.tools.document_rendering.markdown_renderer import build_resume_markdown
-from src.tools.document_rendering.output_location import resume_filename, resume_output_dir
+from src.tools.engines.document_rendering import is_render_available, render_resume_document
+from src.tools.engines.document_rendering.docx_renderer import render_resume_docx
+from src.tools.engines.document_rendering.markdown_renderer import build_resume_markdown
+from src.tools.engines.document_rendering.output_paths import resume_filename, resume_output_dir
 
 logger = get_logger(__name__)
 
@@ -38,6 +39,12 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
 
     Precondition: rehydrate_pii has already restored real PII into final_resume.
     """
+    start_time = time.monotonic()
+    logger.info(
+        "pipeline_stage_started",
+        stage="render_final_resume",
+        run_id=state["run_id"],
+    )
     assert state["optimized_resume"] is not None, "optimized_resume must be set before rendering"
     assert state["job_description"] is not None, "job_description must be set before rendering"
     final_resume = state["optimized_resume"].final_resume
@@ -49,6 +56,16 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
     markdown_path = _write_markdown(final_resume, job, output_dir, when)
     docx_path = _write_docx(final_resume, job, output_dir, when)
     pdf_path, pdf_skipped_reason = _try_render_pdf(final_resume, job, output_dir, when)
+    duration_ms = round((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "pipeline_stage_completed",
+        stage="render_final_resume",
+        run_id=state["run_id"],
+        duration_ms=duration_ms,
+        md_path=str(markdown_path),
+        docx_path=str(docx_path),
+        pdf_rendered=pdf_path is not None,
+    )
     return {
         "rendered_artifacts": RenderedResumeArtifacts(
             markdown_path=markdown_path,

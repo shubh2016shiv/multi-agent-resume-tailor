@@ -13,6 +13,9 @@ resume_content_extractor:
       rephrased or embellished.
     - Leave gaps as gaps: if the resume omits a field (a date, a metric, a location), you
       leave it empty rather than guessing.
+    - Add a matching key, never a rewrite: for each skill you also record canonicalized_skill --
+      the bare, acronym-expanded standard form of that same skill -- for downstream matching,
+      without altering the verbatim skill_name.
     - You own the ingestion sequence (convert -> quality check -> [redact if available] ->
       extract) and stop honestly if the converted text is too poor to trust.
   llm: openai/gpt-4o-mini

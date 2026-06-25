@@ -1,4 +1,4 @@
-"""Deterministic ATS grading: does the REAL rendered resume carry its section headers?
+"""Evaluate whether the rendered resume carries its essential section headers.
 
 This rubric is the fix for the ATS root cause: the QA agent was checking its lossy
 TOON context (where headers look like `[Skills]`), which the header validator's regex
@@ -16,7 +16,7 @@ from a provably single-column template (resume.tex.j2 is `extarticle`, one colum
 import re
 
 from src.core.logger import get_logger
-from src.data_models.evaluation import AtsCheckStatus, AtsRenderedOutcome
+from src.data_models.evaluation import AtsCheckStatus, RenderedStructureEvaluation
 from src.data_models.resume import Resume
 from src.tools.contracts import Severity
 from src.tools.engines.ats_compliance import audit_section_headers
@@ -37,11 +37,11 @@ _INCONCLUSIVE_ATS_SCORE = 0.0
 _SECTION_TITLE_PATTERN = re.compile(r"\\section\*\{([^}]+)\}")
 
 
-def grade_ats(final_resume: Resume) -> AtsRenderedOutcome:
+def evaluate_rendered_structure(final_resume: Resume) -> RenderedStructureEvaluation:
     """Grade ATS compatibility by auditing the rendered .tex artifact's section headers.
 
     Expects the final, assembled resume (the one that will become the PDF).
-    Returns an AtsRenderedOutcome:
+    Returns a RenderedStructureEvaluation:
       - INCONCLUSIVE if the .tex cannot be built (we cannot inspect what we cannot render,
         so we never silently PASS -- this routes to secondary/human review downstream).
       - FAIL if any essential section header (experience/education/skills) is missing.
@@ -55,7 +55,7 @@ def grade_ats(final_resume: Resume) -> AtsRenderedOutcome:
         tex = build_resume_tex(final_resume)
     except Exception as error:  # noqa: BLE001 -- any build failure maps to INCONCLUSIVE
         logger.warning("ATS check inconclusive: could not build .tex", error=str(error))
-        return AtsRenderedOutcome(
+        return RenderedStructureEvaluation(
             status=AtsCheckStatus.INCONCLUSIVE,
             violations=[],
             ats_score=_INCONCLUSIVE_ATS_SCORE,
@@ -70,13 +70,13 @@ def grade_ats(final_resume: Resume) -> AtsRenderedOutcome:
         comment.message for comment in header_review.comments if comment.severity is Severity.MAJOR
     ]
     if violations:
-        return AtsRenderedOutcome(
+        return RenderedStructureEvaluation(
             status=AtsCheckStatus.FAIL,
             violations=violations,
             ats_score=_FAIL_ATS_SCORE,
             detail=f"Rendered resume is missing {len(violations)} essential section header(s).",
         )
-    return AtsRenderedOutcome(
+    return RenderedStructureEvaluation(
         status=AtsCheckStatus.PASS,
         violations=[],
         ats_score=_PASS_ATS_SCORE,

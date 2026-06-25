@@ -52,6 +52,19 @@ class Skill(BaseModel):
         description="The name of the skill (e.g., 'Python', 'Docker', 'Team Leadership').",
     )
 
+    # The canonicalized form of skill_name, used only for matching. Set by extraction to the
+    # standard name for this same skill (acronyms expanded, spelling/spacing normalized) so two
+    # surface forms of one skill share a value. Never overwrites skill_name; lets downstream
+    # match resume skills to job requirements without a synonym table.
+    canonicalized_skill: str | None = Field(
+        None,
+        description=(
+            "Standardized form of skill_name for matching only (an acronym and its spelled-out "
+            "form share one value). Denotes the exact same skill as skill_name, never a broader "
+            "or different one. Null when not normalized."
+        ),
+    )
+
     # The category helps in grouping skills for better organization and display.
     # Agents can use this to differentiate between different types of skills.
     category: str | None = Field(

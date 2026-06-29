@@ -12,6 +12,7 @@ from typing import Any
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel
 
+from debug_checkpoints import save_agent_input_checkpoint
 from src.core.llm_cache import configure_llm_cache
 from src.core.logger import get_logger
 from src.core.settings import get_tasks_config
@@ -69,11 +70,19 @@ def run_agent_task(
     task_name: str,
     context: str,
     output_model: type[BaseModel],
+    run_id: str = "unknown",
 ) -> Any:
     """Run one CrewAI task and return the validated Pydantic output.
 
     Precondition: agent is configured, task_name exists in tasks.yaml, and
     context already contains the task-specific input.
+    Args:
+        agent: configured CrewAI Agent.
+        task_name: key in tasks.yaml (e.g. "optimize_skills_section_task").
+        context: the task-specific formatted context string.
+        output_model: Pydantic model class the agent must return.
+        run_id: pipeline run identifier forwarded from state["run_id"];
+                used to namespace debug checkpoint files.
     Returns: a validated instance of output_model.
     Raises: ValueError if CrewAI does not produce output_model.
     """
@@ -84,6 +93,7 @@ def run_agent_task(
         agent_role=agent.role,
         task_name=task_name,
         output_model=output_model.__name__,
+        run_id=run_id,
     )
     tasks_config = get_tasks_config()
     task_config = tasks_config.get(task_name, {})
@@ -119,6 +129,16 @@ def run_agent_task(
             expected_output=task_expected_output,
             agent=agent,
         )
+    # Save the full task_description to a file before the LLM call so we can
+    # inspect exactly what the agent received. No-ops unless DEBUG_CHECKPOINTS=1.
+    save_agent_input_checkpoint(
+        run_id=run_id,
+        agent_role=agent.role,
+        task_name=task_name,
+        output_model_name=output_model.__name__,
+        task_description=task_description,
+    )
+
     # Serialize the kickoff so concurrent pipeline nodes never write CrewAI's shared
     # SQLite store at the same time (see _KICKOFF_LOCK above).
     with _KICKOFF_LOCK:
@@ -136,6 +156,7 @@ def run_agent_task(
         agent_role=agent.role,
         task_name=task_name,
         output_model=output_model.__name__,
+        run_id=run_id,
         duration_ms=duration_ms,
     )
     return validated

@@ -3,10 +3,10 @@ optimize_skills_section_task:
     Order, group, and truthfully normalize the candidate's skills for this job. Works for
     any field. Your durable contribution is PRIORITIZATION and GROUPING -- the surrounding
     system guarantees the rest in code (see "WHAT CODE HANDLES" below), so spend your effort
-    where judgement matters.
+    where judgment matters.
 
-    INPUTS (in the CONTEXT section): the candidate's resume skills and experience, the
-    alignment strategy's skills_guidance, and the job's requirements + ats_keywords.
+    INPUTS (in the CONTEXT section): the candidate's resume skills, compact role evidence,
+    the alignment strategy's skills_guidance, and the job's requirements + ats_keywords.
 
     YOUR JOB:
     1. Prioritize: evidenced must-have skills first, then evidenced should-have, then the
@@ -26,15 +26,38 @@ optimize_skills_section_task:
     - If a job keyword has no truthful support, leave it out and note it in
       optimization_notes -- do not invent it.
 
+    DON'TS (these are structured-field errors, not stylistic preferences):
+    - DON'T create a standalone skill from a broad category label when the resume only shows
+      it inside a larger phrase.
+      Example: DON'T add "AI" just because the resume says "AI/ML workflows".
+    - DON'T promote a degree name, field of study, or education term into a skill unless the
+      same skill is explicitly evidenced elsewhere in the resume.
+      Example: DON'T add "Data Science" as a skill just because education says
+      "Certification in Data Science".
+    - DON'T infer a broader capability from a narrower branded tool unless the broader claim
+      is explicitly supported by resume evidence.
+      Example: DON'T add "production ML systems" just because the resume lists tools like
+      MLflow or Docker unless the evidence directly states that broader capability.
+    - DON'T upgrade supporting workflow evidence into a broader capability label unless the
+      resume explicitly names that capability or clearly describes it as a primary activity.
+      Example: DON'T add "Feature Engineering" just because the resume mentions ETL,
+      preprocessing, or transformed model inputs unless it explicitly describes engineered
+      features.
+    - DON'T use ATS keywords as a shopping list. If the candidate evidence is narrower than
+      the keyword, keep the narrower truthful skill rather than upgrading it.
+
     WHAT CODE HANDLES (so you don't have to):
-    - Completeness: any truthful skill you omit is re-added automatically, and evidenced job
-      keywords you miss are recovered. So do NOT pad the list or chase every keyword -- order
-      the important skills well; do not delete truthful skills to shorten the list.
+    - Completeness: any truthful original skill you omit is re-added automatically. So do NOT
+      pad the list or chase every ATS keyword -- order the important skills well; do not
+      delete truthful skills to shorten the list.
     - Removal of unsupported skills: a downstream audit flags and removes them.
 
-    REWRITE PASS: if the CONTEXT contains SKILLS_AUDIT_FEEDBACK and
-    PREVIOUS_OPTIMIZED_SKILLS_JSON, this is a correction round -- remove every flagged
-    unsupported skill and return the corrected OptimizedSkillsSection, keeping the rest.
+    REWRITE PASS: if the CONTEXT contains "current_skills" and "skills_to_remove", this is a
+    correction round, NOT a fresh optimization. Return an OptimizedSkillsSection built from
+    current_skills with every name in skills_to_remove dropped, and nothing else changed: do
+    NOT add skills, do NOT re-infer from job keywords, do NOT rename. Keep each surviving
+    skill's name and category, regroup skill_categories to match, and list the dropped names
+    in removed_skills.
 
   expected_output: >
     A complete OptimizedSkillsSection JSON: "optimized_skills" (Skill objects ordered by

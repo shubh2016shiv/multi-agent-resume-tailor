@@ -46,6 +46,7 @@ def run_gap_analysis(state: ResumeEnhancementPipelineState) -> dict:
         task_name="create_alignment_strategy_task",
         context=context,
         output_model=AlignmentStrategy,
+        run_id=state["run_id"],
     )
     result = {
         "requirement_match_report": match_report,

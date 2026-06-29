@@ -41,7 +41,7 @@ def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
     if resume is None or job_description is None or strategy is None:
         raise ValueError("resume, job_description, and alignment_strategy must be set.")
 
-    optimized_experience = _optimize_experience_entries(resume, job_description, strategy)
+    optimized_experience = _optimize_experience_entries(resume, job_description, strategy, state["run_id"])
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(
         "pipeline_stage_completed",
@@ -56,6 +56,7 @@ def _optimize_experience_entries(
     resume: Resume,
     job_description: JobDescription,
     strategy: AlignmentStrategy,
+    run_id: str = "unknown",
 ) -> OptimizedExperienceSection:
     """Optimize every resume experience and merge the role-scoped sections.
 
@@ -71,6 +72,7 @@ def _optimize_experience_entries(
         job_description=job_description,
         strategy=strategy,
         experiences=experiences,
+        run_id=run_id,
     )
     return _merge_optimized_experience_sections(sections)
 
@@ -122,7 +124,7 @@ def _source_preserved_section(experience: Experience) -> OptimizedExperienceSect
     )
 
 
-def _write_experience_section(context: str) -> OptimizedExperienceSection:
+def _write_experience_section(context: str, run_id: str = "unknown") -> OptimizedExperienceSection:
     """Ask the professional experience agent to write one role.
 
     Expects TOON context for a single role.
@@ -133,6 +135,7 @@ def _write_experience_section(context: str) -> OptimizedExperienceSection:
         task_name="optimize_experience_section_task",
         context=context,
         output_model=OptimizedExperienceSection,
+        run_id=run_id,
     )
 
 
@@ -141,6 +144,7 @@ def _run_single_experience_optimization(
     job_description: JobDescription,
     strategy: AlignmentStrategy,
     experience: Experience,
+    run_id: str = "unknown",
 ) -> OptimizedExperienceSection:
     """Prioritize one role's existing bullets with a role-scoped CrewAI call.
 
@@ -154,7 +158,7 @@ def _run_single_experience_optimization(
         strategy=strategy,
         format_type="toon",
     )
-    proposal = _write_experience_section(context)
+    proposal = _write_experience_section(context, run_id=run_id)
     return _accept_bullet_order_or_preserve_source(proposal, experience)
 
 
@@ -191,6 +195,7 @@ def _run_experience_optimization_workers(
     job_description: JobDescription,
     strategy: AlignmentStrategy,
     experiences: list[Experience],
+    run_id: str = "unknown",
 ) -> list[OptimizedExperienceSection]:
     """Run role-scoped experience optimization calls in parallel.
 
@@ -211,6 +216,7 @@ def _run_experience_optimization_workers(
                     job_description,
                     strategy,
                     experience,
+                    run_id,
                 ),
                 experiences,
             )

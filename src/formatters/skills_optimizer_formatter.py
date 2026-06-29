@@ -8,11 +8,13 @@ Consumer:
 
 This formatter keeps:
 - the candidate's current skills
+- compact per-role evidence the skills agent can legitimately reason from
 - the job requirements and ATS keywords those skills should cover
-- the strategy guidance for ordering and gap handling
+- the strategy guidance for ordering only
 
 This formatter drops:
-- work experience, education, and contact information
+- full work-experience bullets beyond the compact evidence slice
+- education and contact information
 - full job text and unrelated metadata
 - token-tracking and feature-flag formatting tricks
 
@@ -24,13 +26,13 @@ Toy example:
 from typing import Any
 
 from src.data_models.job import JobDescription, SkillImportance
-from src.data_models.resume import Resume
+from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 
 def select_resume_context(resume: Resume) -> dict[str, Any]:
-    """Keep only the current skills section the optimizer should reshape."""
+    """Keep skills plus compact role evidence the optimizer can verify against."""
     return {
         "skills": [
             {
@@ -40,7 +42,15 @@ def select_resume_context(resume: Resume) -> dict[str, Any]:
                 "years_of_experience": skill.years_of_experience,
             }
             for skill in resume.skills
-        ]
+        ],
+        "role_evidence": [
+            {
+                "job_title": experience.job_title,
+                "skills_used": list(experience.skills_used),
+                "top_achievements": experience.achievements[:2],
+            }
+            for experience in resume.work_experience
+        ],
     }
 
 
@@ -62,27 +72,9 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
 
 
 def select_strategy_context(strategy: AlignmentStrategy) -> dict[str, Any]:
-    """Keep only the strategy fields the skills optimizer should read."""
+    """Keep only the ordering guidance the skills optimizer should read."""
     return {
         "skills_guidance": strategy.skills_guidance,
-        "keywords_to_integrate": list(strategy.keywords_to_integrate),
-        "identified_matches": [
-            {
-                "resume_skill": match.resume_skill,
-                "job_requirement": match.job_requirement,
-                "match_score": match.match_score,
-                "justification": match.justification,
-            }
-            for match in strategy.identified_matches
-        ],
-        "identified_gaps": [
-            {
-                "missing_skill": gap.missing_skill,
-                "importance": gap.importance,
-                "suggestion": gap.suggestion,
-            }
-            for gap in strategy.identified_gaps
-        ],
     }
 
 
@@ -133,4 +125,55 @@ def format_skills_optimizer_context(
         payload,
         format_type=format_type,
         description="Skills Optimizer Context",
+    )
+
+
+def select_rewrite_skills(section: OptimizedSkillsSection) -> list[dict[str, Any]]:
+    """Keep only the name and category of each skill the rewrite must re-emit.
+
+    proficiency, justification, evidence, and confidence are internal metadata the
+    assembled resume never renders (it groups skill names under categories), so they
+    are dropped here. A leaner context keeps the model on its one rewrite task --
+    drop the flagged skills, keep the rest -- instead of re-deriving a large blob.
+    """
+    return [
+        {"skill_name": skill.skill_name, "category": skill.category}
+        for skill in section.optimized_skills
+    ]
+
+
+def build_skills_rewrite_payload(
+    section: OptimizedSkillsSection,
+    skills_to_remove: list[str],
+) -> dict[str, Any]:
+    """Build the minimal correction payload: the current skills and the names to drop."""
+    return {
+        "current_skills": select_rewrite_skills(section),
+        "skills_to_remove": list(skills_to_remove),
+    }
+
+
+def format_skills_rewrite_context(
+    section: OptimizedSkillsSection,
+    skills_to_remove: list[str],
+    format_type: OutputFormat = "toon",
+) -> str:
+    """Return the scoped context for one skills-correction (rewrite) pass.
+
+    Deliberately omits the job requirements, ats_keywords, role evidence, and strategy
+    the first pass needed: evidence judgement is already done by the audit, so the
+    rewrite only needs the current skill list and the exact names to remove.
+    """
+    ####################################################
+    # STEP 1: BUILD THE MINIMAL CORRECTION PAYLOAD#
+    ####################################################
+    payload = build_skills_rewrite_payload(section, skills_to_remove)
+
+    ####################################################
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    ####################################################
+    return render_context_data(
+        payload,
+        format_type=format_type,
+        description="Skills Rewrite Context",
     )

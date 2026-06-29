@@ -50,6 +50,7 @@ def assemble_ats_resume(state: ResumeEnhancementPipelineState) -> dict:
         task_name="optimize_ats_resume_task",
         context=context,
         output_model=AtsOptimizedResume,
+        run_id=state["run_id"],
     )
     verified_resume = _preserve_verified_experience(
         optimized_resume,

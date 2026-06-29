@@ -44,6 +44,7 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
         task_name="write_professional_summary_task",
         context=context,
         output_model=ProfessionalSummary,
+        run_id=state["run_id"],
     )
     result = {"professional_summary": professional_summary}
     duration_ms = round((time.monotonic() - start_time) * 1000)

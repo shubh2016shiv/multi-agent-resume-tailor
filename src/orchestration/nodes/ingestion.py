@@ -43,6 +43,7 @@ def extract_resume(state: ResumeEnhancementPipelineState) -> dict:
             task_name="extract_resume_content_task",
             context=f"RESUME FILE PATH: {state['resume_path']}",
             output_model=Resume,
+            run_id=state["run_id"],
         )
     result = {"resume": assign_experience_ids(resume)}
     duration_ms = round((time.monotonic() - start_time) * 1000)
@@ -75,6 +76,7 @@ def analyze_job(state: ResumeEnhancementPipelineState) -> dict:
         task_name="analyze_job_description_task",
         context=f"JOB DESCRIPTION:\n{jd_markdown}",
         output_model=JobDescription,
+        run_id=state["run_id"],
     )
     result = {"job_description": job_description}
     duration_ms = round((time.monotonic() - start_time) * 1000)

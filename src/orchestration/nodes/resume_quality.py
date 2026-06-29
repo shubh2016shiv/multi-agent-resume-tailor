@@ -94,6 +94,7 @@ def _request_quality_feedback(
             task_name="write_quality_feedback_task",
             context=context,
             output_model=QualityFeedback,
+            run_id=state["run_id"],
         )
     except Exception as error:  # noqa: BLE001 -- advisory failure must not block evaluation
         logger.warning("Quality feedback unavailable", error=str(error))

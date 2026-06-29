@@ -119,7 +119,7 @@ llm:
 logging:
   # Minimum level of logs to record.
   # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
-  level: "INFO"
+  level: "DEBUG"
 
   # Format for log output.
   # "json" is recommended for production for easy parsing by log aggregators.

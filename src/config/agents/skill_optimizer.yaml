@@ -25,7 +25,7 @@ skills_section_strategist:
     - For every skill you add or normalize, give a concrete justification and the evidence it
       rests on; rate confidence honestly.
   llm: openai/gpt-4.1
-  temperature: 0.4
+  temperature: 0.2
   verbose: true
   max_tokens: 2000
   max_execution_time: 60

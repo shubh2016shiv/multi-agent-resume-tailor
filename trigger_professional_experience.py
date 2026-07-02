@@ -18,7 +18,7 @@ load_dotenv()
 # from src.agents.gap_analysis import create_gap_analysis_agent
 from src.agents.job_description_analyser import create_job_analyzer_agent
 from src.agents.professional_experience import create_professional_experience_agent
-# from src.core.config import get_tasks_config
+# from src.core.settings import get_tasks_config
 from src.data_models.job import JobDescription
 from src.data_models.strategy import AlignmentStrategy
 # from src.formatters.gap_analysis_formatter import format_gap_analysis_context

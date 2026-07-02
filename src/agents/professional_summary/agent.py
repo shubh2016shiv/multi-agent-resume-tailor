@@ -1,6 +1,9 @@
 """
 Professional Summary agent factory.
 
+Pipeline position: node STEP 3 (see src/orchestration/nodes/summary.py). The node
+calls create_professional_summary_agent() to build the writer, then runs the task.
+
 Builds a CrewAI Agent wired with the audit_summary tool — a hybrid tool that
 reviews a professional summary for length, first-person voice, generic boilerplate,
 and missing value proposition, using both mechanical checks and LLM judgment.

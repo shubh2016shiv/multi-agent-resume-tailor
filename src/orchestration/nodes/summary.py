@@ -1,4 +1,18 @@
-"""Stage 3 professional summary node."""
+"""Stage 3 of the resume pipeline: write the professional summary.
+
+This node is the entry point and the map for the whole professional-summary
+pipeline. Reading write_professional_summary below, top to bottom, shows every
+step and which module performs it:
+
+    STEP 1  confirm upstream stages populated the state   (this file)
+    STEP 2  build the writer's context                    -> professional_summary_formatter.py
+    STEP 3  create the summary-writer agent               -> professional_summary/agent.py
+    STEP 4  run the writing task, get a typed result      -> crew_task_execution.py
+    STEP 5  enforce the quality gate before handing off   -> resume_diagnostics/summary_quality.py
+
+Reads from state: resume, job_description, alignment_strategy.
+Writes to state: professional_summary.
+"""
 
 import time
 
@@ -13,18 +27,18 @@ from src.tools.engines.resume_diagnostics.summary_quality import audit_summary_t
 
 logger = get_logger(__name__)
 
+# A finding at or above this severity blocks the summary from proceeding. The audit
+# rubric assigns MAJOR only to the writer task's own hard constraints (banned phrase,
+# banned "[title] with [x] years" opener, first-person, out-of-range length), so the
+# gate blocks exactly those and lets softer style notes (MINOR) pass.
+BLOCKING_SEVERITIES = {Severity.MAJOR, Severity.BLOCKER}
+
 
 def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     """Generate a professional summary tailored to the job description.
 
-    Reads: resume, job_description, and alignment_strategy from prior stages.
-    Writes: professional_summary.
-    Returns: partial state with the typed ProfessionalSummary.
-    Raises: ValueError if the recommended draft fails the summary quality gate
-            (see _enforce_summary_quality_gate) -- a banned phrase, banned opener
-            formula, or first-person pronoun is a hard constraint from
-            write_professional_summary_task, not a style note, so the draft
-            cannot proceed to assembly.
+    Raises: ValueError if the recommended draft fails the quality gate (STEP 5) --
+            a hard-constraint violation must not reach resume assembly.
     """
     start_time = time.monotonic()
     logger.info(
@@ -32,20 +46,32 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
         stage="write_professional_summary",
         run_id=state["run_id"],
     )
+
+    ####################################################
+    # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
+    ####################################################
     assert state["resume"] is not None, "resume must be set before summary writing"
-    assert state["job_description"] is not None, (
-        "job_description must be set before summary writing"
-    )
-    assert state["alignment_strategy"] is not None, (
-        "alignment_strategy must be set before summary writing"
-    )
+    assert state["job_description"] is not None, "job_description must be set before summary writing"
+    assert state["alignment_strategy"] is not None, "alignment_strategy must be set before summary writing"
+
+    ####################################################
+    # STEP 2: BUILD THE CONTEXT THE WRITER READS#
+    ####################################################
     context = format_professional_summary_context(
         resume=state["resume"],
         job_description=state["job_description"],
         strategy=state["alignment_strategy"],
         format_type="toon",
     )
+
+    ####################################################
+    # STEP 3: CREATE THE SUMMARY-WRITER AGENT#
+    ####################################################
     agent = create_professional_summary_agent()
+
+    ####################################################
+    # STEP 4: RUN THE WRITING TASK, GET A TYPED RESULT#
+    ####################################################
     professional_summary = run_agent_task(
         agent=agent,
         task_name="write_professional_summary_task",
@@ -53,8 +79,12 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
         output_model=ProfessionalSummary,
         run_id=state["run_id"],
     )
-    _enforce_summary_quality_gate(professional_summary)
-    result = {"professional_summary": professional_summary}
+
+    ####################################################
+    # STEP 5: ENFORCE THE QUALITY GATE BEFORE HANDOFF#
+    ####################################################
+    enforce_summary_quality_gate(professional_summary)
+
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(
         "pipeline_stage_completed",
@@ -62,48 +92,56 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
         run_id=state["run_id"],
         duration_ms=duration_ms,
     )
-    return result
+    return {"professional_summary": professional_summary}
 
 
-def _select_recommended_draft(summary: ProfessionalSummary) -> SummaryDraft:
-    """Return the draft the agent recommended, or the first draft if the name doesn't match.
+def select_recommended_draft(summary: ProfessionalSummary) -> SummaryDraft:
+    """Return the draft the agent recommended, falling back to the first draft.
 
-    Mirrors the fallback in ats_optimization_formatter.choose_summary_text -- duplicated
-    locally rather than imported, since that function belongs to the next stage's
-    formatter and this selection is small and stage-local (same reasoning ats_patch.py
-    gives for its own ~6-line local duplication).
+    The fallback matters because the next stage (ats_optimization_formatter.
+    choose_summary_text) uses the same rule: if the recommended name does not match
+    any draft, the first draft is what actually ships, so that is what we audit.
     """
+    ####################################################
+    # STEP 1: FIND THE DRAFT MATCHING THE RECOMMENDATION#
+    ####################################################
     for draft in summary.drafts:
         if draft.version_name == summary.recommended_version:
             return draft
+
+    ####################################################
+    # STEP 2: NO MATCH -> THE FIRST DRAFT IS WHAT SHIPS#
+    ####################################################
     return summary.drafts[0]
 
 
-def _enforce_summary_quality_gate(summary: ProfessionalSummary) -> None:
-    """Hard-block the recommended draft on any MAJOR+ summary-quality finding.
+def enforce_summary_quality_gate(summary: ProfessionalSummary) -> None:
+    """Block the run if the draft that will ship violates a hard constraint.
 
-    Only MAJOR+ findings block: the audit rubric (summary_quality.md) assigns MAJOR
-    solely to write_professional_summary_task's own hard constraints -- banned
-    phrases and the banned "[title] with [x] years" opener -- and the mechanical
-    first-person check is MAJOR by the same file. MINOR findings (tone, missing
-    value proposition) are advisory and do not block.
+    There is no retry loop here: this pipeline deliberately avoids retry-until-pass
+    loops (see ats_patch.py). A bad draft fails the run so a human sees it, rather
+    than the pipeline silently looping the LLM.
 
-    No retry loop: matches this pipeline's existing rejection of retry-until-pass
-    loops (see ats_patch.py) -- a bad draft fails the run rather than looping the LLM.
-
-    Raises: ValueError naming every blocking finding, so the run stops before a
-            draft that violates the task's own hard constraints reaches assembly.
+    Raises: ValueError naming every blocking finding.
     """
-    draft = _select_recommended_draft(summary)
+    ####################################################
+    # STEP 1: AUDIT THE DRAFT THAT WILL ACTUALLY SHIP#
+    ####################################################
+    draft = select_recommended_draft(summary)
     review = audit_summary_text(draft.content)
-    blocking = [
-        comment
-        for comment in review.comments
-        if comment.severity in (Severity.MAJOR, Severity.BLOCKER)
+
+    ####################################################
+    # STEP 2: KEEP ONLY THE BLOCKING (MAJOR+) FINDINGS#
+    ####################################################
+    blocking_findings = [
+        comment for comment in review.comments if comment.severity in BLOCKING_SEVERITIES
     ]
-    if blocking:
-        findings = "; ".join(comment.message for comment in blocking)
+
+    ####################################################
+    # STEP 3: FAIL THE RUN IF ANYTHING BLOCKS#
+    ####################################################
+    if blocking_findings:
+        reasons = "; ".join(comment.message for comment in blocking_findings)
         raise ValueError(
-            f"Professional summary draft '{draft.version_name}' failed the quality "
-            f"gate: {findings}"
+            f"Professional summary draft '{draft.version_name}' failed the quality gate: {reasons}"
         )

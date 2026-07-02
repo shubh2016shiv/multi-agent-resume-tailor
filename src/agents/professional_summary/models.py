@@ -37,6 +37,11 @@ class SummaryDraft(BaseModel):
     content: str = Field(
         ...,
         description="The summary text. Must use only facts and defensible implications listed in `evidence_used`.",
+        # These are a loose sanity guard only (reject an empty or runaway value).
+        # The authoritative constraint is 80-110 WORDS, enforced by the quality gate
+        # (see summary_quality._check_length). Bounds are kept generous on purpose: a
+        # slightly-out-of-range draft must reach that gate to be reported and revised,
+        # not be hard-rejected here by Pydantic before the gate can see it.
         min_length=50,
         max_length=1000,
     )

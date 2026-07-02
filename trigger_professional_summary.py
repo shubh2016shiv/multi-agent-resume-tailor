@@ -20,7 +20,7 @@ from src.agents.job_description_analyser import create_job_analyzer_agent
 from src.agents.professional_summary import create_professional_summary_agent
 from src.agents.professional_summary.models import ProfessionalSummary
 from src.agents.resume_parser import create_resume_extractor_agent
-from src.core.config import get_tasks_config
+from src.core.settings import get_tasks_config
 from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy

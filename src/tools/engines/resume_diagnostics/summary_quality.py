@@ -1,6 +1,10 @@
 """
 Summary quality auditing: is the professional summary the right length, person, and substance?
 
+Pipeline position: node STEP 5 (see src/orchestration/nodes/summary.py). The node's
+quality gate calls audit_summary_text() on the draft that will ship and blocks the
+run on any MAJOR+ finding. The same engine is also the agent-facing audit_summary tool.
+
 Hybrid engine. The mechanical half (HIGH confidence, free) checks length and
 first-person pronouns. The judgment half (one LLM call, MEDIUM confidence) checks
 the qualities no mechanical proxy can read: generic boilerplate, weak thesis,

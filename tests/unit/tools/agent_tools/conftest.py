@@ -148,9 +148,9 @@ def mock_get_config_review():
 
 
 @pytest.fixture
-def mock_audit_summary_quality():
-    """Mock audit_summary_quality engine."""
-    with patch("src.tools.agent_tools.resume_review_tools.audit_summary_quality") as mock:
+def mock_audit_summary_text():
+    """Mock audit_summary_text engine."""
+    with patch("src.tools.agent_tools.resume_review_tools.audit_summary_text") as mock:
         result = ReviewResult(
             comments=[],
             summary="Summary is well-written",

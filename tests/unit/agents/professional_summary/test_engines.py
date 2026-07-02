@@ -2,8 +2,8 @@
 
 Contracts under test:
   check_summary_quality(summary, strategy) — scores each draft in a ProfessionalSummary
-                                              for word count, keyword presence, and cliché
-                                              avoidance. Returns per-draft evaluations.
+                                              for word count and supported-role relevance.
+                                              Returns per-draft evaluations.
   analyze_keyword_integration(text, keywords) — measures how many required keywords appear
                                                 in a summary text. Returns counts and rate.
 """
@@ -36,21 +36,16 @@ def _make_summary(draft: SummaryDraft) -> ProfessionalSummary:
     )
 
 
-# A good draft: 50–150 words, contains top keywords, no clichés.
+# A good draft: 80–110 words, thesis-led, contains supported role vocabulary, no clichés.
 _GOOD_DRAFT_CONTENT = (
-    "Senior Python engineer with 6 years building AWS data pipelines. "
-    "Led a team of 5 to deliver a real-time fraud detection system reducing losses by 30%. "
-    "Expert in CI/CD practices, Kubernetes, and distributed systems. "
-    "Seeking a staff engineering role where I can drive platform architecture."
+    "Platform engineer trusted to steady production Python systems when cloud delivery starts to fray. "
+    "Built AWS and CI/CD workflows that kept data pipelines reliable under real-time operational pressure, "
+    "and translated brittle release paths into repeatable runtime practices for product teams. "
+    "Comfortable moving between infrastructure decisions, incident debugging, release planning, and engineering handoffs, "
+    "bringing delivery judgment to environments where uptime and change safety matter. "
+    "Known for simplifying failure-prone systems before they become operational drag, "
+    "especially when ownership boundaries and release habits are still maturing."
 )
-
-# A draft that contains a cliché.
-_CLICHE_DRAFT_CONTENT = (
-    "I am a results-driven engineer with 6 years of Python and AWS experience. "
-    "I have built multiple data pipelines and enjoy working on complex problems. "
-    "Looking for a role where I can grow and make an impact on the team."
-)
-
 
 # ── check_summary_quality tests ───────────────────────────────────────────────
 
@@ -62,7 +57,7 @@ class TestCheckSummaryQuality:
         self, complete_alignment_strategy
     ):
         """
-        Contract: a well-formed draft (correct word count, keywords present, no clichés)
+        Contract: a thesis-led draft with supported role vocabulary and no clichés
         scores at least 'good' (>=75).
         Expected value derived from the quality band contract: >=75 → 'good' or 'excellent'.
         """
@@ -79,14 +74,14 @@ class TestCheckSummaryQuality:
         self, complete_alignment_strategy
     ):
         """
-        Contract: draft with fewer than 40 words adds an issue and deducts 30 points.
-        Expected value derived from docstring: "Too short (<40 words) → issue, -30."
+        Contract: draft with fewer than 80 words adds an issue and deducts 30 points.
+        Expected value derived from module constants: "Too short (<80 words) → issue, -30."
         SummaryDraft.content has a min_length=50 char constraint, so we use a short
-        sentence that meets the character floor but falls below 40 words.
+        sentence that meets the character floor but falls below 80 words.
         """
-        # 14 words, 74 characters — passes Pydantic's char constraint but fails the word-count check
         short_content = (
-            "Python engineer with six years of AWS experience in cloud infrastructure and DevOps."
+            "Platform engineer with Python, AWS, and CI/CD experience improving cloud operations "
+            "for product teams under production deadlines."
         )
         draft = _make_draft(short_content)
         summary = _make_summary(draft)
@@ -101,9 +96,9 @@ class TestCheckSummaryQuality:
         self, complete_alignment_strategy
     ):
         """
-        Contract: draft exceeding 150 words adds an issue and deducts 25 points.
+        Contract: draft exceeding 110 words adds an issue and deducts 25 points.
         """
-        long_content = " ".join(["word"] * 160)  # 160 words — clearly over 150
+        long_content = " ".join(["word"] * 120)
         draft = _make_draft(long_content)
         summary = _make_summary(draft)
 
@@ -112,24 +107,10 @@ class TestCheckSummaryQuality:
         evaluation = result["evaluations"][0]
         assert any("long" in issue.lower() for issue in evaluation["issues"])
 
-    def test_check_summary_quality_with_cliche_adds_warning(self, complete_alignment_strategy):
+    def test_check_summary_quality_with_nearly_all_supported_terms_missing_adds_warning(self):
         """
-        Contract: a draft containing a known cliché (e.g. 'results-driven') adds a warning.
-        Cliché list is defined in the docstring of check_summary_quality.
-        """
-        draft = _make_draft(_CLICHE_DRAFT_CONTENT)
-        summary = _make_summary(draft)
-
-        result = check_summary_quality(summary, complete_alignment_strategy)
-
-        evaluation = result["evaluations"][0]
-        assert any("clich" in w.lower() for w in evaluation["warnings"])
-
-    def test_check_summary_quality_with_more_than_3_missing_keywords_adds_issue(self):
-        """
-        Contract: missing more than 3 of the top 5 strategy keywords adds an issue.
-        Expected value derived from docstring: "> 3 missing → issue, -25."
-        Uses a strategy with 5 keywords so the top-5 check is meaningful.
+        Contract: weak supported-vocabulary coverage adds a warning, not an automatic issue,
+        when the draft still retains some role relevance.
         """
         from src.data_models.strategy import SkillGap, SkillMatch
 
@@ -151,24 +132,46 @@ class TestCheckSummaryQuality:
                     suggestion="Reframe IaC experience.",
                 )
             ],
-            keywords_to_integrate=["Kubernetes", "Terraform", "GraphQL", "Rust", "Kafka"],
+            keywords_to_integrate=["Python", "AWS", "Kubernetes", "Terraform", "Kafka"],
             professional_summary_guidance="Open with cloud leadership and quantified outcomes.",
             experience_guidance="Lead with impact metrics on the most recent role.",
             skills_guidance="Prioritise AWS services and infrastructure tooling.",
         )
-        # Content with none of the five keywords above
-        keyword_free_content = (
-            "Experienced professional with extensive background in project delivery "
-            "and team management. Strong track record of success in technical roles "
-            "across multiple industries and domains with diverse skill sets."
+        low_coverage_content = (
+            "Platform engineer brought production discipline to complex service delivery for product teams operating under change pressure. "
+            "Built Python workflows that reduced operational friction and kept releases steady, while translating messy delivery paths into cleaner runtime habits. "
+            "Trusted to tighten execution when systems or handoffs became brittle, balancing hands-on engineering with practical coordination across cloud-heavy environments. "
+            "Known for making unstable work easier to run without adding heavy process overhead, "
+            "especially when ownership lines are blurred and teams need steadier execution before they need more tooling."
         )
-        draft = _make_draft(keyword_free_content)
+        draft = _make_draft(low_coverage_content)
         summary = _make_summary(draft)
 
         result = check_summary_quality(summary, strategy_with_five_keywords)
 
         evaluation = result["evaluations"][0]
-        assert any("keyword" in issue.lower() for issue in evaluation["issues"])
+        assert evaluation["issues"] == []
+        assert any("supported role vocabulary" in warning.lower() for warning in evaluation["warnings"])
+
+    def test_check_summary_quality_with_no_supported_terms_present_adds_issue(
+        self, complete_alignment_strategy
+    ):
+        """
+        Contract: a polished summary that drops all supported role vocabulary loses role relevance
+        and should receive an issue.
+        """
+        keyword_free_content = (
+            "Turnaround-minded operator who brings structure to messy delivery environments. "
+            "Known for calming ambiguous programs, tightening execution, and keeping teams aligned "
+            "through changing priorities without creating unnecessary process drag."
+        )
+        draft = _make_draft(keyword_free_content)
+        summary = _make_summary(draft)
+
+        result = check_summary_quality(summary, complete_alignment_strategy)
+
+        evaluation = result["evaluations"][0]
+        assert any("role relevance" in issue.lower() for issue in evaluation["issues"])
 
     def test_check_summary_quality_returns_metadata_for_each_draft(
         self, complete_alignment_strategy, good_summary_draft

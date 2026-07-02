@@ -1,10 +1,8 @@
 """Unit tests for src/tools/agent_tools/resume_review_tools.py
 
-Tests verify that review tool wrappers correctly parse resume data,
-invoke underlying analysis engines, and return formatted results for agents.
+Tests verify that review tool wrappers invoke underlying analysis engines
+and return formatted results for agents.
 """
-
-import json
 
 from src.tools.agent_tools import resume_review_tools
 from src.tools.contracts import Confidence, Location, ReviewComment, ReviewResult, Section, Severity
@@ -194,55 +192,28 @@ class TestMergeReviewResults:
 class TestAuditSummary:
     """Tests for audit_summary tool."""
 
-    def test_audit_summary_parses_resume_json_and_invokes_engine(
-        self, mock_audit_summary_quality, sample_resume_json
+    def test_audit_summary_reviews_summary_text_and_invokes_engine(
+        self, mock_audit_summary_text
     ):
         """
-        Contract: Tool parses Resume JSON and invokes audit engine,
+        Contract: Tool accepts summary text and invokes the audit engine,
         returning formatted result for agent consumption.
-        Mocking audit_summary_quality because it contains analysis logic.
+        Mocking audit_summary_text because it contains analysis logic.
         Everything else here uses the real implementation.
         """
         # Arrange
-        mock_audit_summary_quality.return_value = ReviewResult(
+        mock_audit_summary_text.return_value = ReviewResult(
             comments=[], summary="Summary is well-written"
         )
+        summary_text = "Platform engineer trusted to steady production delivery under cloud change pressure."
 
         # Act
-        result = _call_tool(resume_review_tools.audit_summary, sample_resume_json)
+        result = _call_tool(resume_review_tools.audit_summary, summary_text)
 
         # Assert
         assert isinstance(result, str)
         assert "=== Summary Quality ===" in result
-        mock_audit_summary_quality.assert_called_once()
-
-    def test_audit_summary_with_invalid_json_returns_error_message(self):
-        """Tool should gracefully handle malformed JSON input."""
-        # Arrange
-        invalid_json = "not valid json {{"
-
-        # Act
-        result = _call_tool(resume_review_tools.audit_summary, invalid_json)
-
-        # Assert
-        assert "Error: could not parse resume JSON" in result
-
-    def test_audit_summary_with_missing_required_field_returns_validation_error(self):
-        """Tool should handle Resume validation errors gracefully."""
-        # Arrange
-        incomplete_json = json.dumps(
-            {
-                "candidate_name": "Jane Doe"
-                # missing required fields
-            }
-        )
-
-        # Act
-        result = _call_tool(resume_review_tools.audit_summary, incomplete_json)
-
-        # Assert
-        assert "Error: could not parse resume JSON" in result
-        assert "validation error" in result
+        mock_audit_summary_text.assert_called_once_with(summary_text)
 
 
 class TestCheckSkillsEvidence:

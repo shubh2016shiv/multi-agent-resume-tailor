@@ -1,7 +1,7 @@
 # Engine — `summary_quality_auditor`
 
 **File:** `src/tools/resume_diagnostics/summary_quality_auditor.py`
-**Main function:** `audit_summary_quality(resume: Resume) -> ReviewResult`
+**Main functions:** `audit_summary_quality(resume: Resume) -> ReviewResult`, `audit_summary_text(summary_text: str) -> ReviewResult`
 **Type:** Hybrid — mechanical checks **plus** an always-on LLM call (Concept 2, "Shape 3b")
 **Runs in:** both modes
 **Used by:** the `audit_summary` agent-facing tool → the Summary Writer agent
@@ -11,7 +11,8 @@
 ## 1. Purpose (one sentence)
 
 Audit the professional summary on four fronts: it's the right length, it's not written in
-the first person, it isn't generic boilerplate, and it actually states a value proposition.
+the first person, it isn't generic boilerplate, it opens with a real thesis, and it
+actually states a value proposition.
 
 ## 2. Why it exists
 
@@ -36,21 +37,23 @@ audit_summary_quality(resume)
         │ no
         ▼
   MECHANICAL half (HIGH confidence, free):
-     length check:   under 50 words ──► MINOR;  over 150 words ──► MAJOR
+     length check:   under 80 words ──► MAJOR;  over 110 words ──► MAJOR
+                     (both bounds are the writer task's hard constraints; the pipeline
+                     gate blocks MAJOR+ only, so a MINOR floor was advisory in practice)
      person check:   contains "I"/"my"/"me"/... ──► MAJOR  (exact-token match, so 'academy'
                      never trips on 'my')
         │
         ▼
   JUDGMENT half (MEDIUM confidence, one LLM call — ALWAYS runs here):
      request_review("summary_quality_auditor", SUMMARY_RUBRIC, <the summary text>)
-     the model flags generic boilerplate and a missing value proposition
+the model flags generic boilerplate, weak thesis, brochure tone, and a missing value proposition
         │
         ▼
   MERGE the mechanical findings + the model's findings into one ReviewResult
 ```
 
-The constants `MIN_SUMMARY_WORDS = 50` and `MAX_SUMMARY_WORDS = 150` are deliberately aligned
-with the Summary Writer agent's own target (75–150 words), so the *generator* and this
+The constants `MIN_SUMMARY_WORDS = 80` and `MAX_SUMMARY_WORDS = 110` are deliberately aligned
+with the Summary Writer agent's own target (80–110 words), so the *generator* and this
 *auditor* never disagree and loop forever. The rubric explicitly tells the model NOT to
 comment on length or pronouns — those are the mechanical half's job — so the two halves never
 double-report.
@@ -71,9 +74,7 @@ Writer agent calls.
 ## 6. Gotchas
 
 - **The length thresholds are intentionally shared with the generator.** If you change them
-  here without changing the Summary Writer agent, the two will fight (one writes 60 words, the
-  other complains it's too short). Keep them in sync. There's a `TODO` to calibrate both
-  against real data together.
+  here without changing the Summary Writer agent, the two will fight. Keep them in sync.
 - **First-person check is exact-token, not substring** — that's deliberate, so "my" doesn't
   match inside "academy". If you touch it, preserve the tokenisation.
 - **A `score` is planned but not yet produced** (a `TODO`): eventually this engine could emit
@@ -83,5 +84,5 @@ Writer agent calls.
 ## 7. The same idea, in one line
 
 *Mechanically check length and first-person voice (certain, free), always ask the model
-whether the summary is generic or value-less (a judgment with no mechanical shortcut), and
-merge both — the "both halves always run" flavour of hybrid.*
+whether the summary is generic, formulaic, or weak on value (a judgment with no mechanical
+shortcut), and merge both — the "both halves always run" flavour of hybrid.*

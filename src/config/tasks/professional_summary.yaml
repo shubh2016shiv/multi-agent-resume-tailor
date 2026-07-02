@@ -4,6 +4,12 @@ write_professional_summary_task:
     field (any domain -- healthcare, finance, trades, law, education, software, etc.).
     Produce 2 genuinely distinct drafts, then recommend one.
 
+    THE SUMMARY'S ONE JOB: make a recruiter who is skimming want to read the rest of
+    the resume. A recruiter is hooked by proof, not categories -- the candidate's
+    strongest concrete achievements are your best material, and the evidence below
+    contains them. A summary that names capabilities but shows no results has failed
+    this job even if every claim is true.
+
     INPUTS (in the CONTEXT section below):
     - The candidate's resume facts.
     - The alignment strategy (matches, gaps, keywords to integrate, guidance).
@@ -11,44 +17,93 @@ write_professional_summary_task:
 
     HOW TO WORK EACH DRAFT (follow the output field order -- it is the procedure):
     1. evidence_used: FIRST, list the specific resume/strategy facts you will use and
-       the JD keyword each one justifies. This is your evidence ledger.
+       the role vocabulary or JD term each one justifies. This is your evidence ledger.
+       Start the ledger with the strongest measurable outcomes in the experience
+       highlights, copying each figure exactly as written -- these are the facts a
+       recruiter reads first, so they must survive into the summary.
     2. content: write the summary using ONLY what is in evidence_used.
-    3. critique: state strengths/weaknesses and confirm every claim traces to evidence_used.
+    3. critique: state strengths/weaknesses, confirm every claim traces to evidence_used,
+       and say whether the draft sounds terse and senior rather than like a brochure.
+       Reject any draft that sounds like polished generic AI copy even if it is factual.
     4. score: 0-100, assigned last as a verdict on the finished draft.
     After both drafts, set recommended_version, then call the "Audit Summary Quality"
-    tool on your recommended draft and fold any issue it raises into writing_notes.
+    tool on your recommended draft. If the audit reports ANY issue -- including a word
+    count outside 80-110 (the tool reports the exact count; trust it over your own
+    count) -- revise that draft to fix the issue and audit it again. Only finish once
+    the audit comes back clean, and record what you changed in writing_notes.
 
     EVIDENCE RULES (do / don't):
-    - DO surface a JD keyword only when candidate evidence proves the capability.
-      DON'T add a keyword the resume does not support -- list it as a gap, do not fake it.
+    - DO use the candidate's native professional vocabulary. A JD term belongs only
+      when it is the most truthful, precise term for a proven capability.
+    - DO keep the strongest supported role vocabulary visible in the final prose when
+      those exact terms are the clearest truthful wording. Do not paraphrase them away
+      into broader, vaguer categories.
     - DO write the narrower truthful term when the JD term is broader than the evidence
       (write what the resume actually shows, not the broader claim).
+    - DO state direct operational implications that are already entailed by the evidence
+      (for example: migration -> modernization, production support -> operational reliability).
+      Keep those implications tight, concrete, and defensible.
+    - DO carry the one or two strongest measurable outcomes from the evidence into the
+      summary prose, with each figure copied exactly -- never rounded, combined, or
+      extrapolated. A summary with no concrete result reads generic even when factual.
+      If the evidence genuinely contains no figures, use its most concrete specifics
+      (named systems, environments, populations, or scope) instead.
     - DON'T invent years, tools, methods, metrics, seniority, credentials, employers,
-      industries, or business impact. If a number is not in the evidence, do not state one.
+      industries, revenue, or unsupported business outcomes. If a number is not in the
+      evidence, do not state one.
     - DON'T infer a company/product/sector category unless the resume names it.
 
     STYLE RULES:
-    - Specific, active, plain, fact-based -- written for fast human and ATS scanning.
-    - No first person, no narrative phrasing, no hype, no cliches.
+    - Open with a defining thesis about the candidate's professional identity or the
+      kind of problem they solve. Do not open with a generic "[title] with [x] years
+      of experience" formula.
+    - The first sentence must make a recruiter feel this is a specific person, not a
+      category. Good openings usually sound like "[identity] who [problem solved]" or
+      "[operator/builder/engineer] trusted to [specific kind of work]."
+    - Do NOT open with broad capability banners such as "Designs and deploys...",
+      "Delivers...", "Experienced with...", "Focuses on...", or similar generic lead-ins
+      unless the sentence immediately pins that claim to concrete domain evidence.
+    - Specific, active, plain, terse, and fact-based -- written for a recruiter or
+      hiring manager, not as ATS copy.
+    - Use gravity, scope, or stakes language only when the evidence supports it
+      (for example: production, regulated, enterprise, mission-critical, operational,
+      clinical, real-time, multi-agent).
+    - No first person, no hype, and no brochure language.
     - 3-4 sentences, 80-110 words.
-    - Integrate 3-6 supported JD keywords naturally; do not stuff.
+    - BANNED PHRASES: "proven track record", "proven record", "results-driven", "dynamic",
+      "passionate", "leveraged", "synergy", "cross-functional", "highly motivated",
+      "detail-oriented".
+    - ALSO AVOID GENERIC SENTENCE PATTERNS: "Experienced with...", "Skilled in...",
+      "Responsible for...", "Focuses on...", "Known for..." when they are used as filler
+      instead of a precise evidence-backed claim.
+    - Every sentence must earn its place. If a sentence could fit hundreds of candidates,
+      rewrite it until it could plausibly fit only this candidate.
 
     THE 2 ANGLES (same evidence, different emphasis -- keep them genuinely distinct,
     not two phrasings of the same sentence):
-    1. "Role Fit": lead with the closest truthful match to the target role and its
-       stated priorities.
-    2. "Strength Emphasis": lead with the candidate's strongest proven capability that
-       the job values -- foregrounding concrete methods, tools, and measurable outcomes
-       already present in the evidence, whatever the field.
+    1. "Problem-Solver Thesis": frame the candidate by the kind of broken, ambiguous,
+       or high-value problem they are trusted to solve or build.
+    2. "Gravity & Scope": frame the candidate by the scale, stakes, or operational
+       complexity of the environments they work in, using only supported evidence.
 
     WORKED MICRO-EXAMPLE (domain-neutral -- shows the evidence->keyword discipline only,
     do NOT copy any wording):
       evidence_used: "Resume '[managed TASK with METHOD_A]' -> justifies JD keyword
         '[KEYWORD_A]'. Resume '[N years as ROLE]' -> justifies years + '[KEYWORD_B]'.
         JD wants '[KEYWORD_C]' -> no evidence -> excluded."
-      content: "[Role] with [N]+ years [supported strength], achieving [supported
-        outcome] through [METHOD_A]..."
+      content: "[Defining thesis]. Built [supported capability] through [METHOD_A],
+        bringing [defensible implication] to [supported environment]..."
     Note how [KEYWORD_C] is left out because nothing in the resume supports it.
+
+    FINAL SELF-CHECK BEFORE YOU RECOMMEND A DRAFT:
+    - If sentence 1 could fit a generic GenAI/ML/software candidate, rewrite it.
+    - If any sentence reads like banner copy, rewrite it.
+    - If the summary ends with a vague catch-all line, rewrite it with sharper evidence
+      or cut it entirely.
+    - If the evidence contains measurable outcomes and your draft states none of them,
+      rewrite -- you have traded the candidate's proof for category words.
+    - If the audit tool reported a word count outside 80-110, fix the length before
+      you finish; both bounds are hard limits, not suggestions.
 
   expected_output: >
     A valid JSON object conforming to the ProfessionalSummary model:

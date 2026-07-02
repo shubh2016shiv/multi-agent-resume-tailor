@@ -3,13 +3,13 @@ Summary quality auditing: is the professional summary the right length, person, 
 
 Hybrid engine. The mechanical half (HIGH confidence, free) checks length and
 first-person pronouns. The judgment half (one LLM call, MEDIUM confidence) checks
-the two qualities no mechanical proxy can read: generic boilerplate
-("results-oriented professional") and a missing value proposition.
+the qualities no mechanical proxy can read: generic boilerplate, weak thesis,
+brochure tone, and a missing value proposition.
 
 Unlike quantification_auditor, the LLM call is unconditional for any non-empty
-summary: there is no digit-style mechanical gate for boilerplate. That cost
-(~one bounded call per resume) is justified because a generic summary is the most
-common resume failure and the first thing a recruiter reads.
+summary: there is no digit-style mechanical gate for prose quality. That cost
+(~one bounded call per summary) is justified because the professional summary is
+often the first recruiter read and the easiest place for generic AI tone to leak in.
 """
 
 import string
@@ -28,14 +28,10 @@ from src.tools.llm_gateway import request_review
 
 ENGINE_ID = "summary_quality_auditor"
 
-# Aligned with summary_writer_agent (target 75-150 words) so the generator and
-# this auditor never disagree and loop forever.
-# TODO: Calibrate MIN/MAX_SUMMARY_WORDS on real summaries.
-#       Proposed: measure against a labelled sample, not the generator's defaults.
-#       Deferred: inherited from summary_writer_agent for loop-consistency; the risk
-#       is shared error (both wrong in the same direction), not disagreement.
-MIN_SUMMARY_WORDS = 50
-MAX_SUMMARY_WORDS = 150
+# Aligned with write_professional_summary_task (target 80-110 words) so the
+# generator and this auditor never disagree and loop forever.
+MIN_SUMMARY_WORDS = 80
+MAX_SUMMARY_WORDS = 110
 
 FIRST_PERSON_PRONOUNS = {"i", "i'm", "i've", "my", "me", "myself", "mine"}
 
@@ -60,21 +56,33 @@ def audit_summary_quality(resume: Resume) -> ReviewResult:
     # STEP 1: READ THE SUMMARY TEXT ONCE AT THE TOP#
     ####################################################
     summary_text = resume.professional_summary
+    return audit_summary_text(summary_text)
 
+
+def audit_summary_text(summary_text: str) -> ReviewResult:
+    """Audit one summary string for length, person, and prompt-judged prose quality.
+
+    Args:
+        summary_text: The professional summary text to review.
+
+    Returns:
+        A ReviewResult merging mechanical (HIGH) and judgment (MEDIUM) comments.
+        An empty summary yields a single MAJOR finding and makes no LLM call.
+    """
     ####################################################
-    # STEP 2: FAIL FAST WHEN THE RESUME HAS NO SUMMARY#
+    # STEP 1: FAIL FAST WHEN NO SUMMARY TEXT WAS PROVIDED#
     ####################################################
     if not summary_text.strip():
         missing = _make_finding(
             message="Resume has no professional summary",
             quoted_text="(no summary provided)",
             severity=Severity.MAJOR,
-            advice="Add a 2-4 sentence professional summary at the top of the resume.",
+            advice="Add a 3-4 sentence professional summary at the top of the resume.",
         )
         return ReviewResult(comments=[missing], summary="Missing professional summary")
 
     ####################################################
-    # STEP 3: RUN THE MECHANICAL CHECKS FIRST#
+    # STEP 2: RUN THE MECHANICAL CHECKS FIRST#
     ####################################################
     # Length and first-person detection are deterministic, so we collect
     # those before asking the model to judge substance and boilerplate.
@@ -83,19 +91,25 @@ def audit_summary_quality(resume: Resume) -> ReviewResult:
     comments.extend(_check_first_person(summary_text))
 
     ####################################################
-    # STEP 4: ADD THE JUDGMENT-BASED SUMMARY FINDINGS#
+    # STEP 3: ADD THE JUDGMENT-BASED SUMMARY FINDINGS#
     ####################################################
     comments.extend(request_review(ENGINE_ID, SUMMARY_RUBRIC, summary_text).comments)
 
     ####################################################
-    # STEP 5: RETURN A SHORT VERDICT PLUS ALL FINDINGS#
+    # STEP 4: RETURN A SHORT VERDICT PLUS ALL FINDINGS#
     ####################################################
     verdict = "Summary looks strong" if not comments else f"{len(comments)} summary issue(s)"
     return ReviewResult(comments=comments, summary=verdict)
 
 
 def _check_length(summary_text: str) -> list[ReviewComment]:
-    """Flag a summary below the word floor (MINOR) or above the limit (MAJOR)."""
+    """Flag a summary outside the 80-110 word range (MAJOR on either side).
+
+    Both bounds are hard constraints of write_professional_summary_task, and the
+    pipeline's quality gate blocks on MAJOR+ only -- a MINOR floor made "too short"
+    advisory, and live runs shipped 67-word summaries that dropped the candidate's
+    strongest evidence. Symmetric MAJOR makes the floor as real as the ceiling.
+    """
     ####################################################
     # STEP 1: COUNT THE SUMMARY WORDS#
     ####################################################
@@ -109,8 +123,8 @@ def _check_length(summary_text: str) -> list[ReviewComment]:
             _make_finding(
                 message=f"Summary is {word_count} words, under the {MIN_SUMMARY_WORDS}-word floor",
                 quoted_text=summary_text,
-                severity=Severity.MINOR,
-                advice="Expand toward 75-150 words to give recruiters enough context.",
+                severity=Severity.MAJOR,
+                advice="Expand toward 80-110 words so the summary can land a clear thesis and evidence.",
             )
         ]
 
@@ -123,7 +137,7 @@ def _check_length(summary_text: str) -> list[ReviewComment]:
                 message=f"Summary is {word_count} words, over the {MAX_SUMMARY_WORDS}-word limit",
                 quoted_text=summary_text,
                 severity=Severity.MAJOR,
-                advice="Tighten to 75-150 words; long summaries lose recruiters.",
+                advice="Tighten to 80-110 words; long summaries lose force and scanability.",
             )
         ]
     return []

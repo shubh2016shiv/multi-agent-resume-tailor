@@ -12,12 +12,15 @@ from src.data_models.strategy import AlignmentStrategy
 
 # ── quality check ─────────────────────────────────────────────────────────────
 
+# Mirrors the summary-writing task contract in src/config/tasks/professional_summary.yaml.
+MIN_SUMMARY_WORDS = 80
+MAX_SUMMARY_WORDS = 110
+
 
 def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrategy) -> dict:
     """Score the quality of each draft in a ProfessionalSummary.
 
-    Checks: word count range, keyword presence from strategy, cliché avoidance,
-    and logical consistency.
+    Checks: word count range and supported role vocabulary presence.
 
     Expects: a validated ProfessionalSummary and the AlignmentStrategy that guided it.
     Returns: dict with per-draft evaluations and overall status.
@@ -32,37 +35,25 @@ def check_summary_quality(summary: ProfessionalSummary, strategy: AlignmentStrat
         word_count = len(draft.content.split())
 
         # word count
-        if word_count < 40:
+        if word_count < MIN_SUMMARY_WORDS:
             issues.append(f"Too short ({word_count} words)")
             score -= 30
-        elif word_count > 150:
+        elif word_count > MAX_SUMMARY_WORDS:
             issues.append(f"Too long ({word_count} words)")
             score -= 25
 
-        # keyword presence (top 5 from strategy)
+        # supported role vocabulary presence (top 5 from strategy)
         required = {k.lower() for k in strategy.keywords_to_integrate[:5]}
         draft_lower = draft.content.lower()
         missing = [k for k in required if k not in draft_lower]
+        integrated_count = len(required) - len(missing)
 
-        if len(missing) > 3:
-            issues.append(f"Missing critical keywords: {missing}")
-            score -= 25
+        if required and integrated_count == 0:
+            issues.append(f"Summary loses role relevance; no supported role vocabulary present: {missing}")
+            score -= 20
         elif missing:
-            warnings.append(f"Some keywords absent: {missing}")
-            score -= 10
-
-        # clichés
-        cliches = [
-            "results-driven",
-            "team player",
-            "hard worker",
-            "detail-oriented",
-            "go-getter",
-        ]
-        found = [c for c in cliches if c in draft_lower]
-        if found:
-            warnings.append(f"Clichés: {found}")
-            score -= 15
+            warnings.append(f"Some supported role vocabulary is absent: {missing}")
+            score -= 5
 
         score = max(0, score)
 

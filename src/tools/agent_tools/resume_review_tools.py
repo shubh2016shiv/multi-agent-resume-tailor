@@ -9,7 +9,7 @@ from src.data_models.resume import Resume
 from src.tools.contracts import ReviewResult
 from src.tools.engines.ats_compliance import audit_ats_formatting, audit_section_headers
 from src.tools.engines.job_matching import analyze_keyword_coverage
-from src.tools.engines.resume_diagnostics import audit_summary_quality
+from src.tools.engines.resume_diagnostics.summary_quality import audit_summary_text
 from src.tools.engines.truthfulness import (
     detect_claim_inflation,
     detect_rewrite_drift,
@@ -69,9 +69,9 @@ def run_resume_review_tool(
 
 
 @tool("Audit Summary Quality")
-def audit_summary(resume_json: str) -> str:
-    """Review the professional summary for obvious quality issues."""
-    return run_resume_review_tool(resume_json, audit_summary_quality, "Summary Quality")
+def audit_summary(summary_text: str) -> str:
+    """Review professional summary text for obvious quality issues."""
+    return render_review_result(audit_summary_text(summary_text), "Summary Quality")
 
 
 @tool("Check Skills Evidence")

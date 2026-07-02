@@ -18,25 +18,25 @@ class SummaryDraft(BaseModel):
     # not a number the model picks first and then rationalizes.
     version_name: str = Field(
         ...,
-        description="Name of this draft's angle. Use the angle names from the task (e.g. 'Role Fit', 'Platform Emphasis', 'Technical Depth', 'Balanced').",
+        description="Name of this draft's angle. Use the angle names from the task (e.g. 'Problem-Solver Thesis' or 'Gravity & Scope').",
     )
     strategy_used: str = Field(
         ...,
-        description="One sentence: the positioning angle and why it suits this role.",
+        description="One sentence: the positioning thesis for this draft and why it suits this role.",
     )
     evidence_used: str = Field(
         ...,
         description=(
             "FILL THIS FIRST, before writing `content`. List the specific resume- or "
             "strategy-supported facts you will draw on (skills, tools, roles, metrics, "
-            "years) and the JD keyword each fact justifies. `content` may use ONLY what "
-            "is enumerated here. This field forces evidence-gathering before drafting -- "
-            "do not leave it generic."
+            "years) and the role vocabulary or JD term each fact justifies. `content` may "
+            "use ONLY what is enumerated here. This field forces evidence-gathering before "
+            "drafting -- do not leave it generic."
         ),
     )
     content: str = Field(
         ...,
-        description="The summary text. Must use only facts/keywords listed in `evidence_used`.",
+        description="The summary text. Must use only facts and defensible implications listed in `evidence_used`.",
         min_length=50,
         max_length=1000,
     )
@@ -82,22 +82,22 @@ class ProfessionalSummary(BaseModel):
                 # specific industry. Do NOT copy any domain term from here into output.
                 "drafts": [
                     {
-                        "version_name": "Role Fit",
-                        "strategy_used": "Lead with the closest truthful match to the target role.",
+                        "version_name": "Problem-Solver Thesis",
+                        "strategy_used": "Lead with the defining problem this candidate is trusted to solve.",
                         "evidence_used": (
                             "Resume '[did X with TOOL_A]' -> justifies JD keyword '[KEYWORD_A]'. "
                             "Resume '[N years in ROLE]' -> justifies years + '[KEYWORD_B]'. "
                             "JD asks for '[KEYWORD_C]': no resume evidence -> excluded."
                         ),
-                        "content": "[Role title] with [N]+ years of [supported core strength], "
-                        "delivering [supported outcome] using [TOOL_A]...",
+                        "content": "[Professional thesis]. Built [supported capability] using "
+                        "[TOOL_A], bringing [defensible operational implication] to [supported context]...",
                         "critique": "Every claim maps to evidence_used; '[KEYWORD_C]' correctly "
                         "omitted as unsupported.",
                         "score": 85,
                     },
                 ],
-                "recommended_version": "Role Fit",
-                "writing_notes": "Role Fit aligned best here; Technical/Domain Depth was a close second.",
+                "recommended_version": "Problem-Solver Thesis",
+                "writing_notes": "Problem-Solver Thesis sounded more senior; Gravity & Scope kept stronger environmental stakes.",
             }
         }
     )

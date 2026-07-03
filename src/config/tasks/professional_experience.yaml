@@ -1,89 +1,111 @@
 optimize_experience_section_task:
   description: >
-    Reorder the professional experience bullets for the single role in CONTEXT so the
-    most job-relevant evidence comes first. Works for any field. You ONLY reorder.
+    Rewrite the professional experience bullets for the single role in CONTEXT so a
+    skimming recruiter wants to keep reading. Works for any field. You rewrite each
+    bullet ONE-FOR-ONE: same number of bullets, each rewritten in place (reordering
+    for job relevance is allowed).
 
-    THE MECHANISM (why verbatim matters): downstream code accepts your output only when
-    your achievements are an exact permutation of the source bullets. If you change even
-    one character of any bullet, code rejects your whole proposal and keeps the original
-    order -- you lose your only lever. The role's metadata is rebuilt from the source
-    regardless of what you emit. So your single effective contribution is bullet ORDER.
+    THE MECHANISM (why truthfulness matters): downstream code verifies your output.
+    It checks that the bullet count exactly matches the source, that no figure appears
+    in your text that is absent from the source role, and it runs a truthfulness diff
+    against the original bullets. A violation gets you exactly one repair request with
+    the findings; if that also fails, code discards your entire rewrite and ships the
+    original bullets -- you lose all your work. The role's metadata (title, company,
+    dates, location, description, skills_used) is rebuilt from the source regardless of
+    what you emit. Your single effective contribution is the achievements text.
 
-    SCOPE: the orchestration layer calls you once per role. Treat the provided role as the
-    full evidence boundary. Do not use facts from other roles, skills, education,
+    SCOPE: the orchestration layer calls you once per role. Treat the provided role as
+    the full evidence boundary. Do not use facts from other roles, skills, education,
     certifications, or personal information.
 
-    YOU MAY NOT rewrite, paraphrase, shorten, expand, split, merge, add, or remove any
-    bullet. Return every original achievement string verbatim; change only their order.
+    HOW TO REWRITE EACH BULLET (recruiter-first):
+    - State the concrete achievement plainly: what was built, fixed, run, or delivered,
+      and its outcome when the source bullet states one. Specific, active, plain, terse.
+    - Convert duty phrasing ("responsible for", "worked on", "tasked with", "helped
+      with") into the concrete accomplishment the bullet already describes.
+    - Cut filler, vague intensifiers, and words that could fit any candidate. If a
+      phrase sounds impressive but says nothing verifiable, replace it with the
+      specific fact from the source bullet or drop the phrase. Drop trailing filler
+      such as "as required" or "as needed".
+    - When the source bullet is assistive or vague ("helped with", "worked on"),
+      keep the SAME contribution level but write it actively: "Contributed to
+      building X", "Supported deployment of Y". Never leave "worked on", "helped
+      with", or "responsible for" in the final text -- and never upgrade the role
+      to sole ownership the source does not state.
+    - Keep every figure, name, and term from the source bullet ("65%", "GPT-4",
+      "FDA audit") exactly as written -- these are the candidate's proof.
+    - Use a job/ATS keyword only when it is the most truthful, precise term for what
+      the source bullet already shows. Never bolt keywords onto unrelated bullets.
 
-    STRICT RULES:
-    - The number of achievements must exactly equal the source count.
-    - Copy each achievement character-for-character from CONTEXT.
-    - Preserve job title, company, dates, location, description, and skills_used exactly.
-    - Do not insert job-description keywords into bullet text.
-    - Do not change any name, number, or term inside a bullet (e.g. a tool, product, model,
+    TRUTHFULNESS RULES (these are what the verifier checks):
+    - Do NOT state any number, metric, or figure that is not in the source bullet.
+      If a bullet has no metric, it stays without a metric -- do not estimate one.
+    - Do NOT add scale, counts, teams, users, leadership, ownership, credentials,
+      business outcomes, tools, methods, or standards the source bullet does not state.
+    - Do NOT change any name, number, or term inside a bullet (a tool, product, model,
       method, standard, drug, certification, or metric name) -- not even to "correct" it.
-    - Do not add scale, counts, teams, leadership, ownership, outcomes, or metrics.
+    - Do NOT drop an achievement, figure, or capability the source bullet states --
+      losses are flagged the same as inventions.
+
+    ANTI-HYPE RULES (rewrites that sound like AI copy fail the review):
+    - No hyperbole or grandiose framing: "revolutionized", "transformative",
+      "spearheaded groundbreaking", "drove unprecedented" and similar inflate scope
+      beyond the evidence. Write what actually happened.
+    - No stacked heavy action verbs or adjective chains ("architected, engineered,
+      and delivered a robust, scalable, cutting-edge..."). One plain verb per bullet.
+    - No brochure tone. A recruiter reads bullets as evidence, not marketing. If a
+      sentence could appear in any company's press release, rewrite it.
+    - A modest, concrete bullet beats an impressive-sounding vague one every time.
 
     OUTPUT: return OptimizedExperienceSection JSON with optimized_experiences = one
-    Experience object for this role (bullets reordered, everything else copied). The other
-    fields are NOT consumed downstream -- set optimization_notes to a short note, and leave
-    keywords_integrated and relevance_scores empty/minimal. Do not spend effort on them.
+    Experience object for this role (achievements rewritten 1:1, everything else copied
+    from the source). The other fields are NOT consumed downstream -- set
+    optimization_notes to a short note, and leave keywords_integrated and
+    relevance_scores empty/minimal. Do not spend effort on them.
 
   expected_output: >
-    OptimizedExperienceSection JSON with exactly one Experience object whose achievements
-    are an exact permutation of the source achievements (same strings, reordered). No
-    human-readable text after the JSON.
+    OptimizedExperienceSection JSON with exactly one Experience object whose
+    achievements contain the same number of bullets as the source, each rewritten to
+    be plain, specific, and truthful to its source bullet. No human-readable text
+    after the JSON.
 
   agent: experience_section_optimizer
   output_file: content/optimized_experience.json
 
 # =============================================================================
-# SUPERSEDED 2026-06-22 -- kept for reference, not loaded. Why replaced:
-#   * Added THE MECHANISM the node enforces (experience.py:
-#     _accept_bullet_order_or_preserve_source): only an exact bullet permutation is
-#     accepted; any text edit voids the whole ordering; metadata is rebuilt from source.
-#     Stating this drives strict verbatim copying.
-#   * Domain-neutralized the example ("GPT o1 to GPT-4.x" -> any name/number/term in a
-#     bullet, with non-software examples).
-#   * Clarified that optimization_notes / keywords_integrated / relevance_scores are NOT
-#     consumed downstream (the accepted section is rebuilt without them), so the agent
-#     should not invest effort there. Old prompt asked for a real relevance_scores map.
+# SUPERSEDED 2026-07-03 -- kept for reference, not loaded. Why replaced:
+#   * The reorder-only contract meant rough, duty-flavored, or hyperbolic source
+#     bullets shipped verbatim; the stage had no way to make them recruiter-readable.
+#   * Replaced by a truthful 1:1 rewrite contract enforced in code
+#     (experience.py: count parity + claim-inflation number check + rewrite-drift
+#     review, one bounded repair, source fallback). See
+#     src/agents/professional_experience/professional_experience_architecture.md.
 # -----------------------------------------------------------------------------
 # optimize_experience_section_task:
 #   description: >
-#     Prioritize the professional experience bullets provided in CONTEXT.
-# 
-#     The orchestration layer calls you once per company or role. Treat the
-#     provided role as the full evidence boundary for this task. Do not use facts
-#     from unrelated roles, the skills section, education, certifications, or
-#     personal information.
-# 
-#     You are NOT permitted to rewrite, paraphrase, shorten, expand, split, merge,
-#     add, or remove achievement bullets. Return every original achievement string
-#     verbatim, changing only their order to place the most job-relevant evidence first.
-# 
-#     STRICT OUTPUT RULES:
+#     Reorder the professional experience bullets for the single role in CONTEXT so the
+#     most job-relevant evidence comes first. Works for any field. You ONLY reorder.
+#
+#     THE MECHANISM (why verbatim matters): downstream code accepts your output only when
+#     your achievements are an exact permutation of the source bullets. If you change even
+#     one character of any bullet, code rejects your whole proposal and keeps the original
+#     order -- you lose your only lever. The role's metadata is rebuilt from the source
+#     regardless of what you emit. So your single effective contribution is bullet ORDER.
+#
+#     YOU MAY NOT rewrite, paraphrase, shorten, expand, split, merge, add, or remove any
+#     bullet. Return every original achievement string verbatim; change only their order.
+#
+#     STRICT RULES:
 #     - The number of achievements must exactly equal the source count.
-#     - Every achievement must be copied character-for-character from CONTEXT.
+#     - Copy each achievement character-for-character from CONTEXT.
 #     - Preserve job title, company, dates, location, description, and skills_used exactly.
-#     - Do not insert JD keywords into bullet text.
-#     - Do not change technology or model names (for example GPT o1 to GPT-4.x).
-#     - Do not add scale, users, requests, teams, leadership, ownership, outcomes, or metrics.
-# 
-#     Return only JSON that conforms to OptimizedExperienceSection:
-#     - optimized_experiences: one Experience object for this role
-#     - optimization_notes: state that only source-bullet ordering was considered
-#     - keywords_integrated: empty list
-#     - relevance_scores: company_name mapped to a 0-100 relevance score
-# 
+#     - Do not insert job-description keywords into bullet text.
+#     - Do not change any name, number, or term inside a bullet -- not even to "correct" it.
+#     - Do not add scale, counts, teams, leadership, ownership, outcomes, or metrics.
+#
 #   expected_output: >
-#     JSON conforming to OptimizedExperienceSection with exactly one Experience
-#     object whose achievements are an exact permutation of the source achievements.
-#     Do not append a human-readable section after the JSON.
-# 
-#   context:
-#     - create_alignment_strategy_task
-#     - extract_resume_content_task
+#     OptimizedExperienceSection JSON with exactly one Experience object whose achievements
+#     are an exact permutation of the source achievements (same strings, reordered).
+#
 #   agent: experience_section_optimizer
 #   output_file: content/optimized_experience.json

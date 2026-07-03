@@ -9,11 +9,11 @@
                       │        SKILL OPTIMIZER MODULE            │
                       │  src/agents/skill_optimizer/             │
                       │                                          │
-  agents.yaml ────────┤  agent.py                                │
+  skill_optimizer.yaml┤  agent.py                                │
   (role, goal,        │  ┌────────────────────────────────────┐  │
    backstory, llm)    │  │  create_skill_optimizer_agent()    │  │
                       │  │                                    │  │
-                      │  │  1. _load_agent_config()           │  │
+                      │  │  1. load_agent_config()             │  │
                       │  │     validates: role, goal,         │  │
                       │  │     backstory, llm MUST exist      │  │
                       │  │                                    │  │
@@ -95,7 +95,7 @@
          | (no tools assigned — audit runs code-owned)
          |
          v
-  ZONE 1: Engine                  (src/tools/truthfulness/)
+  ZONE 1: Engine                  (src/tools/engines/truthfulness/skills_evidence.py)
   +---------------------------------------------------------------+
   |  validate_skills_evidence()      Resume -> ReviewResult       |
   |    Judgment (LLM): is each skill evidenced in experience?     |
@@ -149,7 +149,7 @@
 
   ┌─────────────────────────────────────────────────────────────────────┐
   │  LEVER 1: Task instructions (WHAT to produce)                      │
-  │  src/config/tasks.yaml  —  optimize_skills_section_task            │
+  │  src/config/tasks/skill_optimizer.yaml  —  optimize_skills_section_task │
   ├─────────────────────────────────────────────────────────────────────┤
   │                                                                     │
   │  Controls:                                                          │
@@ -162,7 +162,7 @@
 
   ┌─────────────────────────────────────────────────────────────────────┐
   │  LEVER 2: Code-owned audit (HOW to validate)                       │
-  │  src/tools/truthfulness/validate_skills_evidence.py                 │
+  │  src/tools/engines/truthfulness/skills_evidence.py                  │
   ├─────────────────────────────────────────────────────────────────────┤
   │                                                                     │
   │  Judgment engine (LLM):                                             │

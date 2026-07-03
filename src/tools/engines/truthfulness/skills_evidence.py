@@ -1,6 +1,11 @@
 """
 Skills-evidence validation: is every listed skill actually backed by the resume?
 
+Pipeline position: node STEP 5 (see optimize_skills in
+src/orchestration/nodes/skills.py). Its findings gate node STEP 6 -- a scoped
+rewrite runs only when a finding is both serious severity and HIGH confidence
+(see is_confident_unsupported in that node module).
+
 Pure judgment engine, no mechanical half. Whether a skill is "evidenced" is not a
 string match -- and string matching fails in both directions. A skill can be
 backed without being named: "Kubernetes" is supported by a bullet about "container

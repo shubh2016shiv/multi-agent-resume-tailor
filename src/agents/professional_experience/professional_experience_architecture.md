@@ -307,20 +307,24 @@ The writer agent does not manage this parallelism. Orchestration does.
                                       │
                                       v
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ Stage 3 / Step 3.4: Check the written role in code                        │
-│ Location: src/tools/resume_diagnostics/__init__.py                        │
+│ Stage 3 / Step 3.4: Gate the written role in code                         │
+│ Location: src/orchestration/nodes/experience.py                           │
 │                                                                           │
-│ Receives: list[Experience] from OptimizedExperienceSection                │
-│ Sends: ReviewResult to orchestration                                      │
+│ Receives: the rewritten role (achievements only; metadata rebuilt from    │
+│ source). Truth gate: bullet count parity, detect_claim_inflation,         │
+│ detect_rewrite_drift (HIGH-confidence only). Language gate:               │
+│ audit_language_quality_for_experiences.                                   │
 └───────────────────────────────────────────────────────────────────────────┘
                                       │
                                       v
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ Stage 3 / Step 3.5: Decide whether one rewrite is needed                  │
-│ Location: src/orchestration/nodes.py                                      │
+│ Stage 3 / Step 3.5: Decide whether the one repair is needed               │
+│ Location: src/orchestration/nodes/experience.py                           │
 │                                                                           │
-│ Receives: ReviewResult                                                    │
-│ Sends: accepted output or one repair CrewAI task                          │
+│ Receives: gate findings                                                   │
+│ Sends: accepted output, or one repair CrewAI task with the exact findings;│
+│ a second truth-gate failure ships the best truthful candidate             │
+│ (first truthful rewrite, else the source bullets)                         │
 └───────────────────────────────────────────────────────────────────────────┘
                                       │
                                       v
@@ -596,27 +600,47 @@ severity. None of the four auditors can produce those severities:
 
 This made the rewrite cycle permanently dead. Every run went write→review→accept.
 
-### 10.2 Current policy (implemented in nodes.py)
+### 10.2 Current policy (implemented in nodes/experience.py, 2026-07-03)
+
+Between 2026-06-21 (commit 84ee2ba) and 2026-07-03 this stage was reorder-only:
+the LLM could only permute source bullets, so rough or hyperbolic source text
+shipped verbatim. The restored policy allows a truthful 1:1 rewrite and splits
+the gate into two classes with different consequences:
 
 ```text
-rewrite if:
-  any blocker or major finding exists
-  OR any language quality finding exists (duty language, hollow phrasing)
-  OR any bullet-count-below-target finding from bullet_structure_auditor
-  OR two or more minor/suggestion findings across all auditors
+truth gate (can never ship a violation):
+  bullet count parity (1:1 contract, mechanical)
+  detect_claim_inflation: no figure absent from the source role (mechanical)
+  detect_rewrite_drift: no HIGH-confidence invented/exaggerated/lost claim (LLM)
+
+language gate (drives the repair, never forces source fallback):
+  audit_language_quality_for_experiences: duty language, filler, hyperbole,
+  pseudo-impact, brochure/AI tone (LLM rubric)
+
+any finding -> one repair with the exact findings -> re-run truth gate
+repair passes truth gate -> ship it
+repair fails, first rewrite was truthful -> ship the first rewrite
+repair fails, first rewrite also failed truth -> ship the source bullets
 ```
 
-The language-quality rule and the two-minor rule are what actually drive rewrites
-given current auditor severity caps.
+Language findings cannot force the source fallback because the source bullets
+are the very text the language audit flagged; only truthfulness can.
+
+The quantification, bullet-structure, and consistency auditors are NOT wired
+into this gate (their digit/threshold/first-token heuristics are open
+follow-ups); the composed `audit_experience_quality_for_experiences` helper
+remains available but has no live caller on this path.
 
 ### 10.3 Why this is not a bandaid
 
-The audit engines already produce structured findings with `engine_id` stamps.
-The policy converts those findings into a decision in a single helper function.
-No new framework, service layer, or agent is required. The fix is:
+The gate reuses existing engines (`detect_claim_inflation`,
+`detect_rewrite_drift`, `audit_language_quality_for_experiences`) and converts
+their findings into a decision in a single node-owned function. No new
+framework, service layer, or agent is required. The flow is:
 
 ```text
-ReviewResult -> _experience_audit_needs_rewrite() -> accept or one rewrite
+proposal -> _truth_gate_failures() + _language_findings()
+        -> _gate_rewrite_with_one_repair() -> accept, repair once, or source
 ```
 
 ---

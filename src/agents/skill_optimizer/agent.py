@@ -1,6 +1,10 @@
 """
 Skill Optimizer agent factory.
 
+Pipeline position: node STEP 3 (see src/orchestration/nodes/skills.py). The node
+calls create_skill_optimizer_agent() to build the agent, then runs the task
+(write_skills_section, node STEP 3 & 4).
+
 Builds a CrewAI Agent that receives Resume + JobDescription + AlignmentStrategy
 as context and produces an OptimizedSkillsSection. The agent reorders, categorizes,
 and prioritizes skills based on the strategic guidance (skills_guidance,

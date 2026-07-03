@@ -7,9 +7,9 @@ Consumer:
 - the `optimize_experience_section_task`
 
 This formatter keeps:
-- the role entries whose bullets will be reordered
-- the job requirements and ATS keywords those bullets should answer
-- the experience-specific strategy guidance from gap analysis
+- the role entry whose bullets will be rewritten
+- a compact, prioritized JD-fit signal for that role
+- short experience-specific strategy guidance
 
 This formatter drops:
 - resume contact information
@@ -18,7 +18,8 @@ This formatter drops:
 
 Toy example:
     If the resume contains one role-scoped payload, this formatter returns a
-    small context string centered on that role's existing evidence.
+    small context string centered on that role's source bullets, role
+    description, skills_used, and top JD requirements.
 """
 
 from typing import Any
@@ -28,19 +29,16 @@ from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
+MAX_PRIORITY_REQUIREMENTS_FOR_EXPERIENCE_REWRITE = 6
+
 
 def select_resume_context(resume: Resume) -> dict[str, Any]:
-    """Keep only the work-experience evidence the optimizer may reorder."""
+    """Keep only the role evidence the optimizer may rewrite."""
     return {
         "work_experience": [
             {
-                "experience_id": experience.experience_id,
                 "job_title": experience.job_title,
                 "company_name": experience.company_name,
-                "start_date": str(experience.start_date),
-                "end_date": str(experience.end_date) if experience.end_date else None,
-                "is_current_position": experience.is_current_position,
-                "location": experience.location,
                 "description": experience.description,
                 "achievements": list(experience.achievements),
                 "skills_used": list(experience.skills_used),
@@ -51,36 +49,30 @@ def select_resume_context(resume: Resume) -> dict[str, Any]:
 
 
 def select_job_context(job_description: JobDescription) -> dict[str, Any]:
-    """Keep only the job fields the experience optimizer needs."""
+    """Keep a compact, prioritized JD-fit signal for the rewrite."""
+    prioritized_requirements = [
+        requirement
+        for _, requirement in sorted(
+            enumerate(job_description.requirements),
+            key=lambda requirement_entry: (
+                _requirement_importance_rank(
+                    requirement_entry[1].importance.value
+                ),
+                requirement_entry[0],
+            ),
+        )[:MAX_PRIORITY_REQUIREMENTS_FOR_EXPERIENCE_REWRITE]
+    ]
     return {
         "job_title": job_description.job_title,
-        "requirements": [requirement.model_dump(mode="json") for requirement in job_description.requirements],
-        "ats_keywords": list(job_description.ats_keywords),
+        "priority_requirements": [
+            requirement.model_dump(mode="json") for requirement in prioritized_requirements
+        ],
     }
 
 
 def select_strategy_context(strategy: AlignmentStrategy) -> dict[str, Any]:
-    """Keep only the strategy fields the experience optimizer should read."""
-    return {
-        "experience_guidance": strategy.experience_guidance,
-        "keywords_to_integrate": list(strategy.keywords_to_integrate),
-        "identified_matches": [
-            {
-                "resume_skill": match.resume_skill,
-                "job_requirement": match.job_requirement,
-                "match_score": match.match_score,
-            }
-            for match in strategy.identified_matches
-        ],
-        "identified_gaps": [
-            {
-                "missing_skill": gap.missing_skill,
-                "importance": gap.importance,
-                "suggestion": gap.suggestion,
-            }
-            for gap in strategy.identified_gaps
-        ],
-    }
+    """Keep only the short strategy guidance the experience optimizer should read."""
+    return {"experience_guidance": strategy.experience_guidance.strip()}
 
 
 def build_experience_optimizer_payload(
@@ -90,7 +82,7 @@ def build_experience_optimizer_payload(
 ) -> dict[str, Any]:
     """Build the filtered payload for the experience optimizer."""
     ####################################################
-    # STEP 1: KEEP ONLY THE ROLE EVIDENCE THE AGENT IS ALLOWED TO REORDER#
+    # STEP 1: KEEP ONLY THE ROLE EVIDENCE THE AGENT IS ALLOWED TO REWRITE#
     ####################################################
     resume_context = select_resume_context(resume)
 
@@ -105,9 +97,9 @@ def build_experience_optimizer_payload(
     strategy_context = select_strategy_context(strategy)
 
     return {
-        "resume_work_experience": resume_context,
-        "target_job": job_context,
-        "experience_strategy": strategy_context,
+        "role_rewrite_context": resume_context,
+        "target_role_signal": job_context,
+        "rewrite_guidance": strategy_context,
     }
 
 
@@ -131,3 +123,13 @@ def format_experience_optimizer_context(
         format_type=format_type,
         description="Experience Optimizer Context",
     )
+
+
+def _requirement_importance_rank(requirement_importance: str) -> int:
+    """Return a stable rank so must-have requirements appear before nice-to-have ones."""
+    importance_rank = {
+        "must_have": 0,
+        "should_have": 1,
+        "nice_to_have": 2,
+    }
+    return importance_rank.get(requirement_importance, 3)

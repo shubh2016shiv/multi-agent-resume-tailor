@@ -5,6 +5,7 @@ from src.tools.contracts import ReviewResult
 
 from .bullet_structure import audit_bullet_structure, audit_bullet_structure_for_experiences
 from .consistency_checks import audit_consistency, audit_consistency_for_experiences
+from .experience_rewrite_quality import audit_experience_rewrite_quality
 from .language_quality import audit_language_quality, audit_language_quality_for_experiences
 from .quantification import audit_quantification, audit_quantification_for_experiences
 from .summary_quality import audit_summary_quality
@@ -43,6 +44,7 @@ __all__ = [
     "audit_consistency",
     "audit_consistency_for_experiences",
     "audit_experience_quality_for_experiences",
+    "audit_experience_rewrite_quality",
     "audit_language_quality",
     "audit_language_quality_for_experiences",
     "audit_quantification",

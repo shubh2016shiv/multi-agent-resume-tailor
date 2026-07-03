@@ -1,13 +1,71 @@
 """
-Output contract for the Professional Experience agent.
+Output contracts for the Professional Experience agent.
 
-Defines what the agent produces when it rewrites work experience bullet points:
-optimized entries with metadata for downstream assembly and QA.
+Defines both:
+- the internal rewrite proposal used during the role-scoped rewrite/review loop
+- the final optimized experience section used downstream by ATS assembly
 """
+
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.data_models.resume import Experience
+
+
+class ExperienceBulletRewrite(BaseModel):
+    """One rewritten bullet plus the role evidence that supports it."""
+
+    source_bullet: str = Field(
+        ...,
+        description="The original bullet from this same role that is being rewritten.",
+    )
+    rewritten_bullet: str = Field(
+        ...,
+        description="The rewritten bullet, kept truthful to the same role and contribution level.",
+    )
+    supporting_role_evidence: list[str] = Field(
+        default_factory=list,
+        description="Short exact phrases or facts from this role's description, skills_used, or source bullet that support the rewrite.",
+    )
+    ownership_level: Literal["owned", "led", "executed", "contributed", "supported"] = Field(
+        ...,
+        description="The contribution level preserved from the source bullet.",
+    )
+
+
+class ExperienceRewriteProposal(BaseModel):
+    """Internal proposal returned by the role-scoped rewrite task."""
+
+    rewritten_bullets: list[ExperienceBulletRewrite] = Field(
+        ...,
+        min_length=1,
+        description="One rewrite record per source bullet, preserving bullet count.",
+    )
+    optimization_notes: str = Field(
+        default="",
+        description="Short notes about rewrite choices or limits encountered.",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "rewritten_bullets": [
+                    {
+                        "source_bullet": "Worked on backend services for claims operations.",
+                        "rewritten_bullet": "Built Python backend services for claims operations workflows, improving reliability for internal adjudication tools.",
+                        "supporting_role_evidence": [
+                            "claims operations workflows",
+                            "Python",
+                            "internal adjudication tools",
+                        ],
+                        "ownership_level": "executed",
+                    }
+                ],
+                "optimization_notes": "Used the role description to name the workflow and system without adding unsupported scope.",
+            }
+        }
+    )
 
 
 class ExperienceRelevance(BaseModel):

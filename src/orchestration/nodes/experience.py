@@ -1,20 +1,30 @@
 """Stage 3 professional experience rewrite flow.
 
-The LLM rewrites one role's bullets 1:1 for recruiter readability; code owns the
-gate. Each proposal must keep the source bullet count, introduce no figure the
-source role lacks (claim-inflation check), and pass a truthfulness drift review.
-A failing proposal gets exactly one repair attempt with the findings; if that
-also fails, the original source bullets ship. Language-quality findings trigger
-the same single repair but never force the source fallback -- the source is what
-needed the language fix. Role metadata is always rebuilt from the source object,
-so the LLM's writable surface is the achievements text only.
+The LLM rewrites one role's bullets 1:1 into specific, recruiter-ready
+accomplishments, mining the role's own description and skills for truthful
+detail. Code holds two lines with deliberately different force:
+
+  * Truthfulness is non-negotiable. A rewrite must keep the source bullet count
+    and introduce no figure the source role lacks (a deterministic check). Only a
+    truthful version may ship; if none survives one repair, the source bullets do.
+  * Substance is best-effort. A semantic rewrite review flags unsupported
+    specificity, ownership inflation, vague accomplishments, or brochure tone.
+    One repair tries to fix those issues, and any remaining soft gaps are
+    surfaced in notes rather than silently dressed up.
+
+Role metadata is always rebuilt from the source object, so the LLM's writable
+surface is the achievements text only.
 """
 
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 from src.agents.professional_experience import create_professional_experience_agent
-from src.agents.professional_experience.models import OptimizedExperienceSection
+from src.agents.professional_experience.models import (
+    ExperienceRewriteProposal,
+    OptimizedExperienceSection,
+)
 from src.core.logger import get_logger
 from src.data_models.job import JobDescription
 from src.data_models.resume import Experience, Resume
@@ -22,11 +32,20 @@ from src.data_models.strategy import AlignmentStrategy
 from src.formatters.experience_optimizer_formatter import format_experience_optimizer_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.state import ResumeEnhancementPipelineState
-from src.tools.contracts import Confidence, ReviewComment
-from src.tools.engines.resume_diagnostics import audit_language_quality_for_experiences
-from src.tools.engines.truthfulness import detect_claim_inflation, detect_rewrite_drift
+from src.tools.contracts import ReviewComment, ReviewResult, Severity
+from src.tools.engines.resume_diagnostics import audit_experience_rewrite_quality
+from src.tools.engines.truthfulness import detect_claim_inflation
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class RoleRewriteDecision:
+    """The rewrite proposal and review state that ultimately determined one role's output."""
+
+    selected_rewrite_proposal: ExperienceRewriteProposal
+    selected_quality_review: ReviewResult
+    finalized_section: OptimizedExperienceSection
 
 
 def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
@@ -93,69 +112,100 @@ def _build_resume_with_single_experience(resume: Resume, experience: Experience)
     return resume.model_copy(update={"work_experience": [experience]})
 
 
-def _require_single_optimized_experience(section: OptimizedExperienceSection) -> Experience:
-    """Return the single optimized experience expected from a role-scoped call.
-
-    Expects an OptimizedExperienceSection from one role-only CrewAI task.
-    Raises ValueError when the LLM returns zero or multiple experiences.
-    """
-    if len(section.optimized_experiences) != 1:
-        raise ValueError("Role-scoped optimization must return exactly one experience.")
-    return section.optimized_experiences[0]
-
-
-def _rebuild_role_from_source(
-    section: OptimizedExperienceSection,
+def _rebuild_rewritten_role_from_proposal(
+    rewrite_proposal: ExperienceRewriteProposal,
     original_experience: Experience,
 ) -> Experience:
-    """Keep only the proposed achievements text; every other field comes from the source.
+    """Keep only the rewritten bullet text; every other field comes from the source.
 
     This is the containment boundary: metadata, description, and skills_used can
-    never be changed by the LLM, whatever the proposal contains.
+    never be changed by the LLM, whatever the rewrite proposal contains.
     """
-    proposed = _require_single_optimized_experience(section)
-    return original_experience.model_copy(update={"achievements": list(proposed.achievements)})
+    rewritten_achievements = [
+        bullet_rewrite.rewritten_bullet
+        for bullet_rewrite in rewrite_proposal.rewritten_bullets
+    ]
+    return original_experience.model_copy(update={"achievements": rewritten_achievements})
 
 
-def _truth_gate_failures(
-    original_role_resume: Resume,
-    revised_role: Experience,
+def _collect_rewrite_truthfulness_findings(
+    source_role_resume: Resume,
+    rewritten_role: Experience,
     original_experience: Experience,
 ) -> list[str]:
-    """Return truth-gate failure messages for one rewritten role (empty list = pass).
+    """Return truthfulness findings for one rewritten role (empty list = safe to ship).
 
-    Three checks, cheapest first, short-circuiting so a mechanically failed
-    proposal never spends an LLM review call:
+    Two deterministic checks, no LLM -- this is the non-negotiable floor a rewrite
+    must clear to ship:
     1. Bullet count parity -- the 1:1 rewrite contract, a closed countable fact.
-    2. detect_claim_inflation -- deterministic; any figure the source role lacks fails.
-    3. detect_rewrite_drift -- LLM judgment; only HIGH-confidence drift blocks, per
-       that engine's own documented gating (advisory drift must not force fallback).
+    2. detect_claim_inflation -- any figure present in the rewrite but absent from
+       the source role. Numbers are the highest-risk, most verifiable fabrication.
+
+    Non-numeric invention (a fake tool, team, or scale) is governed by the writer's
+    prompt and temperature-0 decoding, not an LLM guard here: an LLM drift check on
+    this path penalised the very context-mining that makes bullets specific, so it
+    was removed for a net gain in quality without loosening the number floor.
     """
     source_count = len(original_experience.achievements)
-    revised_count = len(revised_role.achievements)
-    if revised_count != source_count:
+    rewritten_count = len(rewritten_role.achievements)
+    if rewritten_count != source_count:
         return [
             f"Bullet count changed: source role has {source_count} bullet(s), "
-            f"rewrite has {revised_count}. Rewrite each source bullet one-for-one."
+            f"rewrite has {rewritten_count}. Rewrite each source bullet one-for-one."
         ]
 
-    revised_role_resume = original_role_resume.model_copy(
-        update={"work_experience": [revised_role]}
+    rewritten_role_resume = source_role_resume.model_copy(
+        update={"work_experience": [rewritten_role]}
     )
-    inflation = detect_claim_inflation(original_role_resume, revised_role_resume)
-    if inflation.comments:
-        return [f"{comment.message}. {comment.advice}" for comment in inflation.comments]
-
-    drift = detect_rewrite_drift(original_role_resume, revised_role_resume)
-    blocking_drift = [
-        comment for comment in drift.comments if comment.confidence is Confidence.HIGH
-    ]
-    return [f"{comment.message}. {comment.advice}" for comment in blocking_drift]
+    inflation = detect_claim_inflation(source_role_resume, rewritten_role_resume)
+    return [f"{comment.message}. {comment.advice}" for comment in inflation.comments]
 
 
-def _language_findings(revised_role: Experience) -> list[ReviewComment]:
-    """Run the language-quality audit on one rewritten role's bullets."""
-    return audit_language_quality_for_experiences([revised_role]).comments
+def _collect_rewrite_quality_review(
+    source_experience: Experience,
+    rewrite_proposal: ExperienceRewriteProposal,
+) -> ReviewResult:
+    """Review rewritten bullets for supported specificity, ownership, and recruiter tone."""
+    return audit_experience_rewrite_quality(
+        source_experience,
+        rewrite_proposal.rewritten_bullets,
+    )
+
+
+def _split_repair_required_comments_from_follow_up_comments(
+    quality_review: ReviewResult,
+) -> tuple[list[ReviewComment], list[ReviewComment]]:
+    """Separate must-fix rewrite findings from follow-up guidance.
+
+    MAJOR/BLOCKER findings indicate unsupported specificity or ownership inflation
+    and should not ship unresolved. MINOR/SUGGESTION findings may still ship if a
+    truthful rewrite remains imperfect after one repair; those are surfaced as
+    follow-up guidance for the candidate.
+    """
+    repair_required_comments = []
+    follow_up_comments = []
+    for review_comment in quality_review.comments:
+        if review_comment.severity in {Severity.BLOCKER, Severity.MAJOR}:
+            repair_required_comments.append(review_comment)
+        else:
+            follow_up_comments.append(review_comment)
+    return repair_required_comments, follow_up_comments
+
+
+def _build_candidate_follow_up_note(comments: list[ReviewComment]) -> str:
+    """Surface bullets that stayed modest so the candidate can add real detail.
+
+    These are not failures -- they are honest gaps the pipeline will not paper over
+    with invented facts. Empty when every shipped bullet reads as a concrete
+    accomplishment.
+    """
+    if not comments:
+        return ""
+    lines = [f'  - "{comment.quoted_text}": {comment.message}' for comment in comments]
+    return (
+        "\nBULLETS NEEDING YOUR INPUT (kept truthful but could not be made concrete "
+        "without inventing facts -- add a specific result or detail):\n" + "\n".join(lines)
+    )
 
 
 def _accepted_section(revised_role: Experience, note: str) -> OptimizedExperienceSection:
@@ -167,11 +217,11 @@ def _accepted_section(revised_role: Experience, note: str) -> OptimizedExperienc
 
 
 def _source_preserved_section(experience: Experience, reasons: list[str]) -> OptimizedExperienceSection:
-    """Return the untouched source role after the rewrite failed the truth gate twice."""
+    """Return the untouched source role after no truthful rewrite survived one repair."""
     return OptimizedExperienceSection(
         optimized_experiences=[experience],
         optimization_notes=(
-            "Rewrite failed the truthfulness gate after one repair; original bullets "
+            "Rewrite could not stay truthful after one repair; original bullets "
             "preserved. Findings: " + "; ".join(reasons)
         ),
     )
@@ -179,114 +229,197 @@ def _source_preserved_section(experience: Experience, reasons: list[str]) -> Opt
 
 def _build_experience_repair_context(
     original_context: str,
-    section: OptimizedExperienceSection,
+    rewrite_proposal: ExperienceRewriteProposal,
     findings: list[str],
 ) -> str:
-    """Add the previous proposal and the exact gate findings for the single repair call."""
+    """Add the previous proposal and the exact findings for the single repair call."""
     feedback = "\n".join(f"- {finding}" for finding in findings)
     return (
         f"{original_context}\n\n"
-        f"PREVIOUS_OPTIMIZED_EXPERIENCE_JSON:\n{section.model_dump_json()}\n\n"
+        f"PREVIOUS_EXPERIENCE_REWRITE_PROPOSAL_JSON:\n{rewrite_proposal.model_dump_json()}\n\n"
         f"EXPERIENCE_AUDIT_FEEDBACK:\n{feedback}\n\n"
-        "Rewrite once more to fix every finding above by correcting the claim level or "
-        "wording the finding names -- do NOT revert other bullets to the source's duty "
-        "phrasing or hype; keep every improvement the findings did not flag. When a "
-        "finding asks you to lower a claim, restate it at the accurate level in active "
-        "phrasing ('Contributed to X', 'Supported Y') -- never copy the finding's or the "
-        "source's own 'worked on'/'helped with'/'responsible for' wording. Keep the "
-        "same bullet count and stay truthful to the source bullets: no figure, tool, "
-        "scale, or outcome the source bullet does not state. Return only "
-        "OptimizedExperienceSection JSON."
+        "Rewrite once more to fix every finding above. Preserve the improvements in "
+        "bullets the findings did NOT flag. Fix only the flagged rewrite problems: "
+        "unsupported specificity, ownership inflation, brochure tone, vague "
+        "accomplishments, or JD keyword decoration. To fix unsupported specificity, "
+        "remove or replace the shaky detail with supportable role evidence. To fix "
+        "ownership inflation, restate the contribution at its true level in active "
+        "phrasing ('Contributed to X', 'Supported Y'). To fix weak bullets, use this "
+        "same role's description or skills_used only when the detail genuinely belongs "
+        "to that bullet. Keep the same bullet count and add no figure the source role "
+        "does not state. Return only ExperienceRewriteProposal JSON."
     )
 
 
-def _write_experience_section(context: str, run_id: str = "unknown") -> OptimizedExperienceSection:
-    """Ask the professional experience agent to write one role.
+def _request_role_rewrite_proposal(
+    context: str,
+    run_id: str = "unknown",
+) -> ExperienceRewriteProposal:
+    """Ask the professional experience agent to rewrite one role's bullets.
 
     Expects TOON context for a single role.
-    Returns an OptimizedExperienceSection validated by CrewAI.
+    Returns an ExperienceRewriteProposal validated by CrewAI.
     """
     return run_agent_task(
         agent=create_professional_experience_agent(),
         task_name="optimize_experience_section_task",
         context=context,
-        output_model=OptimizedExperienceSection,
+        output_model=ExperienceRewriteProposal,
         run_id=run_id,
     )
 
 
-def _gate_rewrite_with_one_repair(
-    proposal: OptimizedExperienceSection,
+def _render_quality_findings_for_repair(
+    rewrite_comments: list[ReviewComment],
+) -> list[str]:
+    """Convert structured rewrite comments into concise repair instructions."""
+    return [
+        f"{review_comment.message}. {review_comment.advice}"
+        for review_comment in rewrite_comments
+    ]
+
+
+def _decide_role_rewrite_outcome(
+    rewrite_proposal: ExperienceRewriteProposal,
     context: str,
-    original_role_resume: Resume,
+    source_role_resume: Resume,
     original_experience: Experience,
     run_id: str = "unknown",
-) -> OptimizedExperienceSection:
-    """Accept a truthful rewrite, spend the single repair on any finding, else keep the source.
+) -> RoleRewriteDecision:
+    """Choose the best rewrite to ship, repairing once when the first draft falls short.
 
-    Consequences are asymmetric by design. A truth-gate failure (count mismatch,
-    introduced figure, high-confidence drift) can never ship: it is repaired once,
-    and a second failure falls back to the best truthful candidate -- the first
-    proposal if it was truthful, otherwise the source bullets. Language findings
-    trigger the same single repair but never force the source fallback, because
-    the source bullets are the very text the language audit flagged.
+    The two lines have different force. Truthfulness is non-negotiable: only a
+    version that clears the truth floor may ship, and if none survives one repair
+    the source bullets do. Substance is best-effort: thin bullets earn a repair,
+    and whatever is still thin afterward is surfaced to the candidate, never
+    invented away.
     """
     ####################################################
-    # STEP 1: GATE THE FIRST PROPOSAL#
+    # STEP 1: CHECK THE FIRST PROPOSAL -- TRUTH FLOOR, THEN SUBSTANCE#
     ####################################################
-    revised_role = _rebuild_role_from_source(proposal, original_experience)
-    truth_failures = _truth_gate_failures(original_role_resume, revised_role, original_experience)
-    language_comments = [] if truth_failures else _language_findings(revised_role)
-    if not truth_failures and not language_comments:
-        return _accepted_section(
-            revised_role, "Rewrote bullets 1:1; truthfulness and language checks passed."
+    first_rewritten_role = _rebuild_rewritten_role_from_proposal(
+        rewrite_proposal,
+        original_experience,
+    )
+    truthfulness_findings = _collect_rewrite_truthfulness_findings(
+        source_role_resume,
+        first_rewritten_role,
+        original_experience,
+    )
+    first_quality_review = (
+        ReviewResult(comments=[], summary="", score=None)
+        if truthfulness_findings
+        else _collect_rewrite_quality_review(original_experience, rewrite_proposal)
+    )
+    repair_required_comments, candidate_follow_up_comments = (
+        _split_repair_required_comments_from_follow_up_comments(first_quality_review)
+    )
+    if (
+        not truthfulness_findings
+        and not repair_required_comments
+        and not candidate_follow_up_comments
+    ):
+        return RoleRewriteDecision(
+            selected_rewrite_proposal=rewrite_proposal,
+            selected_quality_review=first_quality_review,
+            finalized_section=_accepted_section(
+                first_rewritten_role,
+                "Rewrote bullets with grounded role evidence; recruiter-readable and truthful.",
+            ),
         )
 
     ####################################################
-    # STEP 2: SPEND THE SINGLE REPAIR ON THE EXACT FINDINGS#
+    # STEP 2: SPEND THE SINGLE REPAIR ON EVERY FINDING AT ONCE#
     ####################################################
-    # One repair only: enough to prove the audit can influence output while keeping
-    # cost bounded and failure visible (professional_experience_architecture.md 6.3).
-    findings = truth_failures + [
-        f"{comment.message}. {comment.advice}" for comment in language_comments
-    ]
+    findings = truthfulness_findings + _render_quality_findings_for_repair(
+        repair_required_comments + candidate_follow_up_comments
+    )
     logger.info(
         "experience_rewrite_repair_requested",
         run_id=run_id,
         company=original_experience.company_name,
-        truth_failures=len(truth_failures),
-        language_findings=len(language_comments),
+        truthfulness_findings=len(truthfulness_findings),
+        quality_findings=len(repair_required_comments) + len(candidate_follow_up_comments),
     )
-    repair_context = _build_experience_repair_context(context, proposal, findings)
-    repaired = _write_experience_section(repair_context, run_id=run_id)
-    repaired_role = _rebuild_role_from_source(repaired, original_experience)
+    repair_context = _build_experience_repair_context(context, rewrite_proposal, findings)
+    repaired_rewrite_proposal = _request_role_rewrite_proposal(repair_context, run_id=run_id)
+    repaired_role = _rebuild_rewritten_role_from_proposal(
+        repaired_rewrite_proposal,
+        original_experience,
+    )
 
     ####################################################
-    # STEP 3: RE-GATE THE REPAIR AND SHIP THE BEST TRUTHFUL CANDIDATE#
+    # STEP 3: SHIP THE BEST TRUTHFUL VERSION, SURFACING THIN BULLETS#
     ####################################################
-    repaired_truth_failures = _truth_gate_failures(
-        original_role_resume, repaired_role, original_experience
+    repaired_truthfulness_findings = _collect_rewrite_truthfulness_findings(
+        source_role_resume,
+        repaired_role,
+        original_experience,
     )
-    if not repaired_truth_failures:
-        return _accepted_section(
-            repaired_role, "Repaired once per audit feedback; truthfulness verified."
+    repaired_quality_review = (
+        ReviewResult(comments=[], summary="", score=None)
+        if repaired_truthfulness_findings
+        else _collect_rewrite_quality_review(original_experience, repaired_rewrite_proposal)
+    )
+    repaired_repair_required_comments, repaired_candidate_follow_up_comments = (
+        _split_repair_required_comments_from_follow_up_comments(repaired_quality_review)
+    )
+    if not repaired_truthfulness_findings and not repaired_repair_required_comments:
+        return RoleRewriteDecision(
+            selected_rewrite_proposal=repaired_rewrite_proposal,
+            selected_quality_review=repaired_quality_review,
+            finalized_section=_accepted_section(
+                repaired_role,
+                "Repaired once with grounded rewrite feedback; truthful."
+                + _build_candidate_follow_up_note(repaired_candidate_follow_up_comments),
+            ),
         )
-    if not truth_failures:
-        # The first rewrite was truthful; only its language was flagged. A failed
-        # repair must not discard truthful improvement, so the first rewrite ships.
-        return _accepted_section(
-            revised_role,
-            "Repair failed the truthfulness gate; kept the first truthful rewrite. "
-            "Residual language findings: "
-            + "; ".join(comment.message for comment in language_comments),
+    if not truthfulness_findings and not repair_required_comments:
+        # The first rewrite was already safe to ship; the repair made it worse, so
+        # keep the first rewrite and surface any follow-up gaps it still has.
+        return RoleRewriteDecision(
+            selected_rewrite_proposal=rewrite_proposal,
+            selected_quality_review=first_quality_review,
+            finalized_section=_accepted_section(
+                first_rewritten_role,
+                "Kept the first grounded rewrite (repair introduced new issues)."
+                + _build_candidate_follow_up_note(candidate_follow_up_comments),
+            ),
         )
     logger.warning(
         "experience_rewrite_source_fallback",
         run_id=run_id,
         company=original_experience.company_name,
-        findings=repaired_truth_failures,
+        findings=repaired_truthfulness_findings
+        or _render_quality_findings_for_repair(repaired_repair_required_comments),
     )
-    return _source_preserved_section(original_experience, repaired_truth_failures)
+    return RoleRewriteDecision(
+        selected_rewrite_proposal=repaired_rewrite_proposal,
+        selected_quality_review=repaired_quality_review,
+        finalized_section=_source_preserved_section(
+            original_experience,
+            repaired_truthfulness_findings
+            or _render_quality_findings_for_repair(repaired_repair_required_comments),
+        ),
+    )
+
+
+def _finalize_role_rewrite(
+    rewrite_proposal: ExperienceRewriteProposal,
+    context: str,
+    source_role_resume: Resume,
+    original_experience: Experience,
+    run_id: str = "unknown",
+) -> OptimizedExperienceSection:
+    """Return the finalized section for one role after the rewrite decision is made."""
+    rewrite_decision = _decide_role_rewrite_outcome(
+        rewrite_proposal,
+        context,
+        source_role_resume,
+        original_experience,
+        run_id=run_id,
+    )
+    return rewrite_decision.finalized_section
 
 
 def _run_single_experience_optimization(
@@ -309,8 +442,14 @@ def _run_single_experience_optimization(
         strategy=strategy,
         format_type="toon",
     )
-    proposal = _write_experience_section(context, run_id=run_id)
-    return _gate_rewrite_with_one_repair(proposal, context, role_resume, experience, run_id=run_id)
+    rewrite_proposal = _request_role_rewrite_proposal(context, run_id=run_id)
+    return _finalize_role_rewrite(
+        rewrite_proposal,
+        context,
+        role_resume,
+        experience,
+        run_id=run_id,
+    )
 
 
 def _merge_optimized_experience_sections(

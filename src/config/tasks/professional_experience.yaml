@@ -1,111 +1,95 @@
 optimize_experience_section_task:
   description: >
     Rewrite the professional experience bullets for the single role in CONTEXT so a
-    skimming recruiter wants to keep reading. Works for any field. You rewrite each
-    bullet ONE-FOR-ONE: same number of bullets, each rewritten in place (reordering
-    for job relevance is allowed).
+    recruiter wants to keep reading. Works for any field. Rewrite each bullet
+    ONE-FOR-ONE: the same number of bullets, each rewritten in place (reordering for
+    job relevance is allowed).
 
-    THE MECHANISM (why truthfulness matters): downstream code verifies your output.
-    It checks that the bullet count exactly matches the source, that no figure appears
-    in your text that is absent from the source role, and it runs a truthfulness diff
-    against the original bullets. A violation gets you exactly one repair request with
-    the findings; if that also fails, code discards your entire rewrite and ships the
-    original bullets -- you lose all your work. The role's metadata (title, company,
-    dates, location, description, skills_used) is rebuilt from the source regardless of
-    what you emit. Your single effective contribution is the achievements text.
+    WHAT A STRONG BULLET LOOKS LIKE -- aim every rewrite at this spine:
+    a strong action verb + the CONCRETE THING you did + its RESULT + the METHOD/tools.
+    - Concrete thing: not "an initiative" or "various tasks" but the actual system,
+      product, process, or deliverable ("a document-search assistant", "the nightly
+      ETL job", "the claims-triage model").
+    - Result: the outcome. Use a figure ONLY if the source role states one; otherwise
+      use a concrete before/after or the scope the role already gives (what changed,
+      for whom, on what system).
+    - Method: the approach or tools that make the claim credible.
 
-    SCOPE: the orchestration layer calls you once per role. Treat the provided role as
-    the full evidence boundary. Do not use facts from other roles, skills, education,
-    certifications, or personal information.
+    MINE THE ROLE'S OWN EVIDENCE -- this is how you make a vague bullet concrete WITHOUT
+    inventing. The CONTEXT gives you this role's `description` and `skills_used`, not
+    just its bullets. Those are the candidate's own declared facts for THIS role. Pull
+    a specific system, domain, or tool into a bullet only when it genuinely fits that
+    bullet's work. A role-wide skill does NOT justify putting it into every bullet.
+    Never sprinkle tools or JD terms as decoration.
 
-    HOW TO REWRITE EACH BULLET (recruiter-first):
-    - State the concrete achievement plainly: what was built, fixed, run, or delivered,
-      and its outcome when the source bullet states one. Specific, active, plain, terse.
-    - Convert duty phrasing ("responsible for", "worked on", "tasked with", "helped
-      with") into the concrete accomplishment the bullet already describes.
-    - Cut filler, vague intensifiers, and words that could fit any candidate. If a
-      phrase sounds impressive but says nothing verifiable, replace it with the
-      specific fact from the source bullet or drop the phrase. Drop trailing filler
-      such as "as required" or "as needed".
-    - When the source bullet is assistive or vague ("helped with", "worked on"),
-      keep the SAME contribution level but write it actively: "Contributed to
-      building X", "Supported deployment of Y". Never leave "worked on", "helped
-      with", or "responsible for" in the final text -- and never upgrade the role
-      to sole ownership the source does not state.
-    - Keep every figure, name, and term from the source bullet ("65%", "GPT-4",
-      "FDA audit") exactly as written -- these are the candidate's proof.
-    - Use a job/ATS keyword only when it is the most truthful, precise term for what
-      the source bullet already shows. Never bolt keywords onto unrelated bullets.
+    THE MECHANISM (why truthfulness is not optional): downstream code verifies your
+    output. It checks that the bullet count matches the source and that no figure
+    appears in your text that is absent from the source role. A violation gets you one
+    repair request with the findings; if that also fails, code ships the original
+    bullets and your work is discarded. The role's metadata (title, company, dates,
+    location, description, skills_used) is rebuilt from the source regardless. Your one
+    effective contribution is the achievements text, plus the supporting evidence you
+    cite for each rewritten bullet.
 
-    TRUTHFULNESS RULES (these are what the verifier checks):
-    - Do NOT state any number, metric, or figure that is not in the source bullet.
-      If a bullet has no metric, it stays without a metric -- do not estimate one.
-    - Do NOT add scale, counts, teams, users, leadership, ownership, credentials,
-      business outcomes, tools, methods, or standards the source bullet does not state.
-    - Do NOT change any name, number, or term inside a bullet (a tool, product, model,
-      method, standard, drug, certification, or metric name) -- not even to "correct" it.
-    - Do NOT drop an achievement, figure, or capability the source bullet states --
-      losses are flagged the same as inventions.
+    SCOPE: the orchestration layer calls you once per role. Treat the provided role --
+    its bullets, description, and skills_used -- as your full evidence boundary. Do not
+    borrow facts from other roles, education, certifications, or personal information.
 
-    ANTI-HYPE RULES (rewrites that sound like AI copy fail the review):
-    - No hyperbole or grandiose framing: "revolutionized", "transformative",
-      "spearheaded groundbreaking", "drove unprecedented" and similar inflate scope
-      beyond the evidence. Write what actually happened.
-    - No stacked heavy action verbs or adjective chains ("architected, engineered,
-      and delivered a robust, scalable, cutting-edge..."). One plain verb per bullet.
-    - No brochure tone. A recruiter reads bullets as evidence, not marketing. If a
-      sentence could appear in any company's press release, rewrite it.
-    - A modest, concrete bullet beats an impressive-sounding vague one every time.
+    TRUTHFULNESS RULES (what the verifier and a hiring manager both hold you to):
+    - Do NOT state any number, metric, or figure not in the source role. No estimates.
+    - Do NOT invent scale, counts, teams, users, leadership, ownership, business
+      outcomes, tools, methods, or standards the role's bullets, description, or
+      skills_used do not support.
+    - Do NOT drop a real achievement, figure, or capability the source states.
+    - Keep the SAME contribution level as the source bullet. Supporting or shared work
+      must stay supporting or shared work.
 
-    OUTPUT: return OptimizedExperienceSection JSON with optimized_experiences = one
-    Experience object for this role (achievements rewritten 1:1, everything else copied
-    from the source). The other fields are NOT consumed downstream -- set
-    optimization_notes to a short note, and leave keywords_integrated and
-    relevance_scores empty/minimal. Do not spend effort on them.
+    ANTI-HYPE RULES (rewrites that read like AI marketing copy fail review):
+    - No hyperbole ("revolutionized", "transformative", "groundbreaking",
+      "unprecedented"). Write what actually happened, at its true scale.
+    - One plain action verb per bullet -- no stacked verbs or adjective chains
+      ("architected, engineered and delivered a robust, scalable, next-generation...").
+    - No brochure tone. If a sentence could appear in any company's press release,
+      rewrite it into a specific, plain statement of the work.
+
+    PRESERVE THE CONTRIBUTION LEVEL (a hiring manager will probe this in the interview):
+    - Replace "responsible for", "worked on", and "helped with" with active phrasing,
+      but keep the SAME level of ownership the source states. Assisting stays assisting.
+    - "helped with deployment" -> "Supported deployment of..." or "Contributed to
+      deploying...", NEVER "Deployed..." or "Led deployment of..." (those claim sole
+      ownership the source did not give).
+    - Upgrading a supporting or shared contribution into sole ownership is a
+      truthfulness failure, not a style improvement.
+
+    WHEN A BULLET HAS NO SUBSTANCE TO MINE: if, even after using the role's description
+    and skills_used, a bullet still cannot name a concrete thing or result without
+    inventing facts, write it plainly and truthfully at whatever specificity the
+    evidence allows -- do NOT dress it up with hype or fake impact. A modest, honest
+    bullet is the correct answer here; the pipeline will flag it so the candidate can
+    add real detail. Never fill an empty bullet with invented substance.
+
+    OUTPUT: return ExperienceRewriteProposal JSON with:
+    - rewritten_bullets: one item per source bullet, same count as the source
+    - source_bullet: copied exactly from the source bullet you are rewriting
+    - rewritten_bullet: the new recruiter-readable bullet
+    - supporting_role_evidence: short exact phrases or facts from this same role's
+      bullet, description, or skills_used that justify the rewrite
+    - ownership_level: one of owned, led, executed, contributed, supported
+    - optimization_notes: short note on what you emphasized or what stayed modest
+
+    The supporting evidence must be short and exact, not essay-like. If you cannot point
+    to support inside this same role, do not make the rewrite.
 
   expected_output: >
-    OptimizedExperienceSection JSON with exactly one Experience object whose
-    achievements contain the same number of bullets as the source, each rewritten to
-    be plain, specific, and truthful to its source bullet. No human-readable text
-    after the JSON.
+    ExperienceRewriteProposal JSON whose rewritten_bullets contain the same number of
+    items as the source bullets, each rewritten into a specific, plainly written,
+    truthful accomplishment. No text after the JSON.
 
   agent: experience_section_optimizer
   output_file: content/optimized_experience.json
 
-# =============================================================================
-# SUPERSEDED 2026-07-03 -- kept for reference, not loaded. Why replaced:
-#   * The reorder-only contract meant rough, duty-flavored, or hyperbolic source
-#     bullets shipped verbatim; the stage had no way to make them recruiter-readable.
-#   * Replaced by a truthful 1:1 rewrite contract enforced in code
-#     (experience.py: count parity + claim-inflation number check + rewrite-drift
-#     review, one bounded repair, source fallback). See
-#     src/agents/professional_experience/professional_experience_architecture.md.
-# -----------------------------------------------------------------------------
-# optimize_experience_section_task:
-#   description: >
-#     Reorder the professional experience bullets for the single role in CONTEXT so the
-#     most job-relevant evidence comes first. Works for any field. You ONLY reorder.
-#
-#     THE MECHANISM (why verbatim matters): downstream code accepts your output only when
-#     your achievements are an exact permutation of the source bullets. If you change even
-#     one character of any bullet, code rejects your whole proposal and keeps the original
-#     order -- you lose your only lever. The role's metadata is rebuilt from the source
-#     regardless of what you emit. So your single effective contribution is bullet ORDER.
-#
-#     YOU MAY NOT rewrite, paraphrase, shorten, expand, split, merge, add, or remove any
-#     bullet. Return every original achievement string verbatim; change only their order.
-#
-#     STRICT RULES:
-#     - The number of achievements must exactly equal the source count.
-#     - Copy each achievement character-for-character from CONTEXT.
-#     - Preserve job title, company, dates, location, description, and skills_used exactly.
-#     - Do not insert job-description keywords into bullet text.
-#     - Do not change any name, number, or term inside a bullet -- not even to "correct" it.
-#     - Do not add scale, counts, teams, leadership, ownership, outcomes, or metrics.
-#
-#   expected_output: >
-#     OptimizedExperienceSection JSON with exactly one Experience object whose achievements
-#     are an exact permutation of the source achievements (same strings, reordered).
-#
-#   agent: experience_section_optimizer
-#   output_file: content/optimized_experience.json
+# Superseded prompts (reorder-only, then rewrite-with-drift-guard) are in git history:
+# see commits touching this file before 2026-07-03. This version drops the drift guard
+# from the node and adds the XYZ spine + role-evidence mining, because the guard fought
+# the specificity we now want and the old prompt never told the writer to mine the
+# role's own description/skills_used.

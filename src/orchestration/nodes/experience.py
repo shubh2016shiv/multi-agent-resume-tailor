@@ -1,16 +1,22 @@
 """Stage 3 professional experience rewrite flow.
 
-The LLM rewrites one role's bullets 1:1 into specific, recruiter-ready
-accomplishments, mining the role's own description and skills for truthful
-detail. Code holds two lines with deliberately different force:
+The LLM rewrites one role's bullets 1:1 into specific, recruiter-readable
+accomplishments, mining only that role's own evidence. Code enforces two layers:
 
-  * Truthfulness is non-negotiable. A rewrite must keep the source bullet count
-    and introduce no figure the source role lacks (a deterministic check). Only a
-    truthful version may ship; if none survives one repair, the source bullets do.
+  * Truthfulness is non-negotiable. A rewrite must keep the source bullet count,
+    preserve bullet identity/order, and introduce no unsupported numeric claim.
+    Only a truth-safe version may ship; if none survives one repair, the source
+    bullets do.
   * Substance is best-effort. A semantic rewrite review flags unsupported
-    specificity, ownership inflation, vague accomplishments, or brochure tone.
-    One repair tries to fix those issues, and any remaining soft gaps are
-    surfaced in notes rather than silently dressed up.
+    specificity, ownership inflation, vague accomplishments, brochure tone, or
+    JD-keyword decoration. One repair tries to fix those issues before shipping.
+
+Human-in-the-loop clarification is a real pause/resume step, not an offline
+note. After rewrite plus one repair pass, a single semantic review decides which
+bullets are still truthful but missing candidate-owned facts (result, artifact,
+user, or scale) and phrases the candidate's question in the same pass. That whole
+mechanism lives in src/hitl/professional_experience/; this module only
+orchestrates rewrite, review, and the pause boundary before ATS assembly.
 
 Role metadata is always rebuilt from the source object, so the LLM's writable
 surface is the achievements text only.
@@ -19,6 +25,8 @@ surface is the achievements text only.
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+
+from langgraph.types import interrupt
 
 from src.agents.professional_experience import create_professional_experience_agent
 from src.agents.professional_experience.models import (
@@ -30,6 +38,15 @@ from src.data_models.job import JobDescription
 from src.data_models.resume import Experience, Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.experience_optimizer_formatter import format_experience_optimizer_context
+from src.hitl.professional_experience.answers import (
+    answers_for_role,
+    experience_with_candidate_answers,
+)
+from src.hitl.professional_experience.clarifications import build_bullet_clarifications
+from src.hitl.professional_experience.models import (
+    ExperienceBulletClarification,
+    build_experience_bullet_id,
+)
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.state import ResumeEnhancementPipelineState
 from src.tools.contracts import ReviewComment, ReviewResult, Severity
@@ -51,56 +68,122 @@ class RoleRewriteDecision:
 def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
     """Rewrite work-experience bullets with one role-scoped call per entry.
 
-    Reads: resume, job_description, and alignment_strategy.
-    Writes: optimized_experience.
-    Returns: partial state with merged OptimizedExperienceSection output.
+    Reads: resume, job_description, alignment_strategy, and (when the candidate
+    answered a previous run's sheet) clarification_answers.
+    Writes: optimized_experience and experience_clarifications.
+    Returns: partial state with the merged section and the candidate questions.
     """
     start_time = time.monotonic()
     resume = state["resume"]
     job_description = state["job_description"]
     strategy = state["alignment_strategy"]
+    clarification_answers = state.get("clarification_answers") or []
     logger.info(
         "pipeline_stage_started",
         stage="optimize_experience",
         run_id=state["run_id"],
+        answered_clarifications=len(clarification_answers),
     )
     if resume is None or job_description is None or strategy is None:
         raise ValueError("resume, job_description, and alignment_strategy must be set.")
 
-    optimized_experience = _optimize_experience_entries(resume, job_description, strategy, state["run_id"])
+    optimized_experience, clarifications = _optimize_experience_entries(
+        resume, job_description, strategy, clarification_answers, state["run_id"]
+    )
+    source_resume_for_downstream_review = _resume_with_candidate_answers_as_source(
+        resume,
+        clarification_answers,
+    )
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(
         "pipeline_stage_completed",
         stage="optimize_experience",
         run_id=state["run_id"],
+        clarifications_requested=len(clarifications),
         duration_ms=duration_ms,
     )
-    return {"optimized_experience": optimized_experience}
+    return {
+        "resume": source_resume_for_downstream_review,
+        "optimized_experience": optimized_experience,
+        "experience_clarifications": clarifications,
+        "clarification_answers": [],
+    }
+
+
+def _resume_with_candidate_answers_as_source(
+    resume: Resume,
+    clarification_answers: list[ExperienceBulletClarification],
+) -> Resume:
+    """Return the resume truth source after applying candidate-owned facts."""
+    if not clarification_answers:
+        return resume
+    updated_experiences = [
+        experience_with_candidate_answers(
+            experience,
+            answers_for_role(experience, clarification_answers),
+        )
+        for experience in resume.work_experience
+    ]
+    return resume.model_copy(update={"work_experience": updated_experiences})
+
+
+def await_candidate_clarifications(state: ResumeEnhancementPipelineState):
+    """Pause the graph when the experience stage needs candidate-owned bullet facts."""
+    clarifications = state.get("experience_clarifications") or []
+    clarification_answers = state.get("clarification_answers") or []
+    if not clarifications:
+        return {}
+    if clarification_answers:
+        logger.info(
+            "candidate_clarifications_received",
+            run_id=state["run_id"],
+            answered_clarifications=len(clarification_answers),
+        )
+        return {}
+    logger.info(
+        "candidate_clarifications_requested",
+        run_id=state["run_id"],
+        clarification_count=len(clarifications),
+    )
+    interrupt(
+        {
+            "type": "candidate_clarifications_required",
+            "questions": [clarification.model_dump(mode="json") for clarification in clarifications],
+        }
+    )
+    return {}
 
 
 def _optimize_experience_entries(
     resume: Resume,
     job_description: JobDescription,
     strategy: AlignmentStrategy,
+    clarification_answers: list[ExperienceBulletClarification],
     run_id: str = "unknown",
-) -> OptimizedExperienceSection:
-    """Optimize every resume experience and merge the role-scoped sections.
+) -> tuple[OptimizedExperienceSection, list[ExperienceBulletClarification]]:
+    """Optimize every resume experience and merge the role-scoped results.
 
     Expects resume.work_experience to contain at least one entry.
-    Returns one OptimizedExperienceSection for downstream ATS assembly.
+    Returns the merged OptimizedExperienceSection for downstream ATS assembly,
+    plus every question the roles raised for the candidate.
     """
     experiences = resume.work_experience
     if not experiences:
         raise ValueError("resume.work_experience must contain at least one entry.")
 
-    sections = _run_experience_optimization_workers(
+    role_outcomes = _run_experience_optimization_workers(
         resume=resume,
         job_description=job_description,
         strategy=strategy,
         experiences=experiences,
+        clarification_answers=clarification_answers,
         run_id=run_id,
     )
-    return _merge_optimized_experience_sections(sections)
+    sections = [section for section, _ in role_outcomes]
+    clarifications = [
+        clarification for _, role_clarifications in role_outcomes for clarification in role_clarifications
+    ]
+    return _merge_optimized_experience_sections(sections), clarifications
 
 
 def _build_resume_with_single_experience(resume: Resume, experience: Experience) -> Resume:
@@ -130,6 +213,7 @@ def _rebuild_rewritten_role_from_proposal(
 
 def _collect_rewrite_truthfulness_findings(
     source_role_resume: Resume,
+    rewrite_proposal: ExperienceRewriteProposal,
     rewritten_role: Experience,
     original_experience: Experience,
 ) -> list[str]:
@@ -152,6 +236,20 @@ def _collect_rewrite_truthfulness_findings(
         return [
             f"Bullet count changed: source role has {source_count} bullet(s), "
             f"rewrite has {rewritten_count}. Rewrite each source bullet one-for-one."
+        ]
+
+    expected_bullet_ids = [
+        build_experience_bullet_id(original_experience, bullet_index)
+        for bullet_index, _ in enumerate(original_experience.achievements)
+    ]
+    returned_bullet_ids = [
+        bullet_rewrite.bullet_id
+        for bullet_rewrite in rewrite_proposal.rewritten_bullets
+    ]
+    if returned_bullet_ids != expected_bullet_ids:
+        return [
+            "Bullet IDs changed or were returned out of source order. "
+            "Copy each bullet_id exactly from the matching source bullet record."
         ]
 
     rewritten_role_resume = source_role_resume.model_copy(
@@ -246,8 +344,11 @@ def _build_experience_repair_context(
         "ownership inflation, restate the contribution at its true level in active "
         "phrasing ('Contributed to X', 'Supported Y'). To fix weak bullets, use this "
         "same role's description or skills_used only when the detail genuinely belongs "
-        "to that bullet. Keep the same bullet count and add no figure the source role "
-        "does not state. Return only ExperienceRewriteProposal JSON."
+        "to that bullet. If a flagged bullet still cannot state a concrete result or "
+        "scope without inventing facts, keep it truthful and set its "
+        "clarifying_question to exactly the missing piece. Keep the same bullet count "
+        "and add no figure the source role does not state. Return only "
+        "ExperienceRewriteProposal JSON."
     )
 
 
@@ -303,13 +404,18 @@ def _decide_role_rewrite_outcome(
     )
     truthfulness_findings = _collect_rewrite_truthfulness_findings(
         source_role_resume,
+        rewrite_proposal,
         first_rewritten_role,
         original_experience,
     )
+    # The quality review judges against the EVIDENCE role (which may carry the
+    # candidate's clarification answers), not the bare original -- otherwise
+    # answer-sourced specifics would be flagged as unsupported.
+    evidence_experience = source_role_resume.work_experience[0]
     first_quality_review = (
         ReviewResult(comments=[], summary="", score=None)
         if truthfulness_findings
-        else _collect_rewrite_quality_review(original_experience, rewrite_proposal)
+        else _collect_rewrite_quality_review(evidence_experience, rewrite_proposal)
     )
     repair_required_comments, candidate_follow_up_comments = (
         _split_repair_required_comments_from_follow_up_comments(first_quality_review)
@@ -353,13 +459,14 @@ def _decide_role_rewrite_outcome(
     ####################################################
     repaired_truthfulness_findings = _collect_rewrite_truthfulness_findings(
         source_role_resume,
+        repaired_rewrite_proposal,
         repaired_role,
         original_experience,
     )
     repaired_quality_review = (
         ReviewResult(comments=[], summary="", score=None)
         if repaired_truthfulness_findings
-        else _collect_rewrite_quality_review(original_experience, repaired_rewrite_proposal)
+        else _collect_rewrite_quality_review(evidence_experience, repaired_rewrite_proposal)
     )
     repaired_repair_required_comments, repaired_candidate_follow_up_comments = (
         _split_repair_required_comments_from_follow_up_comments(repaired_quality_review)
@@ -404,52 +511,61 @@ def _decide_role_rewrite_outcome(
     )
 
 
-def _finalize_role_rewrite(
-    rewrite_proposal: ExperienceRewriteProposal,
-    context: str,
-    source_role_resume: Resume,
-    original_experience: Experience,
-    run_id: str = "unknown",
-) -> OptimizedExperienceSection:
-    """Return the finalized section for one role after the rewrite decision is made."""
-    rewrite_decision = _decide_role_rewrite_outcome(
-        rewrite_proposal,
-        context,
-        source_role_resume,
-        original_experience,
-        run_id=run_id,
-    )
-    return rewrite_decision.finalized_section
-
-
 def _run_single_experience_optimization(
     resume: Resume,
     job_description: JobDescription,
     strategy: AlignmentStrategy,
     experience: Experience,
+    role_answers: list[ExperienceBulletClarification],
     run_id: str = "unknown",
-) -> OptimizedExperienceSection:
+) -> tuple[OptimizedExperienceSection, list[ExperienceBulletClarification]]:
     """Rewrite one role's bullets with a role-scoped CrewAI call plus a code-owned gate.
 
     Expects job_description and strategy to be present in pipeline state.
-    Returns a truth-verified rewritten role, or the untouched source role when the
-    rewrite fails the truthfulness gate twice.
+    Returns the truth-verified rewritten role (or the untouched source role when
+    the rewrite fails the truthfulness gate twice), plus any questions this role
+    raises for the candidate.
     """
-    role_resume = _build_resume_with_single_experience(resume, experience)
+    if role_answers:
+        logger.info(
+            "experience_clarification_answers_applied",
+            run_id=run_id,
+            company=experience.company_name,
+            answers=len(role_answers),
+        )
+    # Candidate answers travel on exactly one channel per consumer. The writer's
+    # prompt carries them once, as structured candidate_clarification_evidence
+    # (built by the formatter from role_answers). The deterministic truth floor
+    # and the LLM reviews instead see them folded into the role description, so
+    # answer-sourced facts count as source evidence and are never flagged as
+    # invented.
+    writer_role_resume = _build_resume_with_single_experience(resume, experience)
+    evidence_experience = experience_with_candidate_answers(experience, role_answers)
+    evidence_role_resume = _build_resume_with_single_experience(resume, evidence_experience)
     context = format_experience_optimizer_context(
-        resume=role_resume,
+        resume=writer_role_resume,
         job_description=job_description,
         strategy=strategy,
+        clarification_answers=role_answers,
         format_type="toon",
     )
     rewrite_proposal = _request_role_rewrite_proposal(context, run_id=run_id)
-    return _finalize_role_rewrite(
+    rewrite_decision = _decide_role_rewrite_outcome(
         rewrite_proposal,
         context,
-        role_resume,
+        evidence_role_resume,
         experience,
         run_id=run_id,
     )
+    # The fact-gap review receives the evidence experience so facts the candidate
+    # already provided count as role evidence and are not asked for again.
+    clarifications = build_bullet_clarifications(
+        experience=evidence_experience,
+        shipped_bullets=rewrite_decision.finalized_section.optimized_experiences[0].achievements,
+        rewritten_bullets=rewrite_decision.selected_rewrite_proposal.rewritten_bullets,
+        run_id=run_id,
+    )
+    return rewrite_decision.finalized_section, clarifications
 
 
 def _merge_optimized_experience_sections(
@@ -485,12 +601,14 @@ def _run_experience_optimization_workers(
     job_description: JobDescription,
     strategy: AlignmentStrategy,
     experiences: list[Experience],
+    clarification_answers: list[ExperienceBulletClarification],
     run_id: str = "unknown",
-) -> list[OptimizedExperienceSection]:
+) -> list[tuple[OptimizedExperienceSection, list[ExperienceBulletClarification]]]:
     """Run role-scoped experience optimization calls in parallel.
 
     Expects a non-empty experiences list from resume.work_experience.
-    Returns one OptimizedExperienceSection per input experience.
+    Returns one (section, candidate questions) pair per input experience; each
+    role receives only the answered clarifications routed to it.
     """
     max_workers = min(len(experiences), 4)
     logger.debug(
@@ -506,6 +624,7 @@ def _run_experience_optimization_workers(
                     job_description,
                     strategy,
                     experience,
+                    answers_for_role(experience, clarification_answers),
                     run_id,
                 ),
                 experiences,

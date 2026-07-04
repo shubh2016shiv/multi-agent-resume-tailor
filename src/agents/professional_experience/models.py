@@ -16,6 +16,10 @@ from src.data_models.resume import Experience
 class ExperienceBulletRewrite(BaseModel):
     """One rewritten bullet plus the role evidence that supports it."""
 
+    bullet_id: str = Field(
+        ...,
+        description="Stable ID of the source bullet being rewritten; copied exactly from context.",
+    )
     source_bullet: str = Field(
         ...,
         description="The original bullet from this same role that is being rewritten.",
@@ -31,6 +35,15 @@ class ExperienceBulletRewrite(BaseModel):
     ownership_level: Literal["owned", "led", "executed", "contributed", "supported"] = Field(
         ...,
         description="The contribution level preserved from the source bullet.",
+    )
+    clarifying_question: str | None = Field(
+        default=None,
+        description=(
+            "A specific question for the candidate, set ONLY when this bullet still "
+            "cannot state a concrete result or scope without inventing facts -- ask "
+            "exactly for the missing piece (e.g. what changed, for whom, at what "
+            "scale). None when the bullet is already fully grounded."
+        ),
     )
 
 
@@ -52,6 +65,7 @@ class ExperienceRewriteProposal(BaseModel):
             "example": {
                 "rewritten_bullets": [
                     {
+                        "bullet_id": "exp_001::bullet::0",
                         "source_bullet": "Worked on backend services for claims operations.",
                         "rewritten_bullet": "Built Python backend services for claims operations workflows, improving reliability for internal adjudication tools.",
                         "supporting_role_evidence": [
@@ -60,6 +74,7 @@ class ExperienceRewriteProposal(BaseModel):
                             "internal adjudication tools",
                         ],
                         "ownership_level": "executed",
+                        "clarifying_question": None,
                     }
                 ],
                 "optimization_notes": "Used the role description to name the workflow and system without adding unsupported scope.",

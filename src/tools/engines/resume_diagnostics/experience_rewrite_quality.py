@@ -54,7 +54,7 @@ def _build_experience_rewrite_review_input(
 ) -> str:
     """Render one role's source evidence and rewrites into a compact review payload."""
     bullet_blocks = []
-    for bullet_number, rewritten_bullet in enumerate(rewritten_bullets, start=1):
+    for bullet_index, rewritten_bullet in enumerate(rewritten_bullets):
         supporting_evidence = (
             "\n".join(
                 f"    - {evidence_item}"
@@ -65,7 +65,9 @@ def _build_experience_rewrite_review_input(
         bullet_blocks.append(
             "\n".join(
                 [
-                    f"BULLET {bullet_number}",
+                    f"BULLET {bullet_index + 1}",
+                    f"  BULLET_INDEX: {bullet_index}",
+                    f"  BULLET_ID: {rewritten_bullet.bullet_id}",
                     f"  SOURCE_BULLET: {rewritten_bullet.source_bullet}",
                     f"  REWRITTEN_BULLET: {rewritten_bullet.rewritten_bullet}",
                     f"  DECLARED_OWNERSHIP_LEVEL: {rewritten_bullet.ownership_level}",

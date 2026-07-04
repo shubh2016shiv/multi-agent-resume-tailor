@@ -342,6 +342,21 @@ def _configure_standard_logging(level: int, log_file: str | None) -> None:
     root_logger.setLevel(level)
 
 
+def _configure_noisy_library_logging(
+    third_party_level_name: str,
+    litellm_level_name: str,
+) -> None:
+    """Apply one central noise policy to third-party LLM/client libraries."""
+    third_party_level = getattr(logging, third_party_level_name)
+    litellm_level = getattr(logging, litellm_level_name)
+    os.environ["LITELLM_LOG"] = litellm_level_name
+
+    for logger_name in ("openai", "httpx", "httpcore", "crewai"):
+        logging.getLogger(logger_name).setLevel(third_party_level)
+    for logger_name in ("litellm", "LiteLLM"):
+        logging.getLogger(logger_name).setLevel(litellm_level)
+
+
 def configure_structlog() -> None:
     """Configure the structlog pipeline from application settings.
 
@@ -357,6 +372,8 @@ def configure_structlog() -> None:
         config.logging.level,
         config.logging.format,
         config.logging.log_file,
+        config.logging.third_party_level,
+        config.logging.litellm_level,
         config.application.environment,
     )
     if _logging_configured and _configured_settings_fingerprint == settings_fingerprint:
@@ -389,6 +406,10 @@ def configure_structlog() -> None:
 
     # STEP 4: point the underlying stdlib logger at stdout (+ optional file).
     _configure_standard_logging(log_level, config.logging.log_file)
+    _configure_noisy_library_logging(
+        config.logging.third_party_level,
+        config.logging.litellm_level,
+    )
 
     # STEP 5: clear leftover per-request bindings from before this
     # (re-)configuration. The service identity lives in the processor

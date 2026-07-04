@@ -129,6 +129,14 @@ logging:
   # Path to the log file. If set to null, logs will only go to the console.
   log_file: "logs/resume_tailor.log"
 
+  # Minimum level for noisy third-party libraries such as OpenAI/httpx/CrewAI.
+  # Keep this higher than the app log level during live smoke tests.
+  third_party_level: "WARNING"
+
+  # LiteLLM has its own verbose stream. Set DEBUG only when inspecting raw LLM calls.
+  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+  litellm_level: "ERROR"
+
 # ------------------------------------------------------------------------------
 # Resume Tailoring Workflow Configuration
 # ------------------------------------------------------------------------------

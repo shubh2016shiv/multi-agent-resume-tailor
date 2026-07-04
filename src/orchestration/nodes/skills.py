@@ -239,6 +239,22 @@ def preserve_original_skills(
     ####################################################
     if not dropped:
         return optimized_skills
+
+    ####################################################
+    # STEP 3: DROP THE RE-ADDED NAMES FROM removed_skills#
+    ####################################################
+    # A re-added skill was never actually removed from the shipped section, so
+    # leaving its name in removed_skills would claim a skill is gone when it is
+    # right there -- a stale record for whichever caller reads it next.
+    reinstated_names = {skill.skill_name.casefold() for skill in dropped}
+    surviving_removed_skills = [
+        name
+        for name in optimized_skills.removed_skills
+        if name.casefold() not in reinstated_names
+    ]
     return optimized_skills.model_copy(
-        update={"optimized_skills": optimized_skills.optimized_skills + dropped}
+        update={
+            "optimized_skills": optimized_skills.optimized_skills + dropped,
+            "removed_skills": surviving_removed_skills,
+        }
     )

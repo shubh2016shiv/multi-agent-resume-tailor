@@ -7,7 +7,7 @@ No agent logic lives here -- all agent calls are in nodes.py.
 Stage 1 (parallel):   extract_resume + analyze_job
 Stage 2 (sequential): run_gap_analysis          (waits for Stage 1)
 Stage 3 (parallel):   write_professional_summary + optimize_experience + optimize_skills
-Stage 4 (sequential): assemble_ats_resume        (waits for Stage 3)
+Stage 4 (sequential): await candidate facts, then assemble ATS resume
 Stage 5 (sequential): evaluate_resume_quality
 Stage 6 (sequential): rehydrate_pii              (restore PII after QA, on every path)
 Stage 7 (conditional): render_final_resume       (gate passed, or render_draft_on_gate_fail=True)
@@ -82,7 +82,28 @@ def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
     return decision
 
 
-def build_resume_enhancement_graph() -> CompiledStateGraph:
+def _route_after_candidate_clarifications(state: ResumeEnhancementPipelineState) -> str:
+    """Route the experience HITL boundary after the pause node runs.
+
+    A resumed run arrives here with candidate answers in state, so experience must
+    be rewritten once more using those answers before ATS assembly. A normal run,
+    or the second pass after answers were applied, continues to ATS assembly.
+    """
+    decision = (
+        "rewrite_experience"
+        if state.get("clarification_answers")
+        else "assemble_resume"
+    )
+    logger.info(
+        "graph_routing_decision",
+        from_node="await_candidate_clarifications",
+        decision=decision,
+        answered_clarifications=len(state.get("clarification_answers") or []),
+    )
+    return decision
+
+
+def build_resume_enhancement_graph(checkpointer=None) -> CompiledStateGraph:
     """Construct and compile the resume enhancement pipeline.
 
     Returns: a CompiledStateGraph ready to invoke with ResumeEnhancementPipelineState.
@@ -99,6 +120,10 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_node("write_professional_summary", nodes.write_professional_summary)
     graph.add_node("optimize_experience", nodes.optimize_experience)
     graph.add_node("optimize_skills", nodes.optimize_skills)
+    graph.add_node(
+        "await_candidate_clarifications",
+        nodes.await_candidate_clarifications,
+    )
     graph.add_node("assemble_ats_resume", nodes.assemble_ats_resume)
     graph.add_node("evaluate_resume_quality", nodes.evaluate_resume_quality)
     graph.add_node("patch_ats_assembly", nodes.patch_ats_assembly)
@@ -119,9 +144,22 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     graph.add_edge("run_gap_analysis", "optimize_skills")
 
     # -- Stage 4: fan-in -- all Stage 3 nodes must finish before ATS assembly starts --
-    graph.add_edge("write_professional_summary", "assemble_ats_resume")
-    graph.add_edge("optimize_experience", "assemble_ats_resume")
-    graph.add_edge("optimize_skills", "assemble_ats_resume")
+    graph.add_edge("write_professional_summary", "await_candidate_clarifications")
+    graph.add_edge("optimize_experience", "await_candidate_clarifications")
+    graph.add_edge("optimize_skills", "await_candidate_clarifications")
+
+    # -- Stage 3b: candidate clarification gate -- if the experience stage needs
+    # candidate-owned facts, this node interrupts before ATS assembly. On resume,
+    # the graph reruns experience once with the candidate's answers; otherwise it
+    # proceeds to ATS assembly.
+    graph.add_conditional_edges(
+        "await_candidate_clarifications",
+        _route_after_candidate_clarifications,
+        {
+            "rewrite_experience": "optimize_experience",
+            "assemble_resume": "assemble_ats_resume",
+        },
+    )
 
     # -- Stage 5: sequential quality assurance --
     graph.add_edge("assemble_ats_resume", "evaluate_resume_quality")
@@ -146,4 +184,4 @@ def build_resume_enhancement_graph() -> CompiledStateGraph:
     )
     graph.add_edge("render_final_resume", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)

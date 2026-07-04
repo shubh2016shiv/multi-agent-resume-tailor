@@ -137,6 +137,8 @@ class LoggingConfig(BaseModel):
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     format: Literal["json", "text"] = "text"
     log_file: str | None = "logs/resume_tailor.log"
+    third_party_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING"
+    litellm_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "ERROR"
 
 
 class QualityMetricsConfig(BaseModel):

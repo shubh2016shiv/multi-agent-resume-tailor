@@ -602,29 +602,37 @@ This made the rewrite cycle permanently dead. Every run went write→review→ac
 
 ### 10.2 Current policy (implemented in nodes/experience.py, 2026-07-03)
 
-Between 2026-06-21 (commit 84ee2ba) and 2026-07-03 this stage was reorder-only:
-the LLM could only permute source bullets, so rough or hyperbolic source text
-shipped verbatim. The restored policy allows a truthful 1:1 rewrite and splits
-the gate into two classes with different consequences:
+History of this stage: reorder-only until 2026-06-21 (rough/hyperbolic source
+shipped verbatim), then a truthful rewrite guarded by a truth gate that included
+an LLM `detect_rewrite_drift` check. That drift check was removed the same week:
+it penalised the exact context-mining that makes a bullet specific (pulling a
+tool from the role's `skills_used` into a bullet reads to a whole-resume diff as
+an "added claim"), and it repeatedly instructed repairs to restore the hype the
+writer had correctly cut. The current policy keeps two lines with deliberately
+different force:
 
 ```text
-truth gate (can never ship a violation):
-  bullet count parity (1:1 contract, mechanical)
-  detect_claim_inflation: no figure absent from the source role (mechanical)
-  detect_rewrite_drift: no HIGH-confidence invented/exaggerated/lost claim (LLM)
+truth floor -- NON-NEGOTIABLE, deterministic, no LLM (only a truthful version ships):
+  bullet count parity (1:1 contract)
+  detect_claim_inflation: no figure absent from the source role
 
-language gate (drives the repair, never forces source fallback):
-  audit_language_quality_for_experiences: duty language, filler, hyperbole,
-  pseudo-impact, brochure/AI tone (LLM rubric)
+substance -- BEST-EFFORT, one LLM audit (never forces a source fallback):
+  audit_language_quality_for_experiences: vague/hollow bullets, hyperbole,
+  pseudo-impact, brochure/AI tone
 
-any finding -> one repair with the exact findings -> re-run truth gate
-repair passes truth gate -> ship it
-repair fails, first rewrite was truthful -> ship the first rewrite
-repair fails, first rewrite also failed truth -> ship the source bullets
+any finding -> one repair with the exact findings -> re-check the truth floor
+repair clears the floor          -> ship it; surface any bullets still thin
+repair breaks the floor, first rewrite was truthful -> ship the first rewrite; surface thin
+repair breaks the floor, first rewrite also failed  -> ship the source bullets
 ```
 
-Language findings cannot force the source fallback because the source bullets
-are the very text the language audit flagged; only truthfulness can.
+Non-numeric invention (a fake tool, team, or scale) is now governed by the
+writer's prompt and temperature-0 decoding rather than an LLM guard on this path.
+A truthful-but-vague bullet that neither the writer nor the repair can make
+concrete from the role's own evidence is *surfaced* to the candidate in
+`optimization_notes` ("BULLETS NEEDING YOUR INPUT"), never filled with invented
+substance -- the honest analogue of a resume writer asking "what did you
+actually build here?".
 
 The quantification, bullet-structure, and consistency auditors are NOT wired
 into this gate (their digit/threshold/first-token heuristics are open
@@ -634,13 +642,13 @@ remains available but has no live caller on this path.
 ### 10.3 Why this is not a bandaid
 
 The gate reuses existing engines (`detect_claim_inflation`,
-`detect_rewrite_drift`, `audit_language_quality_for_experiences`) and converts
-their findings into a decision in a single node-owned function. No new
-framework, service layer, or agent is required. The flow is:
+`audit_language_quality_for_experiences`) and converts their findings into a
+decision in a single node-owned function. No new framework, service layer, or
+agent is required. The flow is:
 
 ```text
-proposal -> _truth_gate_failures() + _language_findings()
-        -> _gate_rewrite_with_one_repair() -> accept, repair once, or source
+proposal -> _truth_floor_failures() + _substance_findings()
+        -> _finalize_role() -> accept, repair once, or source; surface thin bullets
 ```
 
 ---
@@ -761,3 +769,79 @@ coordination problem.
 
 The writer agent is only one worker in a bigger system. The reliable design is
 to keep the worker focused and make orchestration responsible for the cycle.
+
+---
+
+## 13. Human-in-the-Loop Clarification (Tier 1)
+
+### 13.1 Why: the truthful ceiling is set by the input, not the writer
+
+Even a grounded rewrite has a hard limit: a bullet's true RESULT and SCOPE live
+in the candidate's head, not in a rough resume. No amount of prompt engineering
+or evidence-mining can truthfully produce a number or outcome the source never
+stated. A human resume writer facing this gap does the obvious thing: asks the
+candidate. This pipeline has no human in the room -- so it asks in writing.
+
+### 13.2 What HITL Tier 1 is (and deliberately is not)
+
+```text
+RUN 1   pipeline runs -> a bullet the writer could not ground gets ITS OWN
+        clarifying_question, authored by the same writer that just tried and
+        failed to mine it -> written to an editable clarifications_sheet.json
+HUMAN   the candidate fills in the empty "answer" fields in that file, offline
+RUN 2   same command + --clarifications <sheet path> -> answered questions
+        become first-class role evidence -> the SAME rewrite path runs again
+```
+
+No LangGraph `interrupt()`, no checkpointer, no thread, no live conversation.
+Two plain runs and a JSON file the candidate edits by hand. That is Tier 1's
+entire scope; an interactive Tier 2 (real-time `interrupt()` + persistence)
+would be a separate, larger change if ever needed.
+
+### 13.3 The question is LLM-authored per bullet, not a fixed template
+
+The writer itself declares `ExperienceBulletRewrite.clarifying_question` for
+any bullet it could not state a concrete result or scope for without inventing
+-- it is the one that just attempted the mining, so it is the one that knows
+precisely what is missing. There is no separate trigger to calibrate and no
+generic question text: a bullet gets asked about exactly when the LLM that
+wrote it says it needs more, in its own words.
+
+### 13.4 The one mechanism: answers become role evidence
+
+`_experience_with_candidate_answers` (nodes/experience.py) folds a role's
+answered clarifications into a COPY of that role's `description` ("Candidate-
+provided clarifications: ..."). That copy is what the writer's context, the
+`detect_claim_inflation` truth floor, and the rewrite-quality review all see --
+so a figure the candidate supplies is legitimately "in the source role," not an
+invented one. The SHIPPED role is still rebuilt from the clean original
+experience, so answers never leak into shipped metadata.
+
+```text
+Experience (clean)
+  -> _answers_for_role(experience, all_answers)      # routed by (company, title)
+  -> _experience_with_candidate_answers(experience, role_answers)
+  -> writer context, truth floor, quality review all see the augmented role
+  -> shipped Experience is rebuilt from the CLEAN original
+```
+
+### 13.5 The two-source rule
+
+Facts come from exactly two places: the resume and the candidate. The job
+description steers emphasis and vocabulary only -- which of the candidate's
+true facts to surface first, never what the facts are. `_answers_for_role`
+routes each answer by `(company_name, job_title)`, case-insensitively, so an
+answer for one role can never reach another role's evidence.
+
+### 13.6 Where the pieces live
+
+| Piece | Location |
+|---|---|
+| `ExperienceBulletClarification` | `src/hitl/professional_experience/models.py` |
+| `ExperienceBulletRewrite.clarifying_question` | `src/agents/professional_experience/models.py` |
+| `build_bullet_clarifications`, `experience_with_candidate_answers`, `answers_for_role` | `src/hitl/professional_experience/` |
+| `clarification_answers` (in), `experience_clarifications` (out) | `src/orchestration/state.py` |
+| `save_clarification_sheet`, `load_answered_clarifications`, paused-run persistence | `src/hitl/professional_experience/persistence.py` |
+| `tailor_resume(...)`, `resume_paused_run(...)` | `src/orchestration/runner.py` |
+| `--resume-from` CLI flag | `src/main.py` |
+| Live proof (no mocks) | `regression_fix/smoke_test/st11_experience_clarification_loop_live.py` |

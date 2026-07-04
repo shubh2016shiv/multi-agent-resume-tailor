@@ -7,7 +7,10 @@ without opening any implementation file.
 
 from src.orchestration.nodes.assembly import assemble_ats_resume
 from src.orchestration.nodes.ats_patch import patch_ats_assembly
-from src.orchestration.nodes.experience import optimize_experience
+from src.orchestration.nodes.experience import (
+    await_candidate_clarifications,
+    optimize_experience,
+)
 from src.orchestration.nodes.ingestion import analyze_job, extract_resume
 from src.orchestration.nodes.rehydrate_pii import rehydrate_pii
 from src.orchestration.nodes.render import render_final_resume
@@ -19,6 +22,7 @@ from src.orchestration.nodes.summary import write_professional_summary
 __all__ = [
     "analyze_job",
     "assemble_ats_resume",
+    "await_candidate_clarifications",
     "evaluate_resume_quality",
     "extract_resume",
     "optimize_experience",

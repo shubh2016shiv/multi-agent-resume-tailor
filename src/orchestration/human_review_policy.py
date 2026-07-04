@@ -19,9 +19,14 @@ as human_review_required) in exactly two situations, both about the rendered ATS
 
 A plain FAIL at the QA stage is NOT escalation: it is recoverable and routes to the
 patch node first. Only after recovery is exhausted does a non-PASS become human review.
+
+The same module owns the run's caller-facing verdict: derive_run_disposition() folds
+the escalation flag, the quality gate, and any candidate questions into the single
+RunDisposition the runner puts on OrchestrationResult.
 """
 
 from src.data_models.evaluation import AtsCheckStatus, RenderedStructureEvaluation
+from src.data_models.orchestration import RunDisposition
 
 
 def is_ats_unverifiable(outcome: RenderedStructureEvaluation) -> bool:
@@ -41,3 +46,24 @@ def is_ats_unrecoverable(outcome: RenderedStructureEvaluation) -> bool:
     re-grade) means no automated recovery is left, so the run escalates to human review.
     """
     return outcome.status is not AtsCheckStatus.PASS
+
+
+def derive_run_disposition(
+    human_review_required: bool,
+    quality_gate_passed: bool,
+    has_candidate_questions: bool,
+) -> RunDisposition:
+    """Fold a finished run's flags into the one action the caller should take next.
+
+    Precedence: the most blocking condition wins. A human-review escalation trumps
+    everything; a failed quality gate trumps candidate questions; candidate
+    questions trump a clean render (the resume rendered, but answering the sheet
+    and re-running makes it better).
+    """
+    if human_review_required:
+        return RunDisposition.NEEDS_HUMAN_REVIEW
+    if not quality_gate_passed:
+        return RunDisposition.QUALITY_GATE_FAILED
+    if has_candidate_questions:
+        return RunDisposition.NEEDS_CANDIDATE_INPUT
+    return RunDisposition.RENDERED

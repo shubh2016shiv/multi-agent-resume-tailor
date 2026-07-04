@@ -18,6 +18,9 @@ from src.data_models.job import JobDescription
 from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.data_models.strategy import AlignmentStrategy
+from src.hitl.professional_experience.models import (
+    ExperienceBulletClarification,
+)
 from src.tools.contracts import ReviewResult
 
 
@@ -32,6 +35,10 @@ class ResumeEnhancementPipelineState(TypedDict):
     run_id: str  # identifies this run; keys the Redis PII mapping (see pii_mapping_store)
     resume_path: str
     jd_path: str
+    # Candidate's answered clarifications from a previous run's sheet (HITL loop).
+    # None/empty on a first run; answers are folded into role evidence by the
+    # experience node so candidate-provided facts and figures become usable.
+    clarification_answers: list[ExperienceBulletClarification] | None
 
     # --- Stage 1: parallel ingestion ---
     resume: Resume | None
@@ -45,6 +52,9 @@ class ResumeEnhancementPipelineState(TypedDict):
     professional_summary: ProfessionalSummary | None
     optimized_experience: OptimizedExperienceSection | None
     optimized_skills: OptimizedSkillsSection | None
+    # Questions for the candidate about bullets that shipped truthful but thin
+    # (HITL loop). The runner writes these to an editable clarification sheet.
+    experience_clarifications: list[ExperienceBulletClarification] | None
 
     # --- Stage 4: sequential ATS assembly ---
     optimized_resume: AtsOptimizedResume | None

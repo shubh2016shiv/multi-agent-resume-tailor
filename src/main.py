@@ -14,18 +14,27 @@ if TYPE_CHECKING:
 class PipelineInputs:
     """Validated input files for one pipeline run."""
 
-    resume_path: Path
-    job_description_path: Path
+    resume_path: Path | None = None
+    job_description_path: Path | None = None
+    resume_from_path: Path | None = None
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the pipeline and return a process exit code."""
     inputs = parse_inputs(argv)
 
-    from src.orchestration import tailor_resume
+    from src.orchestration import resume_paused_run, tailor_resume
 
     print_run_header(inputs)
-    result = tailor_resume(str(inputs.resume_path), str(inputs.job_description_path))
+    if inputs.resume_from_path is not None:
+        result = resume_paused_run(str(inputs.resume_from_path))
+    else:
+        assert inputs.resume_path is not None
+        assert inputs.job_description_path is not None
+        result = tailor_resume(
+            str(inputs.resume_path),
+            str(inputs.job_description_path),
+        )
     print_run_summary(result)
     return 0
 
@@ -43,12 +52,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run the resume tailoring pipeline for one resume and job description.",
     )
     parser.add_argument(
-        "paths",
-        nargs="*",
-        metavar="PATH",
-        help="Optional positional form: RESUME_PATH JOB_DESCRIPTION_PATH",
-    )
-    parser.add_argument(
         "--resume",
         metavar="PATH",
         help="Path to the source resume document.",
@@ -60,6 +63,20 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Path to the target job-description document.",
     )
+    parser.add_argument(
+        "--resume-from",
+        metavar="PATH",
+        help=(
+            "Path to a paused_run_<id> directory. Answer clarifications_sheet.json in "
+            "that folder, then resume from it."
+        ),
+    )
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        metavar="PATH",
+        help="Optional positional form for fresh runs: RESUME_PATH JOB_DESCRIPTION_PATH",
+    )
     return parser
 
 
@@ -68,6 +85,17 @@ def resolve_inputs(
     parser: argparse.ArgumentParser,
 ) -> PipelineInputs:
     """Resolve positional or named input paths."""
+    if args.resume_from:
+        if args.paths or args.resume or args.job_description:
+            parser.error("use either --resume-from or fresh-run resume/JD inputs, not both")
+        return PipelineInputs(
+            resume_from_path=existing_directory(
+                Path(args.resume_from).expanduser(),
+                "paused run",
+                parser,
+            )
+        )
+
     has_named_input = bool(args.resume or args.job_description)
 
     if args.paths and has_named_input:
@@ -97,11 +125,25 @@ def existing_file(
     return path.resolve()
 
 
+def existing_directory(
+    path: Path,
+    label: str,
+    parser: argparse.ArgumentParser,
+) -> Path:
+    """Return a normalized directory path or stop with a parser error."""
+    if not path.is_dir():
+        parser.error(f"the {label} path does not exist or is not a directory: {path}")
+    return path.resolve()
+
+
 def print_run_header(inputs: PipelineInputs) -> None:
     """Print the selected inputs before orchestration logs begin."""
     print("Resume Tailor pipeline")
-    print(f"  resume: {inputs.resume_path}")
-    print(f"  job description: {inputs.job_description_path}")
+    if inputs.resume_from_path is not None:
+        print(f"  resume from: {inputs.resume_from_path}")
+    else:
+        print(f"  resume: {inputs.resume_path}")
+        print(f"  job description: {inputs.job_description_path}")
     print()
 
 
@@ -112,16 +154,27 @@ def print_run_summary(result: "OrchestrationResult") -> None:
 
     print()
     print("Pipeline result")
+    print_field("disposition", result.disposition.value)
     print_field("candidate", result.original_resume.full_name)
     print_field("target job", result.job_description.job_title)
     print_field("company", result.job_description.company_name)
     print_field("strategy score", result.strategy.overall_fit_score)
-    print_field("quality score", quality.overall_quality_score)
-    print_field("gate passed", quality.passes_quality_gate)
-    print_field("accuracy", quality.accuracy.accuracy_score)
-    print_field("relevance", quality.relevance.relevance_score)
-    print_field("ats", quality.ats_optimization.ats_score)
-    print_field("summary", result.optimized_resume.final_resume.professional_summary)
+    if quality is not None:
+        print_field("quality score", quality.overall_quality_score)
+        print_field("gate passed", quality.passes_quality_gate)
+        print_field("accuracy", quality.accuracy.accuracy_score)
+        print_field("relevance", quality.relevance.relevance_score)
+        print_field("ats", quality.ats_optimization.ats_score)
+    if result.optimized_resume is not None:
+        print_field("summary", result.optimized_resume.final_resume.professional_summary)
+
+    if result.clarifications_requested:
+        print_field(
+            "clarifications",
+            f"{len(result.clarifications_requested)} question(s) for you -- answer "
+            "clarifications_sheet.json in the paused run folder and resume with --resume-from",
+        )
+    print_field("paused run", result.paused_run_path)
 
     if artifacts is None:
         print_field("artifacts", "none")

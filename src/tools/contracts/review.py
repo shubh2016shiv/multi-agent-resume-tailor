@@ -49,6 +49,7 @@ class Location(BaseModel):
 
     section: Section
     bullet_index: int | None = None
+    item_id: str | None = None
     character_span: list[int] | None = None  # [start, end] offsets; list, not tuple,
     # because OpenAI structured output rejects fixed-length-tuple (prefixItems) schemas.
     # TODO: Validate that character_span has exactly 2 elements and end > start.

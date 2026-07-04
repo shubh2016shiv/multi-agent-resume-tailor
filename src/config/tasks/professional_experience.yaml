@@ -22,6 +22,14 @@ optimize_experience_section_task:
     bullet's work. A role-wide skill does NOT justify putting it into every bullet.
     Never sprinkle tools or JD terms as decoration.
 
+    CANDIDATE-PROVIDED CLARIFICATIONS: a role's description may contain a section
+    labeled "Candidate-provided clarifications" -- the candidate's own answers to
+    questions from a previous run. These are FIRST-CLASS SOURCE FACTS, the strongest
+    evidence you have: use their systems, scope, and figures in the matching bullets
+    (a figure from a clarification counts as "in the source role"). Quote their
+    numbers exactly; keep their contribution level; and still no hype -- their facts,
+    written plainly, are the whole point.
+
     THE MECHANISM (why truthfulness is not optional): downstream code verifies your
     output. It checks that the bullet count matches the source and that no figure
     appears in your text that is absent from the source role. A violation gets you one
@@ -61,20 +69,33 @@ optimize_experience_section_task:
     - Upgrading a supporting or shared contribution into sole ownership is a
       truthfulness failure, not a style improvement.
 
-    WHEN A BULLET HAS NO SUBSTANCE TO MINE: if, even after using the role's description
-    and skills_used, a bullet still cannot name a concrete thing or result without
-    inventing facts, write it plainly and truthfully at whatever specificity the
-    evidence allows -- do NOT dress it up with hype or fake impact. A modest, honest
-    bullet is the correct answer here; the pipeline will flag it so the candidate can
-    add real detail. Never fill an empty bullet with invented substance.
+    WHEN A BULLET HAS NO SUBSTANCE TO MINE -- ASK, DON'T INVENT: if, even after using
+    the role's description, skills_used, and any candidate-provided clarifications, a
+    bullet still cannot state a concrete result or scope without inventing facts, do
+    two things:
+    1. Write it plainly and truthfully at whatever specificity the evidence allows --
+       do NOT dress it up with hype or fake impact. A modest, honest bullet is correct.
+    2. Set that bullet's clarifying_question to the ONE specific question you would ask
+       this candidate to make it concrete -- exactly the missing piece (what the thing
+       actually was, what changed because of it, who used it, or at what scale), phrased
+       the way a professional resume writer asks a client, not a generic template. You
+       are the one who just tried to mine this bullet and hit the wall, so you know
+       precisely what is missing -- ask for that, not something generic.
+    Leave clarifying_question empty/null for every bullet that IS already concrete and
+    grounded (naming a real tool or system is not enough by itself -- a bullet with no
+    stated result or scope still needs a question, even if it names a tool).
 
     OUTPUT: return ExperienceRewriteProposal JSON with:
     - rewritten_bullets: one item per source bullet, same count as the source
+    - bullet_id: copied exactly from the source bullet record you are rewriting
     - source_bullet: copied exactly from the source bullet you are rewriting
     - rewritten_bullet: the new recruiter-readable bullet
     - supporting_role_evidence: short exact phrases or facts from this same role's
       bullet, description, or skills_used that justify the rewrite
     - ownership_level: one of owned, led, executed, contributed, supported
+    - clarifying_question: optional hint about the missing candidate-owned fact for this
+      bullet, or null if it needs none. This is advisory only; a separate clarification
+      questioner owns the final candidate-facing wording
     - optimization_notes: short note on what you emphasized or what stayed modest
 
     The supporting evidence must be short and exact, not essay-like. If you cannot point
@@ -87,6 +108,11 @@ optimize_experience_section_task:
 
   agent: experience_section_optimizer
   output_file: content/optimized_experience.json
+
+# The candidate clarification questions are NOT a CrewAI task: they are produced in
+# the same structured-output call that detects the fact gaps. See
+# src/hitl/professional_experience/clarifications.py and its rubric at
+# src/config/tool_prompts/hitl/experience_candidate_fact_gap.md.
 
 # Superseded prompts (reorder-only, then rewrite-with-drift-guard) are in git history:
 # see commits touching this file before 2026-07-03. This version drops the drift guard

@@ -2,8 +2,8 @@ You review rewritten resume bullets for a single role.
 
 You are given:
 - the role title, company, description, and skills_used
-- for each bullet: the source bullet, the rewritten bullet, the model-declared ownership level,
-  and the exact role evidence the rewrite claims to rely on
+- for each bullet: the bullet_id, source bullet, rewritten bullet, the model-declared
+  ownership level, and the exact role evidence the rewrite claims to rely on
 
 Judge the rewritten bullets the way a serious recruiter or hiring manager would.
 The question is not "does this sound impressive?" The question is "does this read
@@ -30,7 +30,9 @@ Flag a real issue when you see any of these:
 
 4. Vague or duty-style phrasing
    The rewritten bullet still reads like a responsibility, generic participation,
-   or empty abstraction rather than a concrete accomplishment.
+   or empty abstraction rather than a concrete accomplishment. Naming a tool or
+   system is not enough on its own -- if the bullet states no result or scope
+   (what changed, for whom, or how much), it is still vague.
    Severity: "minor"
 
 5. JD-keyword decoration
@@ -56,8 +58,14 @@ Return one review comment per real issue, with:
   "Unsupported specificity", "Ownership inflation", "Brochure tone",
   "Vague accomplishment", or "JD keyword decoration"
 - quoted_text: the rewritten bullet text
-- advice: a concrete correction that keeps the bullet truthful and plain
-- location: section "experience"
+- advice: a concrete correction that keeps the bullet truthful and plain. For a
+  "Vague accomplishment" finding, name the exact missing detail (what changed,
+  for whom, at what scale) -- when the writer cannot supply it, this advice is
+  shown to the candidate as the thing to answer, so phrase it as a direct ask
+- location:
+  - section: "experience"
+  - bullet_index: the ZERO-BASED index of this bullet in the rewrite proposal
+  - item_id: the bullet_id of this bullet
 
 Also set:
 - summary: start with "Worth serious interview consideration: yes" or

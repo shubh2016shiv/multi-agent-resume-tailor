@@ -12,10 +12,10 @@ from typing import Any
 from crewai import Agent, Crew, Process, Task
 from pydantic import BaseModel
 
-from debug_checkpoints import save_agent_input_checkpoint
+from src.checkpointing import save_agent_input_checkpoint, save_agent_output_checkpoint
 from src.core.llm_cache import configure_llm_cache
 from src.core.logger import get_logger
-from src.core.settings import get_tasks_config
+from src.core.settings import get_config, get_tasks_config
 
 logger = get_logger(__name__)
 
@@ -131,7 +131,8 @@ def run_agent_task(
         )
     # Save the full task_description to a file before the LLM call so we can
     # inspect exactly what the agent received. No-ops unless DEBUG_CHECKPOINTS=1.
-    save_agent_input_checkpoint(
+    # SAVE CHECKPOINT INPUT CONTEXT
+    checkpoint = save_agent_input_checkpoint(
         run_id=run_id,
         agent_role=agent.role,
         task_name=task_name,
@@ -141,15 +142,26 @@ def run_agent_task(
 
     # Serialize the kickoff so concurrent pipeline nodes never write CrewAI's shared
     # SQLite store at the same time (see _KICKOFF_LOCK above).
+    crew_verbose = get_config().llm.agent_defaults.verbose
     with _KICKOFF_LOCK:
         result = Crew(
             agents=[agent],
             tasks=[task],
             process=Process.sequential,
-            verbose=True,
+            verbose=crew_verbose,
         ).kickoff()
 
     validated = _validate_agent_output(result.raw, output_model, agent.role)
+
+    # Save the LLM's raw + validated output right after the call resolves.
+    # No-ops unless DEBUG_CHECKPOINTS=1.
+    # SAVE CHECKPOINT OUTPUT CONTEXT
+    save_agent_output_checkpoint(
+        checkpoint=checkpoint,
+        raw_output=result.raw,
+        validated_output=validated,
+    )
+
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(
         "agent_task_completed",

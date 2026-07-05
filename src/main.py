@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.data_models.orchestration import OrchestrationResult
+    from src.orchestration.exceptions import AgentOutputError, PipelineQualityGateError
 
 
 @dataclass(frozen=True)
@@ -24,19 +25,48 @@ def main(argv: Sequence[str] | None = None) -> int:
     inputs = parse_inputs(argv)
 
     from src.orchestration import resume_paused_run, tailor_resume
+    from src.orchestration.exceptions import AgentOutputError, PipelineQualityGateError
 
     print_run_header(inputs)
-    if inputs.resume_from_path is not None:
-        result = resume_paused_run(str(inputs.resume_from_path))
-    else:
-        assert inputs.resume_path is not None
-        assert inputs.job_description_path is not None
-        result = tailor_resume(
-            str(inputs.resume_path),
-            str(inputs.job_description_path),
-        )
+    try:
+        if inputs.resume_from_path is not None:
+            result = resume_paused_run(str(inputs.resume_from_path))
+        else:
+            assert inputs.resume_path is not None
+            assert inputs.job_description_path is not None
+            result = tailor_resume(
+                str(inputs.resume_path),
+                str(inputs.job_description_path),
+            )
+    except PipelineQualityGateError as gate_failure:
+        print_quality_gate_failure(gate_failure)
+        return 1
+    except AgentOutputError as output_failure:
+        print_agent_output_failure(output_failure)
+        return 1
     print_run_summary(result)
     return 0
+
+
+def print_quality_gate_failure(gate_failure: "PipelineQualityGateError") -> None:
+    """Explain a quality-gate failure to the user: what failed, why, what to do."""
+    print()
+    print("Pipeline stopped: output did not meet the quality bar")
+    print(f"  stage: {gate_failure.stage}")
+    for finding in gate_failure.findings:
+        print(f"  finding: {finding}")
+    print()
+    print(f"  what you can do: {gate_failure.user_action}")
+
+
+def print_agent_output_failure(output_failure: "AgentOutputError") -> None:
+    """Explain an unparseable-agent-output failure: what failed, why, what to do."""
+    print()
+    print("Pipeline stopped: an agent's response could not be read")
+    print(f"  stage: {output_failure.stage}")
+    print(f"  reason: {output_failure.reason}")
+    print()
+    print(f"  what you can do: {output_failure.user_action}")
 
 
 def parse_inputs(argv: Sequence[str] | None) -> PipelineInputs:

@@ -107,7 +107,18 @@ class AgentDefaults(BaseModel):
         default=True,
         description="Auto-summarize context to prevent context limit errors",
     )
-    verbose: bool = Field(default=True, description="Enable detailed logging")
+    verbose: bool = Field(
+        default=True,
+        description=(
+            "Centralized on/off switch for CrewAI's own rich-console output -- crew/task "
+            "execution trees, tool and LLM call status, and the panels CrewAI prints on "
+            "failure (e.g. 'Crew Execution Failed', 'Tool Usage Failed'). Read once in "
+            "crew_task_execution.run_agent_task() and passed as Crew(verbose=...) on "
+            "every agent call in the pipeline, so this one flag governs it everywhere. "
+            "Set to false for quiet runs (scripts, CI) where only our own structlog "
+            "output and the final result should print."
+        ),
+    )
 
 
 class LLMConfig(BaseModel):

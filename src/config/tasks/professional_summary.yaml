@@ -15,16 +15,50 @@ write_professional_summary_task:
     - The alignment strategy (matches, gaps, keywords to integrate, guidance).
     Treat these as your only source of truth. Do not assume a domain; read theirs.
 
+    THE PROFESSIONAL TEMPLATE (this is the structure working resume writers use,
+    not a suggestion):
+    1. IDENTITY sentence: state the candidate's professional identity, grounded in
+       years of experience and specialty. Title and years are allowed as the anchor
+       ("[Role identity] with [N] years...") ONLY when the same sentence immediately
+       continues into a specific, non-generic detail -- what they actually build,
+       for whom, or at what scale. A bare "[title] with [N] years of experience."
+       and nothing else is still banned; the years must open onto something
+       concrete, not close the sentence.
+    2. PROOF sentence(s): the strongest measurable outcomes from the evidence, each
+       figure copied exactly as written. This is the recruiter's actual reason to
+       keep reading. Do not summarize an achievement into a category ("hands-on
+       GenAI engineering") when the source achievement has a number or a named
+       system -- state the number or the name.
+    3. VALUE sentence: one sentence connecting the strongest remaining capability to
+       what this specific target role needs, expressed as something the candidate
+       DOES (an active capability tied to a named system or outcome), never as a
+       bare list of nouns tacked onto "brings" or "hands-on."
+       The value sentence is held to the SAME evidence bar as the proof sentences:
+       it must contain at least one exact figure or named system/tool/environment
+       from evidence_used. Abstract impact nouns ("measurable impact", "operational
+       gains", "business value", "decision-making") cannot be its substance -- if
+       the sentence still reads as true after you delete its named system or
+       figure, it has failed and must be rewritten.
+       It must also be aimed at THIS target role: connect the concrete capability
+       to a need the target_role section actually states, in that role's own
+       words -- not a generic tail like "in complex environments". A recruiter for
+       this specific job should feel the sentence was written at them.
+    A skill or JD term may appear inside the identity or proof sentences when it is
+    the truthful word for what was built. It must never be the subject of its own
+    separate, standalone sentence that just lists capabilities.
+
     HOW TO WORK EACH DRAFT (follow the output field order -- it is the procedure):
     1. evidence_used: FIRST, list the specific resume/strategy facts you will use and
        the role vocabulary or JD term each one justifies. This is your evidence ledger.
        Start the ledger with the strongest measurable outcomes in the experience
        highlights, copying each figure exactly as written -- these are the facts a
        recruiter reads first, so they must survive into the summary.
-    2. content: write the summary using ONLY what is in evidence_used.
+    2. content: write the summary using ONLY what is in evidence_used, following THE
+       PROFESSIONAL TEMPLATE above.
     3. critique: state strengths/weaknesses, confirm every claim traces to evidence_used,
        and say whether the draft sounds terse and senior rather than like a brochure.
-       Reject any draft that sounds like polished generic AI copy even if it is factual.
+       Reject any draft that sounds like polished generic AI copy even if it is factual,
+       and reject any draft whose last sentence is a bare skill list.
     4. score: 0-100, assigned last as a verdict on the finished draft.
     After both drafts, set recommended_version, then call the "Audit Summary Quality"
     tool on your recommended draft. If the audit reports ANY issue -- including a word
@@ -39,7 +73,11 @@ write_professional_summary_task:
       those exact terms are the clearest truthful wording. Do not paraphrase them away
       into broader, vaguer categories.
     - DO write the narrower truthful term when the JD term is broader than the evidence
-      (write what the resume actually shows, not the broader claim).
+      (write what the resume actually shows, not the broader claim). When the evidence
+      only partially matches a JD term (for example the JD wants gradient-boosted
+      models and the evidence shows a different ML technique with a real metric), name
+      the technique the resume actually shows -- do not claim or imply the JD's
+      specific tool.
     - DO state direct operational implications that are already entailed by the evidence
       (for example: migration -> modernization, production support -> operational reliability).
       Keep those implications tight, concrete, and defensible.
@@ -54,12 +92,9 @@ write_professional_summary_task:
     - DON'T infer a company/product/sector category unless the resume names it.
 
     STYLE RULES:
-    - Open with a defining thesis about the candidate's professional identity or the
-      kind of problem they solve. Do not open with a generic "[title] with [x] years
-      of experience" formula.
+    - Follow THE PROFESSIONAL TEMPLATE above for structure.
     - The first sentence must make a recruiter feel this is a specific person, not a
-      category. Good openings usually sound like "[identity] who [problem solved]" or
-      "[operator/builder/engineer] trusted to [specific kind of work]."
+      category.
     - Do NOT open with broad capability banners such as "Designs and deploys...",
       "Delivers...", "Experienced with...", "Focuses on...", or similar generic lead-ins
       unless the sentence immediately pins that claim to concrete domain evidence.
@@ -69,20 +104,26 @@ write_professional_summary_task:
       (for example: production, regulated, enterprise, mission-critical, operational,
       clinical, real-time, multi-agent).
     - No first person, no hype, and no brochure language.
-    - 3-4 sentences, 80-110 words.
+    - EXACTLY 3 sentences, 80-110 words. Do not add a 4th sentence -- if there is a
+      4th thing worth saying, fold it into the value sentence or cut it.
     - BANNED PHRASES: "proven track record", "proven record", "results-driven", "dynamic",
       "passionate", "leveraged", "synergy", "cross-functional", "highly motivated",
       "detail-oriented".
     - ALSO AVOID GENERIC SENTENCE PATTERNS: "Experienced with...", "Skilled in...",
       "Responsible for...", "Focuses on...", "Known for..." when they are used as filler
       instead of a precise evidence-backed claim.
+    - ALSO AVOID NEAR-MISS STOCK PHRASES that sound AI-polished even when factual:
+      "trusted to ...", "brings ...", "hands-on ...", "designs and ships ...". These are
+      banned in EVERY sentence -- identity, proof, and value alike. A capability list
+      dressed up as the value sentence is exactly the failure this rule exists to stop;
+      moving the phrase to a different sentence does not satisfy this rule.
     - Every sentence must earn its place. If a sentence could fit hundreds of candidates,
       rewrite it until it could plausibly fit only this candidate.
 
     THE 2 ANGLES (same evidence, different emphasis -- keep them genuinely distinct,
     not two phrasings of the same sentence):
     1. "Problem-Solver Thesis": frame the candidate by the kind of broken, ambiguous,
-       or high-value problem they are trusted to solve or build.
+       or high-value problem they are responsible for solving or building.
     2. "Gravity & Scope": frame the candidate by the scale, stakes, or operational
        complexity of the environments they work in, using only supported evidence.
 
@@ -91,15 +132,23 @@ write_professional_summary_task:
       evidence_used: "Resume '[managed TASK with METHOD_A]' -> justifies JD keyword
         '[KEYWORD_A]'. Resume '[N years as ROLE]' -> justifies years + '[KEYWORD_B]'.
         JD wants '[KEYWORD_C]' -> no evidence -> excluded."
-      content: "[Defining thesis]. Built [supported capability] through [METHOD_A],
-        bringing [defensible implication] to [supported environment]..."
-    Note how [KEYWORD_C] is left out because nothing in the resume supports it.
+      content: "[Identity: role] with [N years] building [specific system type].
+        [Proof: METHOD_A achievement with exact figure]. [Value: a second concrete
+        achievement or named capability tied to [supported environment], aimed at
+        [the target role's stated need, in its own words], stated as something
+        done, not a list of nouns]."
+    Note how [KEYWORD_C] is left out because nothing in the resume supports it, and
+    note the final sentence is still a concrete achievement, not a capability list.
 
     FINAL SELF-CHECK BEFORE YOU RECOMMEND A DRAFT:
     - If sentence 1 could fit a generic GenAI/ML/software candidate, rewrite it.
     - If any sentence reads like banner copy, rewrite it.
-    - If the summary ends with a vague catch-all line, rewrite it with sharper evidence
-      or cut it entirely.
+    - If the last sentence is a list of skills/tools rather than a stated achievement
+      or capability-in-action, rewrite it.
+    - If the last sentence contains no exact figure and no named system, or could
+      close any candidate's summary for any job, rewrite it -- the closer is held to
+      the same evidence bar as the proof sentences, and it must speak to this
+      target role's stated needs.
     - If the evidence contains measurable outcomes and your draft states none of them,
       rewrite -- you have traded the candidate's proof for category words.
     - If the audit tool reported a word count outside 80-110, fix the length before

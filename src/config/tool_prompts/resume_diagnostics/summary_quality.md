@@ -14,15 +14,44 @@ they stay MINOR.
    phrase that says almost nothing specific about the candidate.
    Examples: "results-oriented professional", "proven track record", "results-driven",
    "dynamic professional", "passionate engineer", "highly motivated", "detail-oriented",
-   "leveraged", "synergy", "cross-functional".
+   "leveraged", "synergy", "cross-functional". Also flag the near-miss phrases that
+   sound AI-polished even when factual, in any sentence (not just the opener):
+   "trusted to ...", "brings ...", "hands-on ...", "designs and ships ...".
 
 2. Weak or formulaic opener -- MAJOR severity
-   The summary opens with the banned stock role-and-years formula instead of a thesis.
-   Banned pattern: "[job title] with [x] years of experience..." (and close variants).
+   Two distinct patterns fall under this category:
+   a. The identity-line formula "[job title] with [x] years of experience" is only
+      a problem when it is bare -- nothing follows the years except a period, or
+      only another generic clause follows. That bare form is banned: "Machine
+      Learning Engineer with 5 years of experience." says nothing a thousand other
+      resumes couldn't also say.
+      It is NOT banned when the years open directly onto a specific, non-generic
+      detail in the same sentence -- what the candidate actually builds, for whom,
+      or at what scale: "Machine learning engineer with 9 years building
+      multi-agent RAG pipelines for regulated healthcare workflows." is a specific
+      person, not a category, even though it uses title+years as the anchor. Flag
+      this pattern only when the sentence stays generic after the years, not
+      merely because it contains a title-and-years clause.
+   b. The summary's FIRST sentence opens with a broad capability banner --
+      "Designs and deploys...", "Delivers...", "Experienced with...", "Focuses
+      on..." -- and that opening claim is not immediately pinned to concrete
+      domain evidence in the same sentence. "Delivers production-scale GenAI and
+      RAG systems in complex, high-volume environments." is still a category
+      claim with no proof attached; flag it. A banner verb used later in the
+      summary, mid-sentence, attached to a specific figure or named system
+      ("Delivered clinical AI assistants achieving 94.7% therapeutic class
+      accuracy...") is a normal proof sentence, not this pattern -- only flag the
+      opening sentence.
 
-3. Missing value proposition -- MINOR severity
-   The summary does not make clear what the candidate is actually trusted to do,
-   what kind of problems they solve, or what domain-specific strength they bring.
+3. Missing or hollow value proposition -- MINOR severity
+   The summary does not make clear what kind of problems the candidate solves or
+   what domain-specific strength they offer. Also flag a value proposition that is
+   present but hollow: a closing sentence built on abstract impact nouns
+   ("measurable impact", "operational gains", "business value", "decision-making")
+   with no exact figure or named system carrying it, or one so untargeted it could
+   close any candidate's summary for any job. The closer should be held to the
+   same specificity bar as the proof sentences and should speak to the target
+   role's stated needs.
 
 4. Brochure tone -- MINOR severity
    The wording sounds promotional, padded, or banner-copy-like instead of terse,

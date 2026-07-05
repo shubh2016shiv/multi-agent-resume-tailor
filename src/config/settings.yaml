@@ -109,7 +109,11 @@ llm:
     max_iter: 15                # Max iterations before forcing best answer
     max_execution_time: 300     # Max seconds per task (5 minutes)
     respect_context_window: true # Auto-summarize to prevent context overflow
-    verbose: true               # Enable detailed logging
+    # Toggles ALL of CrewAI's rich-console output project-wide: crew/task trees,
+    # tool/LLM call status, and failure panels ("Crew Execution Failed", "Tool
+    # Usage Failed"). Set to false for quiet runs (scripts, CI) -- our own
+    # structlog logging is unaffected either way.
+    verbose: true
 
 # ------------------------------------------------------------------------------
 # Logging Configuration

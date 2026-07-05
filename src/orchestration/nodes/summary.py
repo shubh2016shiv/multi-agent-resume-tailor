@@ -21,6 +21,7 @@ from src.agents.professional_summary.models import ProfessionalSummary, SummaryD
 from src.core.logger import get_logger
 from src.formatters.professional_summary_formatter import format_professional_summary_context
 from src.orchestration.crew_task_execution import run_agent_task
+from src.orchestration.exceptions import PipelineQualityGateError
 from src.orchestration.state import ResumeEnhancementPipelineState
 from src.tools.contracts import Severity
 from src.tools.engines.resume_diagnostics.summary_quality import audit_summary_text
@@ -115,6 +116,22 @@ def select_recommended_draft(summary: ProfessionalSummary) -> SummaryDraft:
     return summary.drafts[0]
 
 
+# What the user can do when the summary gate blocks the run. The advice points at
+# the experience section on purpose: the writer never reads the resume's own
+# summary text (the formatter drops it -- it over-anchors the writer) and builds
+# the summary ONLY from the work-experience achievements. When those achievements
+# carry no measurable evidence, there is too little truthful material for a strong
+# 80-110 word summary -- and editing the resume's summary section would not help.
+SUMMARY_GATE_USER_ACTION = (
+    "The summary is generated from your work-experience achievements, not from your "
+    "resume's own summary text -- so this failure means those achievements gave it "
+    "too little concrete material. Add specific, measurable outcomes to your "
+    "work-experience bullets (numbers, scale, named systems, results) and run the "
+    "pipeline again. If the findings above look like style violations rather than "
+    "thin evidence, simply re-running once may resolve it."
+)
+
+
 def enforce_summary_quality_gate(summary: ProfessionalSummary) -> None:
     """Block the run if the draft that will ship violates a hard constraint.
 
@@ -122,7 +139,8 @@ def enforce_summary_quality_gate(summary: ProfessionalSummary) -> None:
     loops (see ats_patch.py). A bad draft fails the run so a human sees it, rather
     than the pipeline silently looping the LLM.
 
-    Raises: ValueError naming every blocking finding.
+    Raises: PipelineQualityGateError naming every blocking finding, which the CLI
+            presents to the user as an actionable message instead of a traceback.
     """
     ####################################################
     # STEP 1: AUDIT THE DRAFT THAT WILL ACTUALLY SHIP#
@@ -141,7 +159,8 @@ def enforce_summary_quality_gate(summary: ProfessionalSummary) -> None:
     # STEP 3: FAIL THE RUN IF ANYTHING BLOCKS#
     ####################################################
     if blocking_findings:
-        reasons = "; ".join(comment.message for comment in blocking_findings)
-        raise ValueError(
-            f"Professional summary draft '{draft.version_name}' failed the quality gate: {reasons}"
+        raise PipelineQualityGateError(
+            stage=f"Professional summary (draft '{draft.version_name}')",
+            findings=[comment.message for comment in blocking_findings],
+            user_action=SUMMARY_GATE_USER_ACTION,
         )

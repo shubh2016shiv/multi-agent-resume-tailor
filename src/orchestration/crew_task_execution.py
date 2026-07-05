@@ -16,6 +16,7 @@ from src.checkpointing import save_agent_input_checkpoint, save_agent_output_che
 from src.core.llm_cache import configure_llm_cache
 from src.core.logger import get_logger
 from src.core.settings import get_config, get_tasks_config
+from src.orchestration.exceptions import AgentOutputError
 
 logger = get_logger(__name__)
 
@@ -84,7 +85,7 @@ def run_agent_task(
         run_id: pipeline run identifier forwarded from state["run_id"];
                 used to namespace debug checkpoint files.
     Returns: a validated instance of output_model.
-    Raises: ValueError if CrewAI does not produce output_model.
+    Raises: AgentOutputError if CrewAI does not produce output_model.
     """
     start_time = time.monotonic()
     configure_llm_cache()
@@ -142,6 +143,11 @@ def run_agent_task(
 
     # Serialize the kickoff so concurrent pipeline nodes never write CrewAI's shared
     # SQLite store at the same time (see _KICKOFF_LOCK above).
+    #
+    # This is the ONE place every Crew in the pipeline is constructed, so this single
+    # config value is the centralized on/off switch for CrewAI's rich-console output
+    # (crew/task trees, tool/LLM status, and failure panels) across the entire run --
+    # see AgentDefaults.verbose in src/core/settings/schema.py.
     crew_verbose = get_config().llm.agent_defaults.verbose
     with _KICKOFF_LOCK:
         result = Crew(
@@ -151,7 +157,7 @@ def run_agent_task(
             verbose=crew_verbose,
         ).kickoff()
 
-    validated = _validate_agent_output(result.raw, output_model, agent.role)
+    validated = _validate_agent_output(result.raw, output_model, agent.role, task_name)
 
     # Save the LLM's raw + validated output right after the call resolves.
     # No-ops unless DEBUG_CHECKPOINTS=1.
@@ -174,22 +180,40 @@ def run_agent_task(
     return validated
 
 
-def _validate_agent_output(raw_output: str, output_model: type[BaseModel], agent_role: str) -> Any:
+AGENT_OUTPUT_ERROR_USER_ACTION = (
+    "This is usually a transient formatting slip by the model, not a problem with "
+    "your resume or job description -- running the pipeline again typically resolves "
+    "it. If it keeps happening on the same input, please report it."
+)
+
+
+def _validate_agent_output(
+    raw_output: str, output_model: type[BaseModel], agent_role: str, task_name: str = "unknown"
+) -> Any:
     """Validate an agent's raw text output into output_model.
 
     Agents are asked to emit JSON, but LLMs often wrap it in ```json fences or a line
     of prose. We take the outermost {...} block and validate that against the model.
 
-    Raises: ValueError if no JSON object is present or it does not satisfy output_model.
+    Raises: AgentOutputError if no JSON object is present or it does not satisfy
+            output_model -- a formatting/schema failure, not a content quality
+            judgment, so it carries different user-facing guidance than
+            PipelineQualityGateError.
     """
     json_text = _extract_json_object(raw_output)
     if json_text is None:
-        raise ValueError(f"Agent {agent_role} returned no JSON object: {raw_output[:200]!r}")
+        raise AgentOutputError(
+            stage=f"{agent_role} ({task_name})",
+            reason=f"returned no JSON object: {raw_output[:200]!r}",
+            user_action=AGENT_OUTPUT_ERROR_USER_ACTION,
+        )
     try:
         return output_model.model_validate_json(json_text)
     except ValueError as error:
-        raise ValueError(
-            f"Agent {agent_role} output did not match {output_model.__name__}: {error}"
+        raise AgentOutputError(
+            stage=f"{agent_role} ({task_name})",
+            reason=f"output did not match {output_model.__name__}: {error}",
+            user_action=AGENT_OUTPUT_ERROR_USER_ACTION,
         ) from error
 
 

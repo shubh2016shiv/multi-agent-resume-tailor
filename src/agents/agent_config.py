@@ -5,9 +5,11 @@ All agent factories call this to pull their config block from agents.yaml
 and validate that required fields are present before building a CrewAI Agent.
 """
 
+# get_agents_config parses and caches src/config/agents.yaml.
 from src.core.settings import get_agents_config
 
-_REQUIRED_FIELDS = ["role", "goal", "backstory", "llm"]
+# Every agent persona block in agents.yaml must define these 4 keys.
+REQUIRED_AGENT_CONFIG_FIELDS = ["role", "goal", "backstory", "llm"]
 
 
 def load_agent_config(name: str) -> dict:
@@ -26,10 +28,14 @@ def load_agent_config(name: str) -> dict:
     ####################################################
     # STEP 2: VERIFY ALL REQUIRED FIELDS ARE PRESENT
     ####################################################
-    missing = [f for f in _REQUIRED_FIELDS if not config.get(f)]
-    if missing:
+    missing_fields = [
+        field_name
+        for field_name in REQUIRED_AGENT_CONFIG_FIELDS
+        if not config.get(field_name)
+    ]
+    if missing_fields:
         raise RuntimeError(
-            f"FATAL: Missing required field(s) in '{name}' agent config: {missing}\n"
+            f"FATAL: Missing required field(s) in '{name}' agent config: {missing_fields}\n"
             f"Add all required fields to src/config/agents.yaml."
         )
 

@@ -18,11 +18,11 @@ Output contract: QualityFeedback (src/data_models/evaluation.py). The agent cann
 write scores or release decisions.
 """
 
-from crewai import LLM, Agent
+from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
 
-from src.agents.agent_config import load_agent_config
+from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
 from src.core.logger import get_logger
-from src.core.settings import get_config
+from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 from src.tools.agent_tools import (
     analyze_jd_keyword_coverage,
     audit_truthfulness,
@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 # (resume_quality_evaluation.evaluate_rendered_structure), not by the
 # agent -- so validate_ats_compliance is intentionally NOT in this list.
 
-_QUALITY_FEEDBACK_TOOLS: list = [
+QUALITY_FEEDBACK_TOOLS: list = [
     audit_truthfulness,
     analyze_jd_keyword_coverage,
 ]
@@ -55,13 +55,13 @@ def create_quality_feedback_agent() -> Agent:
     ####################################################
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
-    config = load_agent_config("quality_feedback_reviewer")
+    config = load_agent_config("quality_feedback_reviewer")  # role/goal/backstory/llm from YAML
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.2))
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS
     ####################################################
-    defaults = get_config().llm.agent_defaults
+    defaults = get_config().llm.agent_defaults  # shared retry/rate-limit/timeout settings
 
     agent = Agent(
         role=config["role"],
@@ -69,13 +69,13 @@ def create_quality_feedback_agent() -> Agent:
         backstory=config["backstory"],
         llm=llm_instance,
         verbose=config.get("verbose", True),
-        allow_delegation=False,
-        tools=_QUALITY_FEEDBACK_TOOLS,
-        max_retry_limit=defaults.max_retry_limit,
-        max_rpm=defaults.max_rpm,
-        max_iter=defaults.max_iter,
-        max_execution_time=defaults.max_execution_time,
-        respect_context_window=defaults.respect_context_window,
+        allow_delegation=False,  # this agent must not hand its audit task off to another agent
+        tools=QUALITY_FEEDBACK_TOOLS,  # truthfulness + keyword-coverage audit tools defined above
+        max_retry_limit=defaults.max_retry_limit,  # retries on a failed/malformed LLM call
+        max_rpm=defaults.max_rpm,  # caps requests-per-minute to this agent's LLM
+        max_iter=defaults.max_iter,  # caps reasoning/tool-call loops before forcing an answer
+        max_execution_time=defaults.max_execution_time,  # hard wall-clock timeout for one run
+        respect_context_window=defaults.respect_context_window,  # auto-trim context instead of erroring
     )
 
     ####################################################
@@ -84,6 +84,6 @@ def create_quality_feedback_agent() -> Agent:
     logger.info(
         "Quality Feedback agent created",
         model=config["llm"],
-        tools=[tool.name for tool in _QUALITY_FEEDBACK_TOOLS],
+        tools=[tool.name for tool in QUALITY_FEEDBACK_TOOLS],
     )
     return agent

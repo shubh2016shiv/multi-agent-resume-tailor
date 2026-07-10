@@ -12,11 +12,11 @@ The agent orchestrates them in order: convert -> quality check -> redact -> extr
 Output contract: Resume (via Task output_pydantic=Resume).
 """
 
-from crewai import LLM, Agent
+from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
 
-from src.agents.agent_config import load_agent_config
+from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
 from src.core.logger import get_logger
-from src.core.settings import get_config
+from src.core.settings import get_config  # runtime defaults + the PII-redaction feature flag
 from src.tools.agent_tools import (
     check_resume_markdown_quality,
     convert_resume_document_to_markdown,
@@ -39,10 +39,12 @@ def build_resume_ingestion_tools(enable_pii_redaction: bool) -> list:
     Expects: the feature_flags.enable_pii_redaction setting from app config.
     Returns: ordered list of CrewAI tools (convert -> quality -> [redact] -> extract).
     """
+    # Order matters: the agent must run these steps in sequence, so the list
+    # order below is also the order the agent is instructed to call them in.
     tools = [convert_resume_document_to_markdown, check_resume_markdown_quality]
     if enable_pii_redaction:
-        tools.append(redact_pii_from_resume_markdown)
-    tools.append(extract_structured_resume_from_markdown)
+        tools.append(redact_pii_from_resume_markdown)  # only when the feature flag is on
+    tools.append(extract_structured_resume_from_markdown)  # always runs last
     return tools
 
 
@@ -60,14 +62,15 @@ def create_resume_extractor_agent() -> Agent:
     ####################################################
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
-    config = load_agent_config("resume_content_extractor")
+    config = load_agent_config("resume_content_extractor")  # role/goal/backstory/llm from YAML
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.0))
 
     ####################################################
     # STEP 2: ASSEMBLE TOOLS AND RUNTIME DEFAULTS
     ####################################################
     app_config = get_config()
-    defaults = app_config.llm.agent_defaults
+    defaults = app_config.llm.agent_defaults  # shared retry/rate-limit/timeout settings
+    # tool list changes shape based on whether PII redaction is enabled
     resume_tools = build_resume_ingestion_tools(app_config.feature_flags.enable_pii_redaction)
 
     ####################################################
@@ -79,13 +82,13 @@ def create_resume_extractor_agent() -> Agent:
         backstory=config["backstory"],
         llm=llm_instance,
         verbose=config.get("verbose", True),
-        allow_delegation=False,
-        tools=resume_tools,
-        max_retry_limit=defaults.max_retry_limit,
-        max_rpm=defaults.max_rpm,
-        max_iter=defaults.max_iter,
-        max_execution_time=defaults.max_execution_time,
-        respect_context_window=defaults.respect_context_window,
+        allow_delegation=False,  # this agent must not hand its extraction task off to another agent
+        tools=resume_tools,  # convert -> quality check -> [redact] -> extract, in order
+        max_retry_limit=defaults.max_retry_limit,  # retries on a failed/malformed LLM call
+        max_rpm=defaults.max_rpm,  # caps requests-per-minute to this agent's LLM
+        max_iter=defaults.max_iter,  # caps reasoning/tool-call loops before forcing an answer
+        max_execution_time=defaults.max_execution_time,  # hard wall-clock timeout for one run
+        respect_context_window=defaults.respect_context_window,  # auto-trim context instead of erroring
     )
 
     ####################################################

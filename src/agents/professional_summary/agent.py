@@ -16,18 +16,20 @@ each one, and recommends the strongest version.
 Output contract: ProfessionalSummary (via Task output_pydantic=ProfessionalSummary).
 """
 
-from crewai import LLM, Agent
+from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
 
-from src.agents.agent_config import load_agent_config
+from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
 from src.core.logger import get_logger
-from src.core.settings import get_config
+from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 from src.tools.agent_tools import audit_summary
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
+# Hybrid tool (mechanical checks + LLM judgment) the agent calls while
+# reasoning to self-critique each draft before recommending one.
 
-_SUMMARY_TOOLS: list = [
+SUMMARY_AUDIT_TOOLS: list = [
     audit_summary,
 ]
 
@@ -46,13 +48,13 @@ def create_professional_summary_agent() -> Agent:
     ####################################################
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
-    config = load_agent_config("professional_summary_writer")
+    config = load_agent_config("professional_summary_writer")  # role/goal/backstory/llm from YAML
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.7))
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS
     ####################################################
-    defaults = get_config().llm.agent_defaults
+    defaults = get_config().llm.agent_defaults  # shared retry/rate-limit/timeout settings
 
     agent = Agent(
         role=config["role"],
@@ -60,13 +62,13 @@ def create_professional_summary_agent() -> Agent:
         backstory=config["backstory"],
         llm=llm_instance,
         verbose=config.get("verbose", True),
-        allow_delegation=False,
-        tools=_SUMMARY_TOOLS,
-        max_retry_limit=defaults.max_retry_limit,
-        max_rpm=defaults.max_rpm,
-        max_iter=defaults.max_iter,
-        max_execution_time=defaults.max_execution_time,
-        respect_context_window=defaults.respect_context_window,
+        allow_delegation=False,  # this agent must not hand its writing task off to another agent
+        tools=SUMMARY_AUDIT_TOOLS,  # the audit_summary self-critique tool defined above
+        max_retry_limit=defaults.max_retry_limit,  # retries on a failed/malformed LLM call
+        max_rpm=defaults.max_rpm,  # caps requests-per-minute to this agent's LLM
+        max_iter=defaults.max_iter,  # caps reasoning/tool-call loops before forcing an answer
+        max_execution_time=defaults.max_execution_time,  # hard wall-clock timeout for one run
+        respect_context_window=defaults.respect_context_window,  # auto-trim context instead of erroring
     )
 
     ####################################################
@@ -75,6 +77,6 @@ def create_professional_summary_agent() -> Agent:
     logger.info(
         "Professional Summary agent created",
         model=config["llm"],
-        tools=[tool.name for tool in _SUMMARY_TOOLS],
+        tools=[tool.name for tool in SUMMARY_AUDIT_TOOLS],
     )
     return agent

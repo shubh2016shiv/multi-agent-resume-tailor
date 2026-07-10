@@ -15,18 +15,20 @@ or self-score a validation report. That measurement is code-owned (engines.py).
 Output contract: AtsOptimizedResume (via Task output_pydantic=AtsOptimizedResume).
 """
 
-from crewai import LLM, Agent
+from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
 
-from src.agents.agent_config import load_agent_config
+from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
 from src.core.logger import get_logger
-from src.core.settings import get_config
+from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 from src.tools.agent_tools import analyze_jd_keyword_coverage, validate_ats_compliance
 
 logger = get_logger(__name__)
 
 # ── tool set ──────────────────────────────────────────────────────────────────
+# Read-only audit tools the agent calls WHILE reasoning to self-check its
+# assembly; neither tool mutates the resume.
 
-_ATS_TOOLS: list = [
+ATS_AUDIT_TOOLS: list = [
     validate_ats_compliance,
     analyze_jd_keyword_coverage,
 ]
@@ -46,13 +48,13 @@ def create_ats_optimizer_agent() -> Agent:
     ####################################################
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
-    config = load_agent_config("ats_optimization_specialist")
+    config = load_agent_config("ats_optimization_specialist")  # role/goal/backstory/llm from YAML
     llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.1))
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS
     ####################################################
-    defaults = get_config().llm.agent_defaults
+    defaults = get_config().llm.agent_defaults  # shared retry/rate-limit/timeout settings
 
     agent = Agent(
         role=config["role"],
@@ -60,13 +62,13 @@ def create_ats_optimizer_agent() -> Agent:
         backstory=config["backstory"],
         llm=llm_instance,
         verbose=config.get("verbose", True),
-        allow_delegation=False,
-        tools=_ATS_TOOLS,
-        max_retry_limit=defaults.max_retry_limit,
-        max_rpm=defaults.max_rpm,
-        max_iter=defaults.max_iter,
-        max_execution_time=defaults.max_execution_time,
-        respect_context_window=defaults.respect_context_window,
+        allow_delegation=False,  # this agent must not hand its assembly task off to another agent
+        tools=ATS_AUDIT_TOOLS,  # the two read-only audit tools defined above
+        max_retry_limit=defaults.max_retry_limit,  # retries on a failed/malformed LLM call
+        max_rpm=defaults.max_rpm,  # caps requests-per-minute to this agent's LLM
+        max_iter=defaults.max_iter,  # caps reasoning/tool-call loops before forcing an answer
+        max_execution_time=defaults.max_execution_time,  # hard wall-clock timeout for one run
+        respect_context_window=defaults.respect_context_window,  # auto-trim context instead of erroring
     )
 
     ####################################################
@@ -75,6 +77,6 @@ def create_ats_optimizer_agent() -> Agent:
     logger.info(
         "ATS Optimizer agent created",
         model=config["llm"],
-        tools=[tool.name for tool in _ATS_TOOLS],
+        tools=[tool.name for tool in ATS_AUDIT_TOOLS],
     )
     return agent

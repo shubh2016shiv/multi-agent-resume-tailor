@@ -7,7 +7,7 @@ output after the fact — useful for tests, monitoring, and QA pipelines.
 All functions are pure: Pydantic in, dict out. No framework, no LLM, no I/O.
 """
 
-from src.data_models.strategy import AlignmentStrategy
+from src.data_models.strategy import AlignmentStrategy  # the model this file validates
 
 # ── quality check ─────────────────────────────────────────────────────────────
 

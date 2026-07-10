@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.data_models.resume import Experience
+from src.data_models.resume import Experience  # domain entity the final section is made of
 
 
 class ExperienceBulletRewrite(BaseModel):

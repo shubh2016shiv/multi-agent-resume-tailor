@@ -12,7 +12,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.data_models.resume import Resume
+from src.data_models.resume import Resume  # domain entity the agent assembles into
 
 
 class AtsOptimizedResume(BaseModel):

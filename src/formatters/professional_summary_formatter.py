@@ -42,13 +42,24 @@ the Gap Analysis agent's job.
 
 from typing import Any
 
+# JobDescription = the target job; SkillImportance = the must/should/nice tier used
+# to keep only the requirements worth a 3-sentence summary.
 from src.data_models.job import JobDescription, SkillImportance
-from src.data_models.resume import Resume
-from src.data_models.strategy import AlignmentStrategy
+from src.data_models.resume import (  # candidate resume + its sub-entries
+    Education,
+    Experience,
+    Resume,
+)
+from src.data_models.strategy import (
+    AlignmentStrategy,  # gap-analysis output; carries summary guidance
+)
+
+# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
+# turns this formatter's filtered payload dict into the final LLM context string.
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 
-def shape_experience_highlight(experience: Any) -> dict[str, Any]:
+def shape_experience_highlight(experience: Experience) -> dict[str, Any]:
     """Turn one work-experience entry into the shape the summary writer reads."""
     return {
         "job_title": experience.job_title,
@@ -60,7 +71,7 @@ def shape_experience_highlight(experience: Any) -> dict[str, Any]:
     }
 
 
-def shape_education_entry(education: Any) -> dict[str, Any]:
+def shape_education_entry(education: Education) -> dict[str, Any]:
     """Turn one education entry into the shape the summary writer reads."""
     return {
         "degree": education.degree,
@@ -94,7 +105,7 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
     sentence summary can use, in a form the writer can quote precisely.
     """
     ####################################################
-    # STEP 1: KEEP MUST-HAVE AND SHOULD-HAVE REQUIREMENTS#
+    # STEP 1: KEEP MUST-HAVE AND SHOULD-HAVE REQUIREMENTS
     ####################################################
     important = {SkillImportance.MUST_HAVE, SkillImportance.SHOULD_HAVE}
     requirements_for_summary = [
@@ -108,7 +119,7 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
     ]
 
     ####################################################
-    # STEP 2: RETURN THE WRITER-FOCUSED JOB SLICE#
+    # STEP 2: RETURN THE WRITER-FOCUSED JOB SLICE
     ####################################################
     return {
         "job_title": job_description.job_title,
@@ -154,12 +165,12 @@ def format_professional_summary_context(
 ) -> str:
     """Return the summary writer's context string (node STEP 2, entry point)."""
     ####################################################
-    # STEP 1: BUILD THE SMALL PAYLOAD THE WRITER NEEDS#
+    # STEP 1: BUILD THE SMALL PAYLOAD THE WRITER NEEDS
     ####################################################
     payload = build_professional_summary_payload(resume, job_description, strategy)
 
     ####################################################
-    # STEP 2: RENDER THE PAYLOAD INTO THE LLM FORMAT#
+    # STEP 2: RENDER THE PAYLOAD INTO THE LLM FORMAT
     ####################################################
     return render_context_data(
         payload,

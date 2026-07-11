@@ -23,9 +23,14 @@ Toy example:
 
 from typing import Any
 
-from src.agents.ats_optimizer.models import AtsOptimizedResume
-from src.data_models.job import JobDescription
-from src.data_models.resume import Resume
+# The reviewer audits the ATS optimizer's assembled output, so this formatter
+# consumes that agent's output contract to reach its final_resume.
+from src.agents.ats_optimizer.models import AtsOptimizedResume  # the assembled resume under audit
+from src.data_models.job import JobDescription  # the target job the tailored resume should answer
+from src.data_models.resume import Resume  # the original resume, the truthfulness baseline
+
+# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
+# turns this formatter's filtered payload dict into the final LLM context string.
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 
@@ -57,17 +62,17 @@ def build_quality_feedback_payload(
 ) -> dict[str, Any]:
     """Build the filtered payload for the quality assurance reviewer."""
     ####################################################
-    # STEP 1: KEEP THE SOURCE RESUME THE REVIEWER MUST VERIFY AGAINST#
+    # STEP 1: KEEP THE SOURCE RESUME THE REVIEWER MUST VERIFY AGAINST
     ####################################################
     original_resume_context = select_original_resume_context(original_resume)
 
     ####################################################
-    # STEP 2: KEEP THE FINAL TAILORED RESUME THAT MUST BE AUDITED#
+    # STEP 2: KEEP THE FINAL TAILORED RESUME THAT MUST BE AUDITED
     ####################################################
     tailored_resume_context = select_tailored_resume_context(optimized_resume)
 
     ####################################################
-    # STEP 3: KEEP THE JOB SIGNALS THE REVIEW SHOULD SCORE AGAINST#
+    # STEP 3: KEEP THE JOB SIGNALS THE REVIEW SHOULD SCORE AGAINST
     ####################################################
     job_context = select_job_context(job)
 
@@ -86,12 +91,12 @@ def format_quality_feedback_context(
 ) -> str:
     """Return the quality assurance reviewer's context string."""
     ####################################################
-    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE REVIEWER ACTUALLY NEEDS#
+    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE REVIEWER ACTUALLY NEEDS
     ####################################################
     payload = build_quality_feedback_payload(optimized_resume, original_resume, job)
 
     ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
     ####################################################
     return render_context_data(
         payload,

@@ -9,6 +9,19 @@ This module owns only shared rendering:
 - `render_markdown(...)` for optional review/debug output
 - `render_context_data(...)` as the shared entrypoint
 
+What TOON is (and why it's the default):
+    TOON is a compact, indentation-based serialization of the same key/value
+    payload JSON would carry -- think YAML-like nesting without JSON's braces,
+    quotes, and commas. It exists to spend fewer tokens on every LLM call: the
+    context strings this module produces are prepended to each agent prompt, so
+    a leaner encoding directly lowers token cost and leaves more of the context
+    window for the model's own reasoning. Markdown is the alternative format,
+    kept for human review/debugging where readability matters more than tokens.
+    Values are quoted only when they'd otherwise be ambiguous (empty, contain
+    whitespace/special characters, or look like a number) -- see
+    `toon_string_needs_quotes` -- so a plain word like `Alice` stays unquoted
+    while `"12 Main St"` does not.
+
 Toy example:
     >>> render_context_data({"candidate_name": "Alice"}, format_type="toon")
     'candidate_name: Alice'
@@ -17,6 +30,8 @@ Toy example:
 import re
 from typing import Any, Literal
 
+# The two output encodings a formatter may ask for: "toon" (compact, token-lean,
+# the runtime default) or "markdown" (human-readable, for review/debugging).
 OutputFormat = Literal["toon", "markdown"]
 
 TOON_INDENT = "  "
@@ -86,19 +101,19 @@ def render_toon_key_value_line(key: str, value: Any, indent_level: int) -> str:
 def render_toon(data: dict[str, Any]) -> str:
     """Render a filtered payload into TOON text."""
     ####################################################
-    # STEP 1: FAIL FAST WHEN THE SHARED RENDERER RECEIVES THE WRONG TYPE#
+    # STEP 1: FAIL FAST WHEN THE SHARED RENDERER RECEIVES THE WRONG TYPE
     ####################################################
     if not isinstance(data, dict):
         raise ValueError(f"Expected dict, got {type(data).__name__}")
 
     ####################################################
-    # STEP 2: HANDLE THE EMPTY PAYLOAD EXPLICITLY#
+    # STEP 2: HANDLE THE EMPTY PAYLOAD EXPLICITLY
     ####################################################
     if not data:
         return "{}"
 
     ####################################################
-    # STEP 3: RENDER EACH TOP-LEVEL FIELD IN ORDER#
+    # STEP 3: RENDER EACH TOP-LEVEL FIELD IN ORDER
     ####################################################
     rendered_lines = [render_toon_key_value_line(key, value, indent_level=0) for key, value in data.items()]
     return "\n".join(rendered_lines)

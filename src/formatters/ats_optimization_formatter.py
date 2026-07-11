@@ -25,10 +25,19 @@ Toy example:
 
 from typing import Any
 
+# The assembler's input is the *output* of upstream agents, so this formatter
+# consumes those agents' output contracts directly (their structured results,
+# not the raw resume) to assemble the final ATS resume.
 from src.agents.professional_experience.models import OptimizedExperienceSection
 from src.agents.professional_summary.models import ProfessionalSummary
-from src.data_models.job import JobDescription
-from src.data_models.resume import OptimizedSkillsSection, Resume
+from src.data_models.job import JobDescription  # the target job this resume is tailored to
+from src.data_models.resume import (  # candidate resume + optimized skills
+    OptimizedSkillsSection,
+    Resume,
+)
+
+# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
+# turns this formatter's filtered payload dict into the final LLM context string.
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 
@@ -90,7 +99,7 @@ def build_ats_optimization_payload(
 ) -> dict[str, Any]:
     """Build the filtered payload for the ATS assembler."""
     ####################################################
-    # STEP 1: KEEP ONLY THE OPTIMIZED SECTIONS THAT MUST BE ASSEMBLED#
+    # STEP 1: KEEP ONLY THE OPTIMIZED SECTIONS THAT MUST BE ASSEMBLED
     ####################################################
     assembled_sections = {
         "professional_summary_text": choose_summary_text(professional_summary),
@@ -99,12 +108,12 @@ def build_ats_optimization_payload(
     }
 
     ####################################################
-    # STEP 2: KEEP ONLY THE ORIGINAL RESUME SECTIONS THAT MUST BE PRESERVED#
+    # STEP 2: KEEP ONLY THE ORIGINAL RESUME SECTIONS THAT MUST BE PRESERVED
     ####################################################
     preserved_resume_sections = select_resume_context(original_resume)
 
     ####################################################
-    # STEP 3: KEEP ONLY THE JOB SIGNALS USED FOR ATS VALIDATION#
+    # STEP 3: KEEP ONLY THE JOB SIGNALS USED FOR ATS VALIDATION
     ####################################################
     job_context = select_job_context(job_description)
 
@@ -125,7 +134,7 @@ def format_ats_optimization_context(
 ) -> str:
     """Return the ATS assembler's context string."""
     ####################################################
-    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE ATS ASSEMBLER ACTUALLY NEEDS#
+    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE ATS ASSEMBLER ACTUALLY NEEDS
     ####################################################
     payload = build_ats_optimization_payload(
         professional_summary,
@@ -136,7 +145,7 @@ def format_ats_optimization_context(
     )
 
     ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
     ####################################################
     return render_context_data(
         payload,

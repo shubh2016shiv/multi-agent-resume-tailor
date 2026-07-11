@@ -29,9 +29,19 @@ Toy example:
 
 from typing import Any
 
+# JobDescription = the target job; SkillImportance = the must/should/nice tier used
+# to keep only the requirements the skills section should cover.
 from src.data_models.job import JobDescription, SkillImportance
+
+# Resume = candidate's current skills+roles; OptimizedSkillsSection = the agent's
+# reordered skills, re-consumed here for the STEP 6 rewrite/correction pass.
 from src.data_models.resume import OptimizedSkillsSection, Resume
-from src.data_models.strategy import AlignmentStrategy
+from src.data_models.strategy import (
+    AlignmentStrategy,  # gap-analysis output; carries ordering guidance
+)
+
+# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
+# turns this formatter's filtered payload dict into the final LLM context string.
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 # Noise-reduction cap on role evidence (see module docstring). Here achievements are
@@ -108,17 +118,17 @@ def build_skills_optimizer_payload(
     Serves node STEP 2, part 1.
     """
     ####################################################
-    # STEP 1: KEEP ONLY THE CURRENT SKILLS THE AGENT IS ALLOWED TO REORDER#
+    # STEP 1: KEEP ONLY THE CURRENT SKILLS THE AGENT IS ALLOWED TO REORDER
     ####################################################
     resume_context = select_resume_context(resume)
 
     ####################################################
-    # STEP 2: KEEP ONLY THE JOB SIGNALS THE SKILLS SECTION SHOULD ANSWER#
+    # STEP 2: KEEP ONLY THE JOB SIGNALS THE SKILLS SECTION SHOULD ANSWER
     ####################################################
     job_context = select_job_context(job_description)
 
     ####################################################
-    # STEP 3: KEEP ONLY THE STRATEGY GUIDANCE MEANT FOR SKILL WORK#
+    # STEP 3: KEEP ONLY THE STRATEGY GUIDANCE MEANT FOR SKILL WORK
     ####################################################
     strategy_context = select_strategy_context(strategy)
 
@@ -140,12 +150,12 @@ def format_skills_optimizer_context(
     Serves node STEP 2, entry point.
     """
     ####################################################
-    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE SKILLS OPTIMIZER NEEDS#
+    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE SKILLS OPTIMIZER NEEDS
     ####################################################
     payload = build_skills_optimizer_payload(resume, job_description, strategy)
 
     ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
     ####################################################
     return render_context_data(
         payload,
@@ -196,12 +206,12 @@ def format_skills_rewrite_context(
     current skill list and the exact names to remove.
     """
     ####################################################
-    # STEP 1: BUILD THE MINIMAL CORRECTION PAYLOAD#
+    # STEP 1: BUILD THE MINIMAL CORRECTION PAYLOAD
     ####################################################
     payload = build_skills_rewrite_payload(section, skills_to_remove)
 
     ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
     ####################################################
     return render_context_data(
         payload,

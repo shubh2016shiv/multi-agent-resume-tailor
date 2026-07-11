@@ -24,13 +24,22 @@ Toy example:
 
 from typing import Any
 
-from src.data_models.job import JobDescription
-from src.data_models.resume import Resume
-from src.data_models.strategy import AlignmentStrategy
+from src.data_models.job import JobDescription  # the target job this resume is tailored to
+from src.data_models.resume import Experience, Resume  # candidate resume + one role entry
+from src.data_models.strategy import (
+    AlignmentStrategy,  # gap-analysis output; carries per-section guidance
+)
+
+# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
+# turns this formatter's filtered payload dict into the final LLM context string.
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
+
+# The optimizer's context must carry answered clarification evidence, so this
+# formatter consumes the HITL clarification model and its bullet-id helper --
+# the same identity used to ask the candidate the question in the first place.
 from src.hitl.professional_experience.models import (
-    ExperienceBulletClarification,
-    build_experience_bullet_id,
+    ExperienceBulletClarification,  # one candidate answer to a bullet-level clarification
+    build_experience_bullet_id,  # stable id linking a role+bullet across the ask/answer round-trip
 )
 
 MAX_PRIORITY_REQUIREMENTS_FOR_EXPERIENCE_REWRITE = 6
@@ -56,7 +65,7 @@ def select_resume_context(
                     for bullet_index, bullet_text in enumerate(experience.achievements)
                 ],
                 "skills_used": list(experience.skills_used),
-                "candidate_clarification_evidence": _clarification_context_for_role(
+                "candidate_clarification_evidence": clarification_context_for_role(
                     experience,
                     clarification_answers,
                 ),
@@ -73,7 +82,7 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
         for _, requirement in sorted(
             enumerate(job_description.requirements),
             key=lambda requirement_entry: (
-                _requirement_importance_rank(
+                requirement_importance_rank(
                     requirement_entry[1].importance.value
                 ),
                 requirement_entry[0],
@@ -101,17 +110,17 @@ def build_experience_optimizer_payload(
 ) -> dict[str, Any]:
     """Build the filtered payload for the experience optimizer."""
     ####################################################
-    # STEP 1: KEEP ONLY THE ROLE EVIDENCE THE AGENT IS ALLOWED TO REWRITE#
+    # STEP 1: KEEP ONLY THE ROLE EVIDENCE THE AGENT IS ALLOWED TO REWRITE
     ####################################################
     resume_context = select_resume_context(resume, clarification_answers)
 
     ####################################################
-    # STEP 2: KEEP ONLY THE JOB SIGNALS USED TO PRIORITIZE BULLETS#
+    # STEP 2: KEEP ONLY THE JOB SIGNALS USED TO PRIORITIZE BULLETS
     ####################################################
     job_context = select_job_context(job_description)
 
     ####################################################
-    # STEP 3: KEEP ONLY THE STRATEGY GUIDANCE MEANT FOR EXPERIENCE WORK#
+    # STEP 3: KEEP ONLY THE STRATEGY GUIDANCE MEANT FOR EXPERIENCE WORK
     ####################################################
     strategy_context = select_strategy_context(strategy)
 
@@ -131,7 +140,7 @@ def format_experience_optimizer_context(
 ) -> str:
     """Return the experience optimizer's context string."""
     ####################################################
-    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE EXPERIENCE OPTIMIZER NEEDS#
+    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE EXPERIENCE OPTIMIZER NEEDS
     ####################################################
     payload = build_experience_optimizer_payload(
         resume,
@@ -141,7 +150,7 @@ def format_experience_optimizer_context(
     )
 
     ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
     ####################################################
     return render_context_data(
         payload,
@@ -150,7 +159,7 @@ def format_experience_optimizer_context(
     )
 
 
-def _requirement_importance_rank(requirement_importance: str) -> int:
+def requirement_importance_rank(requirement_importance: str) -> int:
     """Return a stable rank so must-have requirements appear before nice-to-have ones."""
     importance_rank = {
         "must_have": 0,
@@ -160,8 +169,8 @@ def _requirement_importance_rank(requirement_importance: str) -> int:
     return importance_rank.get(requirement_importance, 3)
 
 
-def _clarification_context_for_role(
-    experience,
+def clarification_context_for_role(
+    experience: Experience,
     clarification_answers: list[ExperienceBulletClarification],
 ) -> list[dict[str, str]]:
     """Return answered clarification evidence already known for this role's bullets."""

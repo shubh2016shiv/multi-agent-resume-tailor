@@ -23,9 +23,15 @@ Toy example:
 
 from typing import Any
 
-from src.data_models.job import JobDescription
-from src.data_models.resume import Resume
+from src.data_models.job import JobDescription  # the target job to compare the candidate against
+from src.data_models.resume import Resume  # the candidate's current resume
+
+# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
+# turns this formatter's filtered payload dict into the final LLM context string.
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
+
+# The code-computed match report (score + per-section findings) the strategist
+# builds on -- a deterministic tool result, not an agent's own opinion.
 from src.tools.contracts import ReviewResult
 
 
@@ -105,17 +111,17 @@ def build_gap_analysis_payload(
 ) -> dict[str, Any]:
     """Build the filtered payload for the gap analysis strategist."""
     ####################################################
-    # STEP 1: KEEP ONLY THE CANDIDATE SIGNALS NEEDED FOR COMPARISON#
+    # STEP 1: KEEP ONLY THE CANDIDATE SIGNALS NEEDED FOR COMPARISON
     ####################################################
     resume_context = select_resume_context(resume)
 
     ####################################################
-    # STEP 2: KEEP ONLY THE JOB SIGNALS THE STRATEGIST SHOULD ANSWER#
+    # STEP 2: KEEP ONLY THE JOB SIGNALS THE STRATEGIST SHOULD ANSWER
     ####################################################
     job_context = select_job_context(job_description)
 
     ####################################################
-    # STEP 3: KEEP THE CODE-COMPUTED MATCH REPORT SO THE AGENT BUILDS ON FACTS#
+    # STEP 3: KEEP THE CODE-COMPUTED MATCH REPORT SO THE AGENT BUILDS ON FACTS
     ####################################################
     match_report_context = select_match_report_context(match_report)
 
@@ -134,12 +140,12 @@ def format_gap_analysis_context(
 ) -> str:
     """Return the gap analysis strategist's context string."""
     ####################################################
-    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE STRATEGIST ACTUALLY NEEDS#
+    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE STRATEGIST ACTUALLY NEEDS
     ####################################################
     payload = build_gap_analysis_payload(resume, job_description, match_report)
 
     ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT#
+    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
     ####################################################
     return render_context_data(
         payload,

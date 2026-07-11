@@ -441,7 +441,41 @@ The library names will change; the rules won't.
 
 ---
 
-## 10. What This Module Does NOT Do
+## 10. Porting This Package to Another Project
+
+§9 gave the portable *rules*. This is the concrete *procedure* — the design
+lifts cleanly; only a few seams are tied to this repo.
+
+**Dependencies** (all on PyPI, all optional to swap for equivalents):
+
+| Library | Provides | Layer |
+|---|---|---|
+| [`tenacity`](https://tenacity.readthedocs.io/) | retry + backoff + jitter | retry |
+| [`pybreaker`](https://pypi.org/project/pybreaker/) | circuit breaker state machine | breaker |
+| [`ratelimit`](https://pypi.org/project/ratelimit/) | per-minute call budget | rate gate |
+| [`structlog`](https://www.structlog.org/) | correlation-id context binding | logging skin |
+
+**The three seams you must change** — everything else is provider-agnostic and
+copies over as-is:
+
+| Seam | Where it lives now | Change it to |
+|---|---|---|
+| **Config source** | `policy.py` — `get_config()` and `config.llm.resilience` / `config.llm.provider` | your project's settings object, or just pass the numbers in as plain arguments |
+| **Retryable exception set** | `policy.py` — `RETRYABLE_EXCEPTIONS` | the exception types *your* provider SDK raises for transient faults, plus its rate-limit exception type |
+| **Logger** | `circuit_breaker.py` and `resilient_call.py` — `get_logger()` / `structlog` | your logging setup; if you don't use `structlog`, drop the `bind_contextvars`/`unbind_contextvars` calls in `resilient_call.py` and log the id as a plain field instead |
+
+**What you keep unchanged — this is the reusable core:**
+- the composition order in `resilient_call.py` (the onion — §5)
+- the three factory files (`transient_retry.py`, `rate_limit.py`, `circuit_breaker.py`)
+- the per-provider shared registries (§7)
+
+If you only take one thing: copy `resilient_call.py`'s composition order and the
+three factory files, then rewire the two `policy.py` seams above to your config
+and your SDK's exception types. That is the whole port.
+
+---
+
+## 11. What This Module Does NOT Do
 
 Knowing the boundaries is as important as knowing the contents:
 
@@ -462,7 +496,7 @@ Knowing the boundaries is as important as knowing the contents:
 
 ---
 
-## 11. File Map
+## 12. File Map
 
 | File | What it owns |
 |---|---|
@@ -475,7 +509,7 @@ Knowing the boundaries is as important as knowing the contents:
 
 ---
 
-## 12. Configuration Reference
+## 13. Configuration Reference
 
 All defaults live in `src/config/settings.yaml` under `llm.resilience`:
 
@@ -498,7 +532,7 @@ Override per-decorator:
 
 ---
 
-## 13. Inspection and Debugging
+## 14. Inspection and Debugging
 
 ```python
 from src.core.resiliency import get_resilience_stats, reset_circuit_breakers

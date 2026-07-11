@@ -1,10 +1,18 @@
-"""LiteLLM-backed token and cost counter."""
+"""LiteLLM-backed token and cost counter.
+
+This is the measurement core of the package. budget_guard.py and
+tracking_context.py both call into a TokenCounter instance (via
+get_token_counter() below) rather than talking to LiteLLM directly — so this
+file is the only place that knows LiteLLM's actual function signatures.
+"""
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import lru_cache  # backs the process-wide singleton, see get_token_counter()
 from typing import Any
 
+# LiteLLM is an optional dependency: import it defensively so the rest of the
+# package (and its callers) can run in environments where it isn't installed.
 try:
     from litellm.cost_calculator import cost_per_token
     from litellm.utils import token_counter
@@ -12,7 +20,7 @@ except ImportError:
     cost_per_token = None
     token_counter = None
 
-from src.core.llm_token_tracker.usage import TokenUsage
+from src.core.llm_token_tracker.usage import TokenUsage  # the record build_usage() returns
 from src.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -24,14 +32,14 @@ class TokenCounter:
     def __init__(self) -> None:
         """Initialize availability once for this counter instance."""
         ####################################################
-        # STEP 1: DETECT WHETHER THE LITELLM TOKEN APIS ARE AVAILABLE#
+        # STEP 1: DETECT WHETHER THE LITELLM TOKEN APIS ARE AVAILABLE
         ####################################################
         # The whole package degrades gracefully when LiteLLM is missing,
         # so we decide that once here and reuse it everywhere else.
         self._available = token_counter is not None and cost_per_token is not None
 
         ####################################################
-        # STEP 2: LOG THE PROVIDER AVAILABILITY DECISION#
+        # STEP 2: LOG THE PROVIDER AVAILABILITY DECISION
         ####################################################
         if self._available:
             logger.debug("token_counter_available", provider="litellm")
@@ -46,6 +54,9 @@ class TokenCounter:
     def count_tokens(self, text: str, model: str) -> int:
         """Count tokens in a string.
 
+        This is the entry point budget_guard.py and tracking_context.py call —
+        it normalizes plain text and delegates to count_message_tokens() below.
+
         Args:
             text: Text to count.
             model: Model name to pass to LiteLLM.
@@ -54,7 +65,7 @@ class TokenCounter:
             Token count, or 0 when counting is unavailable.
         """
         ####################################################
-        # STEP 1: SHORT-CIRCUIT EMPTY TEXT#
+        # STEP 1: SHORT-CIRCUIT EMPTY TEXT
         ####################################################
         # An empty prompt has no tokens, and skipping the provider call keeps
         # the behavior obvious for callers and tests.
@@ -62,14 +73,17 @@ class TokenCounter:
             return 0
 
         ####################################################
-        # STEP 2: REUSE THE MESSAGE-COUNTING PATH#
+        # STEP 2: REUSE THE MESSAGE-COUNTING PATH
         ####################################################
         # We normalize plain text into the same chat-message shape used by the
-        # provider so all counting logic lives in one place.
+        # provider so all counting logic lives in one place (count_message_tokens).
         return self.count_message_tokens([{"role": "user", "content": text}], model)
 
     def count_message_tokens(self, messages: list[dict[str, Any]], model: str) -> int:
         """Count tokens in chat-style messages.
+
+        The shared counting path: count_tokens() above calls this, and callers
+        with chat-message context can call it directly instead.
 
         Args:
             messages: Message dictionaries with role/content keys.
@@ -79,7 +93,7 @@ class TokenCounter:
             Token count, or 0 when counting is unavailable.
         """
         ####################################################
-        # STEP 1: EXIT EARLY WHEN TOKEN COUNTING IS NOT AVAILABLE#
+        # STEP 1: EXIT EARLY WHEN TOKEN COUNTING IS NOT AVAILABLE
         ####################################################
         # The contract of this package is graceful degradation, not hard
         # failure, when LiteLLM is unavailable in the environment.
@@ -88,13 +102,13 @@ class TokenCounter:
             return 0
 
         ####################################################
-        # STEP 2: ASK LITELLM TO COUNT THE CHAT MESSAGE TOKENS#
+        # STEP 2: ASK LITELLM TO COUNT THE CHAT MESSAGE TOKENS
         ####################################################
         try:
             tokens = token_counter(model=model, messages=messages)
         except Exception as exc:
             ####################################################
-            # STEP 3: DEGRADE GRACEFULLY WHEN THE PROVIDER CALL FAILS#
+            # STEP 3: DEGRADE GRACEFULLY WHEN THE PROVIDER CALL FAILS
             ####################################################
             logger.warning(
                 "token_count_failed",
@@ -105,12 +119,23 @@ class TokenCounter:
             return 0
 
         ####################################################
-        # STEP 4: NORMALIZE THE RESULT TO A PLAIN INTEGER#
+        # STEP 4: NORMALIZE THE RESULT TO A PLAIN INTEGER
         ####################################################
+        # LiteLLM's return type isn't guaranteed int; `or 0` also covers a
+        # None/falsy result so this method always hands back a plain int.
         return int(tokens or 0)
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int, model: str) -> float | None:
-        """Estimate USD cost for a model interaction.
+        """Estimate the combined USD cost of prompt (input) and completion (output)
+        tokens for one model interaction.
+
+        Prices prompt_tokens and completion_tokens separately, since most
+        providers bill input and output tokens at different per-token rates,
+        then sums the two priced components into one total. Requires both
+        counts — this cannot estimate the cost of only one side.
+
+        Called by build_usage() below when a caller doesn't already know the
+        cost; can also be called directly if you only need the dollar figure.
 
         Args:
             prompt_tokens: Input token count.
@@ -118,18 +143,20 @@ class TokenCounter:
             model: Model name to pass to LiteLLM.
 
         Returns:
-            Estimated USD cost, or None when unavailable.
+            Combined USD cost (prompt + completion), or None when unavailable.
         """
         ####################################################
-        # STEP 1: EXIT EARLY WHEN COST ESTIMATION IS NOT AVAILABLE#
+        # STEP 1: EXIT EARLY WHEN COST ESTIMATION IS NOT AVAILABLE
         ####################################################
         if not self._available or cost_per_token is None:
             logger.debug("cost_estimation_skipped", reason="litellm_unavailable")
             return None
 
         ####################################################
-        # STEP 2: ASK LITELLM FOR THE INPUT AND OUTPUT TOKEN COSTS#
+        # STEP 2: ASK LITELLM FOR THE INPUT AND OUTPUT TOKEN COSTS
         ####################################################
+        # LiteLLM prices prompt and completion tokens separately since input
+        # and output tokens are billed at different rates for most providers.
         try:
             prompt_cost_usd, completion_cost_usd = cost_per_token(
                 model=model,
@@ -138,7 +165,7 @@ class TokenCounter:
             )
         except Exception as exc:
             ####################################################
-            # STEP 3: DEGRADE GRACEFULLY WHEN PRICING LOOKUP FAILS#
+            # STEP 3: DEGRADE GRACEFULLY WHEN PRICING LOOKUP FAILS
             ####################################################
             logger.warning(
                 "cost_estimation_failed",
@@ -149,7 +176,7 @@ class TokenCounter:
             return None
 
         ####################################################
-        # STEP 4: COLLAPSE THE TWO COST COMPONENTS INTO ONE USD TOTAL#
+        # STEP 4: COLLAPSE THE TWO COST COMPONENTS INTO ONE USD TOTAL
         ####################################################
         return prompt_cost_usd + completion_cost_usd
 
@@ -163,6 +190,9 @@ class TokenCounter:
     ) -> None:
         """Log structured token usage for an agent interaction.
 
+        Convenience wrapper for the common case of "build a usage record and
+        log it immediately" — calls build_usage() below, then logs the result.
+
         Args:
             agent_name: Agent or component name.
             input_tokens: Prompt/input tokens.
@@ -171,12 +201,12 @@ class TokenCounter:
             cost: Optional precomputed USD cost.
         """
         ####################################################
-        # STEP 1: BUILD THE NORMALIZED USAGE RECORD#
+        # STEP 1: BUILD THE NORMALIZED USAGE RECORD
         ####################################################
         usage = self.build_usage(agent_name, input_tokens, output_tokens, model, cost)
 
         ####################################################
-        # STEP 2: PREPARE THE STRUCTURED LOG PAYLOAD#
+        # STEP 2: PREPARE THE STRUCTURED LOG PAYLOAD
         ####################################################
         log_context: dict[str, Any] = {
             "agent": usage.agent_name,
@@ -187,14 +217,16 @@ class TokenCounter:
         }
 
         ####################################################
-        # STEP 3: ADD COST FIELDS ONLY WHEN A COST EXISTS#
+        # STEP 3: ADD COST FIELDS ONLY WHEN A COST EXISTS
         ####################################################
+        # Cost can be legitimately unknown (see estimate_cost's None case
+        # above) — omit the keys entirely rather than logging a fake $0.00.
         if usage.cost_usd is not None:
             log_context["cost_usd"] = usage.cost_usd
             log_context["cost_formatted"] = f"${usage.cost_usd:.6f}"
 
         ####################################################
-        # STEP 4: EMIT THE FINAL STRUCTURED LOG EVENT#
+        # STEP 4: EMIT THE FINAL STRUCTURED LOG EVENT
         ####################################################
         logger.info("llm_call_complete", **log_context)
 
@@ -208,6 +240,11 @@ class TokenCounter:
     ) -> TokenUsage:
         """Build a structured token usage record.
 
+        The record-construction step of the pipeline: token counts come in
+        from a caller (usually from count_tokens()/count_message_tokens()
+        above), cost is resolved here, and the result is the immutable
+        TokenUsage value object the rest of the codebase consumes.
+
         Args:
             agent_name: Agent or component name.
             input_tokens: Prompt/input tokens.
@@ -219,27 +256,35 @@ class TokenCounter:
             Immutable token usage record.
         """
         ####################################################
-        # STEP 1: RESPECT ANY CALLER-SUPPLIED COST#
+        # STEP 1: RESPECT ANY CALLER-SUPPLIED COST
         ####################################################
         resolved_cost = cost
 
         ####################################################
-        # STEP 2: FALL BACK TO COST ESTIMATION WHEN NEEDED#
+        # STEP 2: FALL BACK TO COST ESTIMATION WHEN NEEDED
         ####################################################
+        # Only estimate if the caller didn't already know the real cost —
+        # avoids a redundant LiteLLM pricing call when it isn't needed.
         if resolved_cost is None:
             resolved_cost = self.estimate_cost(input_tokens, output_tokens, model)
 
         ####################################################
-        # STEP 3: RETURN THE IMMUTABLE USAGE VALUE OBJECT#
+        # STEP 3: RETURN THE IMMUTABLE USAGE VALUE OBJECT
         ####################################################
         return TokenUsage(agent_name, input_tokens, output_tokens, model, resolved_cost)
 
 
 @lru_cache
 def get_token_counter() -> TokenCounter:
-    """Return the process-wide token counter instance."""
+    """Return the process-wide token counter instance.
+
+    This is the entry point every other file in the package uses instead of
+    constructing TokenCounter() directly — see budget_guard.py and
+    tracking_context.py. Call get_token_counter.cache_clear() in tests that
+    need a fresh instance (e.g. after monkeypatching LiteLLM availability).
+    """
     ####################################################
-    # STEP 1: RETURN THE PROCESS-WIDE SHARED COUNTER INSTANCE#
+    # STEP 1: RETURN THE PROCESS-WIDE SHARED COUNTER INSTANCE
     ####################################################
     # The LRU cache turns this tiny factory into a singleton-style accessor
     # so callers across the process reuse the same initialized counter.

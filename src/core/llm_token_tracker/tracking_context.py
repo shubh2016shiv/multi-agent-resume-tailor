@@ -30,7 +30,7 @@ Current repo status:
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from src.core.llm_token_tracker.counter import TokenCounter, get_token_counter
+from src.core.llm_token_tracker.counter import TokenCounter, get_token_counter  # shared instance
 from src.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -56,21 +56,21 @@ def track_agent_tokens(
         context in structlog. Do not sprinkle it through individual agent files.
     """
     ####################################################
-    # STEP 1: FETCH THE SHARED TOKEN COUNTER#
+    # STEP 1: FETCH THE SHARED TOKEN COUNTER
     ####################################################
     # We reuse the process-wide counter so every caller goes through the same
     # provider-availability and graceful-degradation behavior.
     counter = get_token_counter()
 
     ####################################################
-    # STEP 2: ESTIMATE THE INPUT TOKENS FOR THIS EXECUTION#
+    # STEP 2: ESTIMATE THE INPUT TOKENS FOR THIS EXECUTION
     ####################################################
     # The purpose of this helper is to measure the prompt/task payload at the
     # boundary of the agent run before the wrapped block starts executing.
     input_tokens = counter.count_tokens(task_description, model)
 
     ####################################################
-    # STEP 3: LOG THE START OF THE AGENT EXECUTION#
+    # STEP 3: LOG THE START OF THE AGENT EXECUTION
     ####################################################
     # This gives the caller one standard structured event for "we are about to
     # run this agent with roughly this many input tokens."
@@ -82,15 +82,16 @@ def track_agent_tokens(
     )
     try:
         ####################################################
-        # STEP 4: YIELD CONTROL BACK TO THE CALLER'S EXECUTION BLOCK#
+        # STEP 4: YIELD CONTROL BACK TO THE CALLER'S EXECUTION BLOCK
         ####################################################
         # The caller does the real work inside the with-block and can optionally
         # reuse the returned counter to log final token usage later.
         yield counter
     finally:
         ####################################################
-        # STEP 5: ALWAYS LOG THAT THE EXECUTION BLOCK FINISHED#
+        # STEP 5: ALWAYS LOG THAT THE EXECUTION BLOCK FINISHED
         ####################################################
         # The finally block guarantees a completion log whether the wrapped work
-        # succeeds or raises.
+        # succeeds or raises — even if the caller's code inside the with-block
+        # throws, this line still runs before the exception propagates.
         logger.debug("agent_execution_completed", agent=agent_name, model=model)

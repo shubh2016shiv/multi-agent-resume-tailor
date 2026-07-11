@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True)  # immutable: this is a logging/audit record, never mutated after creation
 class TokenUsage:
     """Structured token and cost details for one model interaction."""
 

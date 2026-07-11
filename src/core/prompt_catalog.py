@@ -1,4 +1,19 @@
-"""Centralized loading of application-owned prompt files."""
+"""Centralized loading of application-owned prompt files.
+
+Every tool-engine module (src/tools/engines/**) calls load_tool_prompt() at
+IMPORT TIME to assign the result to a module-level constant, e.g.:
+
+    REQUIREMENTS_RUBRIC = load_tool_prompt("job_matching/requirements_matcher.md")
+
+That constant is then reused across every call the engine makes. Combined with
+the @cache below, this means a prompt file's contents are read from disk at
+most once per process and NEVER re-read afterward. Editing a .md file under the
+configured prompt directory has NO EFFECT on an already-running process — the
+process must restart to pick up the change. There is no hot-reload here.
+
+See src/core/settings/README.md ("change a tool prompt") for the full chain
+from settings.yaml to the actual LLM call.
+"""
 
 from functools import cache
 from pathlib import Path
@@ -15,6 +30,10 @@ def load_tool_prompt(relative_path: str) -> str:
     'resume_diagnostics/language_quality.md'.
     Returns the prompt text with surrounding whitespace removed.
     Raises ValueError if the path escapes the configured prompt directory.
+
+    Cached for the life of the process (see module docstring) — call this at
+    module import time to assign a module-level constant, not inside a
+    per-request/per-call function body.
     """
     ####################################################
     # STEP 1: RESOLVE THE CONFIGURED PROMPT ROOT FROM APP SETTINGS#

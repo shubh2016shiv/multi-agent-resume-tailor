@@ -4,6 +4,9 @@ This module intentionally uses stdlib logging instead of `src.core.logger`.
 It sits on the bootstrap path for settings resolution, so depending on the
 configured application logger here would create a circular "settings need
 logger, logger needs settings" dependency.
+
+This is a concrete instance of Pattern 9 (break the bootstrap dependency cycle)
+— the lowest layer stays dependency-free. See CONFIGURATION_PATTERNS.md.
 """
 
 import logging
@@ -34,17 +37,17 @@ def read_yaml_mapping(path: Path, label: str) -> dict[str, Any]:
     ####################################################
     # STEP 1: TREAT A MISSING FILE AS "NO OVERRIDES"#
     ####################################################
-    # The higher-level settings/cataloag loaders decide whether a missing file
+    # The higher-level settings/catalog loaders decide whether a missing file
     # is acceptable. This low-level helper only says "nothing was found here."
     if not path.exists():
         return {}
 
     ####################################################
-    # STEP 2: LOAD THE YAML DOCUMENT FROM DISK#
+    # STEP 2: LOAD THE YAML DOCUMENT FROM DISK
     ####################################################
     try:
-        with path.open(encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+        with path.open(encoding="utf-8") as yaml_file:
+            data = yaml.safe_load(yaml_file) or {}
     except (OSError, yaml.YAMLError) as exc:
         message = f"Could not load {label} configuration at {path}: {exc}"
         logger.warning(message)

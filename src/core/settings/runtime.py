@@ -38,8 +38,13 @@ from src.core.settings.yaml_source import yaml_config_settings_source
 
 
 class Settings(BaseSettings):
-    """The typed application settings exposed to Python code."""
+    """The typed application settings exposed to Python code.
 
+    Implements Pattern 3 (typed/validated) and Pattern 7 (domain sectioning) —
+    each field below is one cohesive config section. See CONFIGURATION_PATTERNS.md.
+    """
+
+    # Pattern 7 (domain sectioning): one typed section per area of the app.
     application: ApplicationConfig = Field(default_factory=ApplicationConfig)
     feature_flags: FeatureFlags = Field(default_factory=FeatureFlags)
     llm: LLMConfig = Field(default_factory=LLMConfig)
@@ -50,6 +55,8 @@ class Settings(BaseSettings):
     services: ServicesConfig = Field(default_factory=ServicesConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
 
+    # Pattern 4 (config is not secrets): API keys are env-only fields (via alias),
+    # never read from tracked YAML. See CONFIGURATION_PATTERNS.md.
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
     gemini_api_key: str | None = Field(None, alias="GEMINI_API_KEY")
     serper_api_key: str | None = Field(None, alias="SERPER_API_KEY")
@@ -75,28 +82,31 @@ class Settings(BaseSettings):
     ):
         """Return settings sources in override order.
 
+        This method IS Pattern 2 (layered override chain) — see
+        CONFIGURATION_PATTERNS.md. The returned tuple's order is the precedence.
+
         `pydantic-settings` calls this method with a fixed parameter list.
         `_settings_cls` is part of that call shape, even though this repo does
         not need it. We keep it because the library passes it in; we ignore it
         because this project uses one fixed source order for one `Settings`
         class.
+
+        There is no sequential logic here — the return value IS the answer.
+        pydantic-settings tries each source in this tuple's order and the
+        first one that defines a given field wins, so position in the tuple is
+        priority, highest first:
+
+        1. `init_settings`     — explicit `Settings(...)` constructor args win
+                                  over every file/env source below them.
+        2. `env_settings`      — real environment variables outrank `.env` and
+                                  YAML, so an operator can override behavior
+                                  without touching any tracked file.
+        3. `dotenv_settings`   — `.env` file values, one step below real env vars.
+        4. `file_secret_settings` — Docker/K8s secret-file mounts, if used.
+        5. `yaml_config_settings_source` — `src/config/settings.yaml` supplies
+                                  project *defaults*, so it sits last: any of
+                                  the four sources above override it.
         """
-        ####################################################
-        # STEP 1: KEEP EXPLICIT PYTHON OVERRIDES FIRST#
-        ####################################################
-        # Callers who instantiate Settings(...) directly should win over every
-        # file-based or environment-based source below.
-
-        ####################################################
-        # STEP 2: KEEP ENV VARS AND .ENV AHEAD OF YAML#
-        ####################################################
-        # Runtime overrides belong above the project-default YAML so operators
-        # can change behavior without editing tracked files.
-
-        ####################################################
-        # STEP 3: TREAT settings.yaml AS THE LAST EXTERNAL SOURCE#
-        ####################################################
-        # YAML supplies project defaults, not the highest-priority override.
         return (
             init_settings,
             env_settings,
@@ -108,17 +118,20 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_config() -> Settings:
-    """Return the process-wide cached application settings instance."""
-    ####################################################
-    # STEP 1: BUILD SETTINGS ON FIRST ACCESS#
-    ####################################################
-    # BaseSettings resolves all configured sources only once here.
+    """Return the process-wide cached application settings instance.
 
-    ####################################################
-    # STEP 2: REUSE THE SAME SETTINGS OBJECT FOR THE PROCESS#
-    ####################################################
-    # The LRU cache keeps settings lookup cheap and ensures callers across the
-    # process all read the same resolved configuration snapshot.
-    # Pyright cannot model BaseSettings' dynamic source resolution here and
-    # incorrectly treats aliased environment-backed fields as required args.
+    This is Pattern 6 (resolve once, share one immutable snapshot) — see
+    CONFIGURATION_PATTERNS.md.
+
+    `@lru_cache` on a zero-argument function is what makes this a singleton
+    accessor: `Settings()` — which resolves every source in
+    `settings_customise_sources()` above — runs exactly once per process, on
+    the first call. Every call after that returns the same cached instance
+    instead of re-reading files/env vars, and every caller across the codebase
+    sees one consistent configuration snapshot for the process's lifetime.
+
+    Pyright cannot model BaseSettings' dynamic source resolution and
+    incorrectly treats aliased environment-backed fields as required
+    constructor args — hence the ignore comment below.
+    """
     return Settings()  # pyright: ignore[reportCallIssue]

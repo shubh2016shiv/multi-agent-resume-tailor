@@ -3,6 +3,10 @@
 This is the file to open when asking, "what config exists and what can I set?"
 Each model corresponds to a section in `src/config/settings.yaml` or an
 environment variable consumed by `Settings`.
+
+This file is Pattern 3 (typed, validated, fail-fast) and Pattern 7 (domain
+sectioning) in practice: each model is one cohesive config section whose fields
+are validated at load time. See CONFIGURATION_PATTERNS.md.
 """
 
 from typing import Literal

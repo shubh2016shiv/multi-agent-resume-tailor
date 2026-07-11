@@ -19,6 +19,128 @@ This package owns the Python side of configuration:
 - deciding which source wins when the same setting exists in multiple places
 - exposing one shared settings object to the rest of the codebase
 
+> **Looking for the reusable theory, not this project's specifics?** See
+> [`CONFIGURATION_PATTERNS.md`](CONFIGURATION_PATTERNS.md) next to this file. It
+> documents the general enterprise configuration patterns this module is built
+> on, with generic examples you can carry to any project. This README stays
+> project-specific; that doc stays project-agnostic.
+
+## How Configuration Flows (Start Here)
+
+Every value the app reads follows the same three-stage journey. Learn it once and
+you never have to scan the module to find where a setting comes from:
+
+```
+   WHERE IT'S DECLARED              HOW IT'S LOADED                  WHERE CODE READS IT
+   ───────────────────             ───────────────                  ───────────────────
+   settings.yaml        ┐
+   environment vars     ├──►  get_config() -> Settings      ──►  config.<section>.<field>
+   .env                 ┘     (merges by precedence,
+                               validates, caches once)
+
+   config/agents/*.yaml ──►   get_agents_config()  (merge)  ──►  agents["<name>"]["<field>"]
+   config/tasks/*.yaml  ──►   get_tasks_config()   (merge)  ──►  tasks["<name>"]["<field>"]
+```
+
+Two rules decide everything:
+
+1. **Which source wins** when the same value is set in more than one place:
+   `environment var  >  .env  >  settings.yaml  >  code default`.
+2. **How an environment variable maps to a setting** — the naming rule below, and
+   the single most common thing new developers get wrong.
+
+### The environment-variable naming rule (read this before editing `.env`)
+
+`get_config()` does **not** read every variable in `.env`. It recognizes exactly
+two shapes:
+
+| To override… | The env var must be named… | Example |
+|---|---|---|
+| a nested setting | `APP_` + section + `__` + field (case-insensitive) | `APP_LLM__MODEL=gpt-4o-mini` overrides `llm.model` |
+| a secret / API key | its exact aliased name, **no** `APP_` prefix | `OPENAI_API_KEY=sk-...` |
+
+Any other variable in `.env` — e.g. `LOG_LEVEL`, `OPENAI_MODEL`, `ENVIRONMENT`,
+`QUALITY_THRESHOLD` — is **ignored by `get_config()`** and does **not** override
+`settings.yaml`. (Some may still be read directly elsewhere via `os.getenv`, but
+they do not flow through the typed settings object.) If you "changed `.env` and
+nothing happened," this rule is almost always why.
+
+### Worked example: change the LLM model
+
+- **Declared in:** `src/config/settings.yaml` → `llm.model` (currently `"gpt-4o"`).
+  Its type/default live in `LLMConfig.model` in `schema.py`.
+- **To change the project default:** edit `llm.model` in `settings.yaml`.
+- **To override for one machine/run** without touching tracked files:
+  `export APP_LLM__MODEL=gpt-4o-mini`.
+- **Read in code via:** `get_config().llm.model`.
+- **Gotcha:** an individual agent can override the model in its own
+  `config/agents/*.yaml` (`llm:` key), which agent factories read through
+  `get_agents_config()`. If one agent ignores your new default, check its agent YAML.
+
+### Worked example: set or change an API key
+
+- **These are secrets** — they live only in the environment / `.env`, never in
+  `settings.yaml` (that separation is Pattern 4 in `CONFIGURATION_PATTERNS.md`).
+- **Declared as fields on `Settings`** (`runtime.py`): `openai_api_key`
+  (alias `OPENAI_API_KEY`), `gemini_api_key` (`GEMINI_API_KEY`), `serper_api_key`
+  (`SERPER_API_KEY`), `langsmith_api_key` (`LANGSMITH_API_KEY`).
+- **To set one:** add `OPENAI_API_KEY=sk-...` to `.env` — the exact name, **no**
+  `APP_` prefix (aliased fields bypass the prefix; that's why they look different
+  from `APP_LLM__MODEL`).
+- **Read in code via:** `get_config().openai_api_key`.
+- **Gotcha:** `.env` may contain other key-shaped vars (e.g. `OPENAI_MODEL`) that
+  are **not** wired into `Settings`. Only the four aliased names above are read.
+
+### Worked example: change a tool prompt / tool configuration
+
+- **The *location* of tool prompts is configuration:** `settings.yaml` →
+  `prompt_catalog.tool_prompts_dir` (default `src/config/tool_prompts`).
+  Its type/default live in `PromptCatalogConfig` in `schema.py`.
+- **The prompt *content*** lives in files under that directory.
+- **Read in code via:** `get_config().prompt_catalog.tool_prompts_dir`, consumed
+  by `src/core/prompt_catalog.py`.
+- **To change where prompts load from:** edit `prompt_catalog.tool_prompts_dir`.
+  **To change a prompt's text:** edit the file under `src/config/tool_prompts/`.
+
+**The full chain, once a prompt file is loaded** (useful when a prompt change
+doesn't seem to take effect):
+
+```
+settings.yaml (prompt_catalog.tool_prompts_dir)
+  -> prompt_catalog.load_tool_prompt("category/name.md")   [reads + caches the file]
+  -> ENGINE_RUBRIC = load_tool_prompt(...)                  [module-level constant
+                                                              in the engine file,
+                                                              e.g. src/tools/engines/
+                                                              job_matching/requirement_matching.py]
+  -> request_review() / request_structured_output()        [src/tools/llm_gateway/]
+  -> messages = [{"role": "system", "content": ENGINE_RUBRIC}, ...]  [the real LLM call]
+```
+
+Two gotchas that follow directly from this chain:
+
+- **Prompts are loaded once per process, at import time, and cached.** Every
+  engine file assigns the loaded text to a module-level constant
+  (`SOME_RUBRIC = load_tool_prompt(...)`), not inside the function that uses it.
+  Combined with `load_tool_prompt()`'s own `@cache`, this means editing a
+  `.md` prompt file **requires restarting the process** to take effect — there
+  is no hot-reload.
+- **Prompt text counts against the token budget.** The loaded prompt becomes
+  the `system_prompt` argument to `request_structured_output()`, which checks
+  `system_prompt + user_content` against `llm.structured_input_token_budget`
+  before calling the provider. A much longer prompt shrinks the room left for
+  the actual resume/job text being reviewed.
+
+### Worked example: change an agent's configuration
+
+- **Agent config is a declarative catalog, not the typed `Settings`** (Pattern 10):
+  it lives in `src/config/agents/*.yaml`, one file per agent.
+- **Loaded by:** `get_agents_config()`, which merges every YAML in that directory;
+  **read by** agent factories through `load_agent_config("<agent_key>")`.
+- **To change an agent's role / goal / backstory / llm:** edit its file in
+  `src/config/agents/`. No Python change is needed — it's data, not code.
+
+---
+
 ## Common Entry Points
 
 Most code should import from the package root:

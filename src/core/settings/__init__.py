@@ -1,14 +1,16 @@
 """Public facade for the Python settings subsystem.
 
-Most callers only need one of these three entry points:
+Most callers only need one of these three entry points. Note they split along
+Pattern 10 (the two kinds of config — see CONFIGURATION_PATTERNS.md):
 
-- `get_config()` for typed application settings from `src/config/settings.yaml`
-  plus environment variables and `.env`
-- `get_agents_config()` for merged YAML under `src/config/agents/`
-- `get_tasks_config()` for merged YAML under `src/config/tasks/`
+- `get_config()` — the TYPED application settings object, from
+  `src/config/settings.yaml` plus environment variables and `.env`.
+- `get_agents_config()` / `get_tasks_config()` — DECLARATIVE catalogs, merged
+  from the YAML directories under `src/config/agents/` and `src/config/tasks/`.
 
 Do not put declarative YAML files in this package. This package owns the Python
-code that locates, loads, validates, caches, and exposes them.
+code that locates, loads, validates, caches, and exposes them — that split of
+data (the YAML files) from loader (this package) is Pattern 1.
 
 Where to look when you need details:
 - `schema.py`: every typed settings section and field
@@ -38,6 +40,7 @@ from src.core.settings.schema import (
     LLMResilienceConfig,
     LoggingConfig,
     ObservabilityConfig,
+    PromptCatalogConfig,
     QualityMetricsConfig,
     ServicesConfig,
     WorkflowConfig,
@@ -60,6 +63,7 @@ __all__ = [
     "LLMResilienceConfig",
     "LoggingConfig",
     "ObservabilityConfig",
+    "PromptCatalogConfig",
     "QualityMetricsConfig",
     "ServicesConfig",
     "Settings",

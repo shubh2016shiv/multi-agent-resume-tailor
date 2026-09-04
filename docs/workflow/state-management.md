@@ -409,7 +409,7 @@ shape:
    ResumeEnhancementPipelineState              OrchestrationResult
    (internal, TypedDict, every field           (public, Pydantic BaseModel,
     starts None, mutated stage by stage         one fully-formed object handed
-    across eleven nodes)                        back once and never mutated again)
+    across twelve nodes)                        back once and never mutated again)
 
            |                                             ^
            +---------- derive_run_disposition() ---------+

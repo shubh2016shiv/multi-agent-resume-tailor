@@ -107,7 +107,7 @@ Everything below is that same paragraph, redrawn as the exact technical graph.
 
 ### 3.2 The Full Technical Diagram
 
-`build_resume_enhancement_graph` in `graph.py` registers eleven nodes plus the
+`build_resume_enhancement_graph` in `graph.py` registers twelve nodes plus the
 implicit `START`/`END`. The main spine — ingest, compare, draft, assemble,
 grade, render — reads top to bottom. The one loop in the graph (the
 clarification gate) is called out here but drawn in full in
@@ -216,10 +216,16 @@ send execution backward. Pulled out on its own, the two paths look like this:
 
 The loop runs **at most once per unanswered question**: `optimize_experience`
 always clears `clarification_answers` back to empty the moment it consumes
-them, so the second pass through the routing step is guaranteed to find
-nothing left to re-apply and fall through to assembly. This is not an
-open-ended retry loop — it is one bounded round trip, gated entirely by
-whether the state already contains answers or not.
+them, and every answered fact permanently upgrades the canonical resume, so the
+same question can never be asked twice — this is not an open-ended retry loop.
+One precision worth adding, though: the *gate* can fire more than once. If a
+fresh rewrite pass surfaces a NEW unanswered question on a different bullet,
+`await_candidate_clarifications` interrupts a second time and the run pauses
+again, reusing the same paused-run directory. Each round is bounded by the same
+two guarantees (no question ever repeats, and every round requires a real human
+action), but the loop is a repeatable gate, not a single round trip — see
+[Human In The Loop §4.11](human-in-the-loop.md#411-multi-round-support--refining-a-simplification-from-orchestration-graph)
+for the full multi-round mechanics.
 
 ### 3.4 Two Structural Properties Worth Naming
 

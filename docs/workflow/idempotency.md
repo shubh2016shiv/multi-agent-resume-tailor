@@ -157,7 +157,8 @@ to *one run's* correlation needs (routing a candidate's clarification answer
 back to the exact bullet that asked the question, across a pause/resume
 boundary), not offered as a cross-run content hash. A second, independent
 `tailor_resume()` call on the identical source resume will, in practice, very
-likely produce the same IDs (extraction runs at temperature `0.0` — see
+likely produce the same IDs (extraction runs at the near-deterministic
+temperature `0.2` — see
 [Agent Roles §9](agent-roles.md#9-per-role-temperature--tuning-determinism-vs-creativity))
 — but nothing in this scheme *guarantees* that the way a SHA256 hash of file
 contents would. It is deterministic enough for its actual job — and its
@@ -278,8 +279,9 @@ Is it the pipeline's own entry point?
 ## 9. Future Considerations
 
 **Whether experience_id's within-run determinism claim should be tested
-against real extraction variance.** The ID scheme is deterministic in
-principle at temperature `0.0`, but nothing in the codebase today verifies
+against real extraction variance.** The ID scheme is near-deterministic in
+principle at the extractor's configured temperature `0.2`, but nothing in the
+codebase today verifies
 that two independent extractions of the same source resume actually produce
 identical IDs — the docstring's "repeatable within a run" claim has never
 been asked to hold *across* two runs, because nothing currently depends on it

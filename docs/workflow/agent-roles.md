@@ -191,7 +191,7 @@ platform, not a per-role tuning knob — the only per-role knobs are the persona
 ### 4.1 Resume Content Extractor
 
 - **Factory:** `create_resume_extractor_agent` (`src/agents/resume_parser/agent.py`)
-- **Config key:** `resume_content_extractor` · **Temperature:** `0.0`
+- **Config key:** `resume_content_extractor` · **Temperature:** `0.2`
 - **Output contract:** `Resume`
 - **Tools:** up to 4, the richest tool set of any role — `convert_resume_document_to_markdown`,
   `check_resume_markdown_quality`, `redact_pii_from_resume_markdown` (conditional),
@@ -204,8 +204,10 @@ the most interesting design detail: `build_resume_ingestion_tools(enable_pii_red
 does not pass a flag *into* the tool, it decides whether the tool exists in the
 agent's tool list at all. When the feature flag is off, the agent has no
 redaction affordance to reach for — the capability is absent, not merely unused.
-Temperature `0.0` reflects that extraction is a transcription task: there is a
-right structured answer, and the agent should not editorialize while producing it.
+Temperature `0.2` is still near-deterministic — extraction is a transcription
+task with a right structured answer, and the agent should not editorialize while
+producing it. The small step above `0.0` gives it latitude to cope with raw
+documents that vary far more in format and messiness than a job posting does.
 
 ### 4.2 Job Description Analyst
 
@@ -243,14 +245,14 @@ still far less than drafting prose.
 ### 4.4 Professional Summary Writer
 
 - **Factory:** `create_professional_summary_agent` (`src/agents/professional_summary/agent.py`)
-- **Config key:** `professional_summary_writer` · **Temperature:** `0.7`
+- **Config key:** `professional_summary_writer` · **Temperature:** `0.5`
 - **Output contract:** `ProfessionalSummary`
 - **Tools:** `audit_summary` — a hybrid tool blending mechanical checks (length,
   first-person voice, boilerplate detection) with LLM judgment.
 
 The highest temperature of any agent in the system, and intentionally so: this
-agent's job is to generate four summary drafts using different narrative
-frameworks, self-critique each one, and recommend the strongest. That is a
+agent's job is to generate two genuinely distinct summary drafts using different
+narrative angles, self-critique each one, and recommend the strongest. That is a
 creative-search task, not a fact-transcription task, and the temperature reflects
 it. The `audit_summary` tool is consulted *during* the agent's own reasoning loop —
 it is a quality mirror the agent can hold up to its own drafts, not a gate that
@@ -278,7 +280,7 @@ in the codebase.
 ### 4.6 Skills Section Strategist
 
 - **Factory:** `create_skill_optimizer_agent` (`src/agents/skill_optimizer/agent.py`)
-- **Config key:** `skills_section_strategist` · **Temperature:** `0.4`
+- **Config key:** `skills_section_strategist` · **Temperature:** `0.2`
 - **Output contract:** `OptimizedSkillsSection`
 - **Tools:** none — the agent's own docstring is explicit that "all quality checks
   run code-owned on typed output after the agent finishes, not through agent tool
@@ -286,11 +288,13 @@ in the codebase.
 
 The agent reorders, categorizes, and prioritizes skills according to the Gap
 Analysis Specialist's `skills_guidance`. Whether every listed skill is actually
-evidenced in the resume is checked afterward by the `check_skills_evidence` engine
-in `src/tools/truthfulness/` — the agent is not trusted to certify its own
-evidence trail while assembling the list. Temperature `0.4` sits between the
-extraction roles and the summary writer: reordering and grouping require judgment,
-but not narrative creativity.
+evidenced in the resume is checked afterward by the `validate_skills_evidence`
+engine in `src/tools/engines/truthfulness/skills_evidence.py` — the agent is not
+trusted to certify its own evidence trail while assembling the list
+(`check_skills_evidence` in `src/tools/agent_tools/resume_review_tools.py` is the
+CrewAI tool wrapper that calls it). Temperature `0.2` keeps the role
+near-deterministic, matching the extraction roles: reordering and grouping require
+judgment, but terminology must stay evidence-locked, so creative latitude is small.
 
 ### 4.7 ATS Optimization Specialist
 
@@ -480,21 +484,23 @@ arbitrary per-agent tuning:
 
 | Role | Temperature | Why |
 |---|---|---|
-| Resume Content Extractor | `0.0` | Transcription — a right structured answer exists |
-| Job Description Analyst | `0.0` | Transcription — same reasoning |
+| Job Description Analyst | `0.0` | Transcription — a right structured answer exists |
 | Experience Section Optimizer | `0.0` | Rewrites language only; must not invent content |
 | ATS Optimization Specialist | `0.1` | Assembly is closer to a mechanical merge than composition |
 | Quality Feedback Reviewer | `0.2` | Narrative audit, but grounded in tool findings |
+| Resume Content Extractor | `0.2` | Near-deterministic extraction over documents that vary far more than a job posting |
+| Skills Section Strategist | `0.2` | Reordering/grouping requires judgment, kept near-deterministic |
 | Gap Analysis Specialist | `0.3` | Synthesizing executable guidance from fixed facts |
-| Skills Section Strategist | `0.4` | Reordering/grouping requires judgment, not narrative creativity |
-| Professional Summary Writer | `0.7` | Drafts 4 narrative variations and self-critiques — a creative search task |
+| Professional Summary Writer | `0.5` | Drafts 2 narrative variations and self-critiques — a creative search task |
 
 The pattern: temperature rises in step with how much of a role's job is
 **generating options** versus **transforming already-decided facts**. Roles that
-sit closest to the truthfulness boundary (extraction, verbatim rewriting) sit at
-`0.0`. The one role whose entire job is creative variation (the summary writer)
-sits highest, and even then is bounded by a code-owned `audit_summary` tool it
-consults during its own turn.
+sit closest to the truthfulness boundary (job-description transcription, verbatim
+rewriting) sit at `0.0`; document extraction sits just above at `0.2`, because a
+resume file varies more in format and messiness than a job posting does. The one
+role whose entire job is creative variation (the summary writer) sits highest at
+`0.5`, and even then is bounded by a code-owned `audit_summary` tool it consults
+during its own turn.
 
 ---
 
@@ -615,7 +621,7 @@ a human-in-the-loop boundary that is a graph interrupt rather than a side channe
 
 ---
 
-## 12. Configuration Surface — agents.yaml and tasks.yaml
+## 12. Configuration Surface — Per-Role YAML Files
 
 Every persona lives in `src/config/agents/<role>.yaml`, keyed by the config name
 the factory passes to `load_agent_config`:
@@ -633,11 +639,13 @@ gap_analysis_specialist:
   verbose: true
 ```
 
-Every task lives in the matching `src/config/tasks/<role>.yaml`, associated back
-to its agent by name (`agent: gap_analysis_specialist`), and carrying its own
+Every task lives in the matching `src/config/tasks/<role>.yaml`, carrying its own
 `description` (the procedure, written as an ordered list the agent is meant to
 follow field-by-field) and `expected_output` (the shape the Pydantic model
-enforces regardless).
+enforces regardless). Task YAMLs also carry an `agent:` key for human readability,
+but the runtime ignores it: `run_agent_task()` receives the agent object and the
+task name from the calling node (`src/orchestration/crew_task_execution.py`), so
+the agent-task pairing is made in code, not by that YAML field.
 
 Both files in this project are notable for keeping **superseded prompt versions as
 commented-out blocks with a dated rationale header**, rather than relying on git

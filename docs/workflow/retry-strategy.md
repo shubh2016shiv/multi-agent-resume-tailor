@@ -335,9 +335,10 @@ configured once, uniformly, from outside CrewAI's code. `resilient_llm_call`
 is never applied to an agent's `kickoff()` call anywhere in the active
 codebase; its only production use is around the tool-layer
 `request_structured_output` gateway. (A legacy, non-production file —
-`skills_optimizer_agent_OBSELETE.py` — did apply `resilient_llm_call` directly
-to hand-rolled LLM calls before that agent was rebuilt into the current
-CrewAI-based `skill_optimizer` package; it is not part of the active pipeline.)
+`skills_optimizer_agent_OBSELETE.py` — once applied `resilient_llm_call`
+directly to hand-rolled LLM calls, but that file has since been deleted along
+with the rest of the pre-refactor `_OBSELETE` code; it is not part of the
+active pipeline.)
 
 ```text
    AGENT PATH (8 active agents)          TOOL / JUDGMENT-ENGINE PATH

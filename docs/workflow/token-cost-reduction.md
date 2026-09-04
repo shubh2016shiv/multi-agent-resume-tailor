@@ -273,12 +273,14 @@ of a loud, early failure.
 ## 8. A Feature Flag That No Longer Gates Anything
 
 `FeatureFlags.enable_condensed_formatting`, still present in
-`src/core/settings/schema.py` today, carries a detailed docstring describing
-exactly the behavior this document has been discussing: *"Condenses verbose
-job requirements, deduplicates keywords, and uses ultra-compact TOON format
-to reduce token usage by ~20-30%... Recommended: True for production (cost
-savings), False for development (easier debugging)."* This flag is the
-direct, named descendant of Section 3's Phase 2 optimizations.
+`src/core/settings/schema.py` today, is the direct, named descendant of
+Section 3's Phase 2 optimizations. Its current docstring reads: *"Enable
+aggressive token optimization in formatters. True condenses verbose job
+requirements, deduplicates keywords, and uses compact TOON format. False
+sends full data for debugging."* (The original, longer docstring — which also
+advertised "~20-30%" token savings and a "Recommended: True for production"
+note — survives only in `optimization_achievements.md`'s Phase 2 section;
+today's shorter text describes the same graduated behavior.)
 
 Searching the active codebase for where this flag is actually read today
 turns up nothing outside the schema file itself — no formatter in

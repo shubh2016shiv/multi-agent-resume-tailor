@@ -244,13 +244,13 @@ that shows up as `AlignmentStrategy` itself in
 Formatters don't only filter *source* documents — they also filter what one
 agent's own finished output is allowed to carry forward into the next agent's
 memory. `ats_optimization_formatter` is the clearest example: the Professional
-Summary Writer produces **four** full drafts plus a recommended version and
+Summary Writer produces **two** full drafts plus a recommended version and
 self-critique notes (`ProfessionalSummary`, see
 [Agent Roles §4.4](agent-roles.md#44-professional-summary-writer)), but
 `choose_summary_text` resolves that down to **one string** — the chosen
 draft's content — before the ATS Optimization Specialist ever sees any of it.
-The other three drafts, and every reason the writer gave for preferring one
-over another, never leave the summary node's own scope. Likewise,
+The other draft, and every reason the writer gave for preferring one draft
+over the other, never leave the summary node's own scope. Likewise,
 `OptimizedExperienceSection.optimization_notes` and `.keywords_integrated`
 bookkeeping never cross into the ATS assembler's context at all — only
 `optimized_experiences`, the actual rewritten entries, do. A downstream agent

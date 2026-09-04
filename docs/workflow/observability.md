@@ -154,7 +154,7 @@ describes.
 What actually gets `run_id` onto log lines instead is manual, disciplined,
 explicit repetition: every node in every stage passes `run_id=state["run_id"]`
 as an ordinary keyword argument on every `logger.info(...)` call, by hand,
-consistently, across all eleven pipeline nodes. It works — you can grep any
+consistently, across all twelve pipeline nodes. It works — you can grep any
 log stream for one `run_id` value and reconstruct a run's whole story — but
 it works because of consistent developer habit at every call site, not
 because of the automatic mechanism the logging module's own docstring
@@ -197,11 +197,12 @@ The second layer — `trace_agent` / `trace_tool` decorators
 shows up as one named span, with its LLM calls nesting inside it, "giving a
 per-agent -> per-LLM-call tree" — is not applied anywhere in the active
 pipeline. A search across the codebase for `trace_agent` or `trace_tool`
-usage turns up only the retired `_OBSELETE` agent files — none of the eight
-active agent factories documented in
-[Agent Roles §4](agent-roles.md#4-the-eight-active-roles--a-field-guide), and
-none of the eleven orchestration nodes documented in
-[Orchestration Graph](orchestration-graph.md), apply either decorator.
+usage turns up no callers at all in the active codebase — the retired
+`_OBSELETE` files that once applied them have been deleted — and neither the
+eight active agent factories documented in
+[Agent Roles §4](agent-roles.md#4-the-eight-active-roles--a-field-guide) nor
+any of the twelve orchestration nodes documented in
+[Orchestration Graph](orchestration-graph.md) apply either decorator.
 
 The practical consequence: today, LangSmith receives every individual LLM
 call as its own trace, ungrouped by which agent or which pipeline stage made
@@ -232,8 +233,10 @@ domain-specific metrics — a quality score, an improvement delta, an issue
 count — that CrewAI and LangSmith's automatic capture doesn't produce on its
 own, always logging to structlog first and, when a LangSmith run is active,
 attaching the same metrics to that run's metadata. Searching for callers of
-this function across the active codebase turns up, again, only the retired
-`_OBSELETE` agent files. No node in the current pipeline — including
+this function across the active codebase turns up none at all — the retired
+`_OBSELETE` agent files that once called it have been deleted, and its only
+remaining "usage" is a docstring example in `src/observability/__init__.py`.
+No node in the current pipeline — including
 `resume_quality.py`, which computes exactly the kind of scores this function
 was built to surface (`overall_quality_score`, `accuracy_score`,
 `relevance_score`, all documented in [Evaluation](evaluation.md)) — calls it.
@@ -292,13 +295,11 @@ four unrelated surprises:
    (Memory Boundaries §11)            an agent execution boundary       called in
                                                                           production
 
-   trace_agent / trace_tool           per-agent LangSmith spans,        built, only
-   (Section 4.2, this doc)            "readable workflow" tree          _OBSELETE
-                                                                          files use it
+   trace_agent / trace_tool           per-agent LangSmith spans,        built, zero
+   (Section 4.2, this doc)            "readable workflow" tree          callers today
 
-   log_iteration_metrics              custom quality/iteration          built, only
-   (Section 5, this doc)              metrics on the LangSmith run      _OBSELETE
-                                                                          files use it
+   log_iteration_metrics              custom quality/iteration          built, zero
+   (Section 5, this doc)              metrics on the LangSmith run      callers today
 
    structlog run_id auto-binding      "bind once, appears on every      documented,
    (Section 3.4, this doc)            log line automatically"           never called;
@@ -326,12 +327,13 @@ It's worth contrasting the previous section with the one piece of
 instrumentation that *is* fully wired into the current pipeline:
 `src/checkpointing.py`'s debug input/output capture, documented in full in
 [State Management §11](state-management.md#11-two-unrelated-things-both-called-checkpoint--a-naming-trap).
-Unlike the four mechanisms above, this one is called from exactly the two
-real LLM entry points that exist in the *current* architecture —
-`run_agent_task` and, via that same call, every one of the eight active agent
-factories — and its own docstring's usage example matches what the code
-actually does today. When `DEBUG_CHECKPOINTS=1` is set, every agent call in
-every node writes a paired `INPUT`/`OUTPUT` text file, synchronously,
+Unlike the four mechanisms above, this one is called from `run_agent_task` —
+the single seam through which every one of the eight active agent factories
+runs — and its own docstring's usage example matches what the code actually
+does today. (It is NOT wired into the tool-layer `request_structured_output`
+path, so tool-call LLM traffic gets no checkpoints.) When `DEBUG_CHECKPOINTS=1`
+is set, every agent call in every node writes a paired `INPUT`/`OUTPUT` text
+file, synchronously,
 regardless of which of the eight roles made the call. This is the
 instrumentation layer to reach for when the question is "what exact context
 did the model receive and what did it return" — not the LangSmith workflow
@@ -411,15 +413,16 @@ in, or removed.** `trace_agent`/`trace_tool`, `log_iteration_metrics`, and
 are simply not connected to anything in the current eight-role architecture.
 Each is a small, deliberate decision away from either being wired into the
 active node/agent call sites (closing the gap between documented and actual
-behavior) or being retired alongside the `_OBSELETE` files that are their only
-remaining callers. Leaving them in an indefinite third state — built,
+behavior) or being retired outright — the `_OBSELETE` files that were their
+only callers are already gone, leaving them with zero active call sites.
+Leaving them in an indefinite third state — built,
 documented as active, actually dormant — is the option most likely to mislead
 the next contributor who reads their docstrings at face value.
 
 **Whether `run_id` should, in fact, be bound via `structlog.contextvars` at
 the top of `tailor_resume()` and `resume_paused_run()`.** Section 3.4
 documents that the logger module's own intended pattern for this is real and
-would remove a meaningful amount of repetition across eleven node files, each
+would remove a meaningful amount of repetition across the ten node files, each
 of which currently passes `run_id=` by hand on every log call. Given that
 `run_id_binding`'s module-global mechanism ([State Management §10](state-management.md#10-run_id_binding--why-a-contextvar-would-have-been-wrong-here))
 was deliberately *not* built on `ContextVar` because of CrewAI's worker-thread

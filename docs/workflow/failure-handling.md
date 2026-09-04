@@ -52,6 +52,12 @@ The ladder is important because it prevents overusing the LLM. If a deterministi
 patch can restore an empty section from typed upstream state, that is better than
 asking the model to regenerate the entire resume.
 
+Scope note on rung 2: it is the LLM *call* that retries, not the node. CrewAI's
+`max_retry_limit` re-attempts a failed or unparseable agent call in place, but the
+graph itself deliberately runs no retry-until-pass loops around nodes — a node
+whose output fails moves up the ladder instead of being re-run (both `ats_patch.py`
+and `summary.py` are explicit that such loops were removed on purpose).
+
 ## Evidence First
 
 Every failure should leave enough evidence to answer three questions:

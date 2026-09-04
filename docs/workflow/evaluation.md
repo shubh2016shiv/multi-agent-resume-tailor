@@ -124,7 +124,7 @@ resume's *skills* answer the job's *structured requirements*, weighted by
 each requirement's stated importance:
 
 ```text
-   IMPORTANCE_WEIGHTS = { MUST_HAVE: 3, SHOULD_HAVE: 2, NICE_TO_HAVE: 1 }
+   _IMPORTANCE_WEIGHTS = { MUST_HAVE: 3, SHOULD_HAVE: 2, NICE_TO_HAVE: 1 }
 
    for each requirement: matched = is_required_skill_evidenced(
                                       requirement's canonical text,
@@ -381,9 +381,9 @@ workflow:
 ```
 
 None of these five numbers is read anywhere in the active evaluation
-pipeline. A search across the codebase turns up `QualityMetricsConfig` used
-only by the retired `ats_optimization_agent_OBSELETE.py` and re-exported from
-`src/core/settings/__init__.py` — never imported by
+pipeline. A search across the codebase turns up `QualityMetricsConfig`
+referenced only by `src/core/settings/__init__.py`, which re-exports it —
+never imported by
 `src/resume_quality_evaluation/`, never imported by the summary quality
 engine, never consulted anywhere the actual gate is computed. The value that
 *actually* governs the gate, `QUALITY_PASS_THRESHOLD = 80.0` in

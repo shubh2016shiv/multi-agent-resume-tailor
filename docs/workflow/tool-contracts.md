@@ -268,7 +268,7 @@ file is read from disk exactly once per process. The practical effect is that
 every judgment engine's prompt is a reviewable, diffable Markdown file living
 in one catalog directory, exactly the same discipline documented for CrewAI
 agent personas and task instructions in
-[Agent Roles §13](agent-roles.md#13-configuration-surface--agentsyaml-and-tasksyaml).
+[Agent Roles §12](agent-roles.md#12-configuration-surface--per-role-yaml-files).
 Whether the prompt belongs to a full CrewAI `Agent` or to a single bounded
 tool-layer LLM call, this codebase treats it as a versioned artifact, not a
 disposable string embedded in logic.

@@ -39,7 +39,7 @@ application:
 # field on `Settings`.
 # ------------------------------------------------------------------------------
 feature_flags:
-  enable_cache: true
+  enable_cache: false
   enable_web_search: false
   enable_human_in_the_loop: false
 

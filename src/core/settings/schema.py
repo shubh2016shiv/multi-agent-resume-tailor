@@ -128,9 +128,14 @@ class AgentDefaults(BaseModel):
 class LLMConfig(BaseModel):
     """Default LLM settings for all agents."""
 
-    provider: Literal["openai", "anthropic", "ollama", "google"] = "openai"
-    model: str = "gpt-4"
+    provider: Literal["openai", "anthropic", "ollama", "google", "deepseek"] = "deepseek"
+    model: str = "deepseek/deepseek-v4-flash"
+    structured_model: str = "gpt-4o"
+    api_base: str | None = "https://api.deepseek.com"
     temperature: float = 0.3
+    thinking: Literal["enabled", "disabled"] = "enabled"
+    reasoning_effort: Literal["low", "high", "max"] | None = "low"
+    max_tokens: int = Field(default=4_096, ge=1)
     timeout: int = 120
     max_retries: int = 3
     structured_input_token_budget: int = Field(

@@ -92,6 +92,7 @@ import logging
 import os
 import socket
 import sys
+import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -154,6 +155,15 @@ _REDACTED_VALUE = "***REDACTED***"
 # --------------------------------------------------------------------------
 _logging_configured = False
 _configured_settings_fingerprint: tuple[Any, ...] | None = None
+
+# Guards the check-and-configure block below. The pipeline's Stage 1 fan-out runs
+# extract_resume/analyze_job as concurrent threads, and each imports its own chain of
+# modules on first use; get_logger() at module scope means two threads can both see
+# "not yet configured" and both build a fresh RotatingFileHandler for the same log
+# file path. Two live handles to one file is exactly what makes Windows refuse the
+# rotation rename (WinError 32) the first time either handler rolls over. Same shape
+# as _KICKOFF_LOCK in crew_task_execution.py: serialize the one-time setup instead.
+_CONFIGURE_LOCK = threading.Lock()
 
 
 # ==========================================================================
@@ -351,7 +361,7 @@ def _configure_noisy_library_logging(
     litellm_level = getattr(logging, litellm_level_name)
     os.environ["LITELLM_LOG"] = litellm_level_name
 
-    for logger_name in ("openai", "httpx", "httpcore", "crewai"):
+    for logger_name in ("openai", "httpx", "httpcore", "crewai", "pdfminer", "pdfplumber"):
         logging.getLogger(logger_name).setLevel(third_party_level)
     for logger_name in ("litellm", "LiteLLM"):
         logging.getLogger(logger_name).setLevel(litellm_level)
@@ -366,59 +376,60 @@ def configure_structlog() -> None:
     """
     global _logging_configured, _configured_settings_fingerprint
 
-    # STEP 1: read config and skip if nothing relevant changed.
-    config = get_config()
-    settings_fingerprint = (
-        config.logging.level,
-        config.logging.format,
-        config.logging.log_file,
-        config.logging.third_party_level,
-        config.logging.litellm_level,
-        config.application.environment,
-    )
-    if _logging_configured and _configured_settings_fingerprint == settings_fingerprint:
-        return
+    with _CONFIGURE_LOCK:
+        # STEP 1: read config and skip if nothing relevant changed.
+        config = get_config()
+        settings_fingerprint = (
+            config.logging.level,
+            config.logging.format,
+            config.logging.log_file,
+            config.logging.third_party_level,
+            config.logging.litellm_level,
+            config.application.environment,
+        )
+        if _logging_configured and _configured_settings_fingerprint == settings_fingerprint:
+            return
 
-    # STEP 2: build the facts that go on every log line.
-    static_context = {
-        "service": _SERVICE_NAME,
-        "environment": config.application.environment,
-        "version": _SERVICE_VERSION,
-        "host": socket.gethostname(),
-        "pid": os.getpid(),
-    }
+        # STEP 2: build the facts that go on every log line.
+        static_context = {
+            "service": _SERVICE_NAME,
+            "environment": config.application.environment,
+            "version": _SERVICE_VERSION,
+            "host": socket.gethostname(),
+            "pid": os.getpid(),
+        }
 
-    # STEP 3: wire up the processor pipeline.
-    log_level = getattr(logging, config.logging.level)
-    processors = _build_processors(config.logging.format, static_context)
+        # STEP 3: wire up the processor pipeline.
+        log_level = getattr(logging, config.logging.level)
+        processors = _build_processors(config.logging.format, static_context)
 
-    structlog.configure(
-        processors=processors,
-        # Filter by level BEFORE the expensive formatting work, so a DEBUG
-        # log filtered out in production costs almost nothing.
-        wrapper_class=structlog.make_filtering_bound_logger(log_level),
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        # Cache the logger built for each name, so repeated
-        # get_logger(__name__) calls for a module don't rebuild it.
-        cache_logger_on_first_use=True,
-    )
+        structlog.configure(
+            processors=processors,
+            # Filter by level BEFORE the expensive formatting work, so a DEBUG
+            # log filtered out in production costs almost nothing.
+            wrapper_class=structlog.make_filtering_bound_logger(log_level),
+            context_class=dict,
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            # Cache the logger built for each name, so repeated
+            # get_logger(__name__) calls for a module don't rebuild it.
+            cache_logger_on_first_use=True,
+        )
 
-    # STEP 4: point the underlying stdlib logger at stdout (+ optional file).
-    _configure_standard_logging(log_level, config.logging.log_file)
-    _configure_noisy_library_logging(
-        config.logging.third_party_level,
-        config.logging.litellm_level,
-    )
+        # STEP 4: point the underlying stdlib logger at stdout (+ optional file).
+        _configure_standard_logging(log_level, config.logging.log_file)
+        _configure_noisy_library_logging(
+            config.logging.third_party_level,
+            config.logging.litellm_level,
+        )
 
-    # STEP 5: clear leftover per-request bindings from before this
-    # (re-)configuration. The service identity lives in the processor
-    # chain (STEP 2/3), NOT in contextvars, so clearing here is safe -- it
-    # only removes request-scoped state, never the global identity.
-    structlog.contextvars.clear_contextvars()
+        # STEP 5: clear leftover per-request bindings from before this
+        # (re-)configuration. The service identity lives in the processor
+        # chain (STEP 2/3), NOT in contextvars, so clearing here is safe -- it
+        # only removes request-scoped state, never the global identity.
+        structlog.contextvars.clear_contextvars()
 
-    _logging_configured = True
-    _configured_settings_fingerprint = settings_fingerprint
+        _logging_configured = True
+        _configured_settings_fingerprint = settings_fingerprint
 
 
 def get_logger(name: str | None = None) -> structlog.BoundLogger:

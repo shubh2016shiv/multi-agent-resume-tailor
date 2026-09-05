@@ -24,8 +24,11 @@ gap_analysis_specialist:
   # DeepSeek's reasoning trace and final answer share this one budget (no separate
   # chain-of-thought allowance). Measured directly: this task's reasoning alone used
   # the full 6000 before finishing, leaving finish_reason="length" and empty content --
-  # a genuine budget shortfall, not a fluke. 16000 gives real headroom for both.
-  max_tokens: 16000
+  # a genuine budget shortfall, not a fluke. Reasoning length also varies run to run for
+  # the identical prompt (observed 12176 reasoning tokens on one successful call, then a
+  # separate run still truncated at 16000) -- so this needs real margin, not just enough
+  # for one measurement.
+  max_tokens: 24000
   verbose: true
 
 # =============================================================================

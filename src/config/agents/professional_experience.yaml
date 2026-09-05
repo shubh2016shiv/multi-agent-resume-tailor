@@ -27,8 +27,9 @@ experience_section_optimizer:
   reasoning_effort: high
   # Same shared reasoning+answer budget shortfall measured on gap_analysis's identical
   # thinking/reasoning_effort profile (max_tokens: 6000 exhausted by reasoning alone,
-  # finish_reason="length", empty content). 16000 gives real headroom for both.
-  max_tokens: 16000
+  # finish_reason="length", empty content). Reasoning length also varies run to run for
+  # an identical prompt, so this carries the same wider margin as gap_analysis.
+  max_tokens: 24000
   verbose: true
   max_iter: 4
   max_execution_time: 90

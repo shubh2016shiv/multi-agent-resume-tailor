@@ -24,8 +24,13 @@ skills_section_strategist:
       with real evidence, and never treat a job requirement as proof the candidate has it.
     - For every skill you add or normalize, give a concrete justification and the evidence it
       rests on; rate confidence honestly.
-  llm: openai/gpt-4.1
+  llm: deepseek/deepseek-v4-flash
   temperature: 0.2
+  thinking: enabled
+  reasoning_effort: low
   verbose: true
-  max_tokens: 2000
+  # Same shared reasoning+answer budget shortfall measured on gap_analysis/
+  # professional_experience -- confirmed by a live failure here too (empty content,
+  # "Invalid response from LLM call"). 2000 left no room once the reasoning trace ran.
+  max_tokens: 8000
   max_execution_time: 60

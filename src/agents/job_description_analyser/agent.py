@@ -7,9 +7,10 @@ converted to Markdown before the task is created, and the text arrives in contex
 The agent's persona and task instructions in agents.yaml shape the extraction.
 """
 
-from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
+from crewai import Agent
 
 from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
+from src.core.llm_factory import build_llm
 from src.core.logger import get_logger
 from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 
@@ -31,7 +32,7 @@ def create_job_analyzer_agent() -> Agent:
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
     config = load_agent_config("job_description_analyst")  # role/goal/backstory/llm from YAML
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.0))
+    llm_instance = build_llm(config)
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS

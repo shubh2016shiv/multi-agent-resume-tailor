@@ -31,6 +31,11 @@ professional_summary_writer:
     candidate, you rewrite it.
     You have the "Audit Summary Quality" tool available and use it to sanity-check your
     recommended draft before finalizing.
-  llm: openai/gpt-4.1
+  llm: deepseek/deepseek-v4-pro
   temperature: 0.5
+  thinking: disabled
+  # Measured failure: this agent narrates its multi-draft process (draft two summaries,
+  # audit one) in plain text before ever emitting JSON, and a real run exhausted 3000
+  # tokens entirely on that narration -- raw output had no "{" anywhere in 10000+ chars.
+  max_tokens: 8000
   verbose: true

@@ -17,8 +17,15 @@ gap_analysis_specialist:
       reword or add metrics), and the Skills Optimizer reorders and adds only
       evidence-backed skills (never drops a truthful one). You guide on emphasis and
       ordering, never on rewording or fabrication.
-  llm: openai/gpt-4o
+  llm: deepseek/deepseek-v4-pro
   temperature: 0.3
+  thinking: enabled
+  reasoning_effort: high
+  # DeepSeek's reasoning trace and final answer share this one budget (no separate
+  # chain-of-thought allowance). Measured directly: this task's reasoning alone used
+  # the full 6000 before finishing, leaving finish_reason="length" and empty content --
+  # a genuine budget shortfall, not a fluke. 16000 gives real headroom for both.
+  max_tokens: 16000
   verbose: true
 
 # =============================================================================

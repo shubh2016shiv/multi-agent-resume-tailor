@@ -10,15 +10,16 @@ and missing value proposition, using both mechanical checks and LLM judgment.
 
 The agent receives Resume + JobDescription + AlignmentStrategy as context, reads
 the strategic guidance (professional_summary_guidance, keywords_to_integrate),
-generates 4 summary drafts using different narrative frameworks, self-critiques
+generates 2 summary drafts using different narrative angles, self-critiques
 each one, and recommends the strongest version.
 
 Output contract: ProfessionalSummary (via Task output_pydantic=ProfessionalSummary).
 """
 
-from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
+from crewai import Agent
 
 from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
+from src.core.llm_factory import build_llm
 from src.core.logger import get_logger
 from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 from src.tools.agent_tools import audit_summary
@@ -49,7 +50,7 @@ def create_professional_summary_agent() -> Agent:
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
     config = load_agent_config("professional_summary_writer")  # role/goal/backstory/llm from YAML
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.7))
+    llm_instance = build_llm(config)
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS

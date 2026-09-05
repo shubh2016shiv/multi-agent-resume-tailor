@@ -14,9 +14,10 @@ agents (summary, experience, skills).
 Output contract: AlignmentStrategy (via Task output_pydantic=AlignmentStrategy).
 """
 
-from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
+from crewai import Agent
 
 from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
+from src.core.llm_factory import build_llm
 from src.core.logger import get_logger
 from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 
@@ -38,7 +39,7 @@ def create_gap_analysis_agent() -> Agent:
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
     config = load_agent_config("gap_analysis_specialist")  # role/goal/backstory/llm from YAML
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.3))
+    llm_instance = build_llm(config)
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS

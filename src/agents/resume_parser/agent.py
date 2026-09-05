@@ -12,9 +12,10 @@ The agent orchestrates them in order: convert -> quality check -> redact -> extr
 Output contract: Resume (via Task output_pydantic=Resume).
 """
 
-from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
+from crewai import Agent
 
 from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
+from src.core.llm_factory import build_llm
 from src.core.logger import get_logger
 from src.core.settings import get_config  # runtime defaults + the PII-redaction feature flag
 from src.tools.agent_tools import (
@@ -63,7 +64,7 @@ def create_resume_extractor_agent() -> Agent:
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
     config = load_agent_config("resume_content_extractor")  # role/goal/backstory/llm from YAML
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.0))
+    llm_instance = build_llm(config)
 
     ####################################################
     # STEP 2: ASSEMBLE TOOLS AND RUNTIME DEFAULTS

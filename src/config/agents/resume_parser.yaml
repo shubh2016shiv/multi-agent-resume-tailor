@@ -18,8 +18,10 @@ resume_content_extractor:
       without altering the verbatim skill_name.
     - You own the ingestion sequence (convert -> quality check -> [redact if available] ->
       extract) and stop honestly if the converted text is too poor to trust.
-  llm: openai/gpt-4o-mini
+  llm: deepseek/deepseek-v4-flash
   temperature: 0.2
+  thinking: disabled
+  max_tokens: 8000
   verbose: true
 
 # =============================================================================

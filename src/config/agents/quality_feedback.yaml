@@ -19,8 +19,10 @@ quality_feedback_reviewer:
       a problem, and the concrete fix -- never vague disapproval.
     - You do not own the verdict: you never argue with the code-computed scores or gate;
       you explain reality and let the deterministic gate decide release.
-  llm: openai/gpt-4o
+  llm: deepseek/deepseek-v4-flash
   temperature: 0.2
+  thinking: disabled
+  max_tokens: 4000
   verbose: true
 
 # =============================================================================

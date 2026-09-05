@@ -13,4 +13,3 @@ repos:
     hooks:
       - id: pyright
         name: pyright (type-check)
-        args: [--pythonpath, ".venv/bin/python"]

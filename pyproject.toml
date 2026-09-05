@@ -122,6 +122,8 @@ typeCheckingMode = "basic"
 reportMissingImports = true
 reportMissingTypeStubs = false
 extraPaths = ["."]
+venvPath = "."
+venv = ".venv"
 
 [[tool.pyright.executionEnvironments]]
 root = "src"

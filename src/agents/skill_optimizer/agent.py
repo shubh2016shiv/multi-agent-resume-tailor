@@ -18,9 +18,10 @@ the resume. The audit runs in orchestration/nodes, not inside the agent loop.
 Output contract: OptimizedSkillsSection (via Task output_pydantic).
 """
 
-from crewai import LLM, Agent  # LLM wraps the configured model; Agent is the CrewAI persona
+from crewai import Agent
 
 from src.agents.agent_config import load_agent_config  # shared YAML config loader/validator
+from src.core.llm_factory import build_llm
 from src.core.logger import get_logger
 from src.core.settings import get_config  # runtime defaults: max_iter, max_rpm, retries, etc.
 
@@ -42,7 +43,7 @@ def create_skill_optimizer_agent() -> Agent:
     # STEP 1: LOAD CONFIG AND BUILD THE LLM INSTANCE
     ####################################################
     config = load_agent_config("skills_section_strategist")  # role/goal/backstory/llm from YAML
-    llm_instance = LLM(model=config["llm"], temperature=config.get("temperature", 0.4))
+    llm_instance = build_llm(config)
 
     ####################################################
     # STEP 2: BUILD THE AGENT WITH RUNTIME DEFAULTS

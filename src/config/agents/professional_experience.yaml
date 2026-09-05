@@ -21,8 +21,14 @@ experience_section_optimizer:
     ships the original bullets and your work is discarded. Metadata is rebuilt from the
     source regardless. Your one effective contribution is the achievements text -- make
     it specific, truthful, and worth a recruiter's time.
-  llm: openai/gpt-4.1
+  llm: deepseek/deepseek-v4-pro
   temperature: 0.0
+  thinking: enabled
+  reasoning_effort: high
+  # Same shared reasoning+answer budget shortfall measured on gap_analysis's identical
+  # thinking/reasoning_effort profile (max_tokens: 6000 exhausted by reasoning alone,
+  # finish_reason="length", empty content). 16000 gives real headroom for both.
+  max_tokens: 16000
   verbose: true
   max_iter: 4
   max_execution_time: 90

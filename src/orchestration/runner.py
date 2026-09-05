@@ -1,11 +1,13 @@
 """Public entry points for the resume enhancement pipeline."""
 
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from uuid import uuid4
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
@@ -36,10 +38,13 @@ logger = get_logger(__name__)
 
 init_observability("resume-tailor-agents")
 
+ProgressCallback = Callable[[str, str], None]
+
 
 def tailor_resume(
     resume_path: str,
     jd_path: str,
+    progress_callback: ProgressCallback | None = None,
 ) -> OrchestrationResult:
     """Run a fresh pipeline execution from source documents."""
     run_id = uuid4().hex
@@ -48,7 +53,7 @@ def tailor_resume(
     checkpoint_db_path = _in_flight_checkpoint_db_path(run_id)
     checkpointer = open_checkpoint_database(checkpoint_db_path)
     pipeline = _build_pipeline(checkpointer)
-    config = {"configurable": {"thread_id": run_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": run_id}}
     logger.info(
         "pipeline_run_started",
         run_id=run_id,
@@ -76,7 +81,7 @@ def tailor_resume(
         "rendered_artifacts": None,
     }
     try:
-        output = pipeline.invoke(initial_state, config=config)
+        output = _invoke_pipeline(pipeline, initial_state, config, progress_callback)
         result = _finalize_pipeline_output(
             pipeline=pipeline,
             config=config,
@@ -104,6 +109,7 @@ def tailor_resume(
 
 def resume_paused_run(
     paused_run_path: str,
+    progress_callback: ProgressCallback | None = None,
 ) -> OrchestrationResult:
     """Resume a previously paused professional-experience clarification run."""
     paused_run_dir = Path(paused_run_path)
@@ -112,7 +118,7 @@ def resume_paused_run(
     start_time = time.monotonic()
     result: OrchestrationResult | None = None
     pipeline = _build_pipeline(checkpointer)
-    config = {"configurable": {"thread_id": manifest.run_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": manifest.run_id}}
     try:
         answered_clarifications = load_answered_clarifications(
             str(paused_run_dir / manifest.clarifications_filename)
@@ -131,13 +137,11 @@ def resume_paused_run(
             paused_run_path=paused_run_path,
             answered_clarifications=len(answered_clarifications),
         )
-        output = pipeline.invoke(
-            Command(
-                resume={"status": "candidate_answers_submitted"},
-                update={"clarification_answers": answered_clarifications},
-            ),
-            config=config,
+        command = Command(
+            resume={"status": "candidate_answers_submitted"},
+            update={"clarification_answers": answered_clarifications},
         )
+        output = _invoke_pipeline(pipeline, command, config, progress_callback)
         result = _finalize_pipeline_output(
             pipeline=pipeline,
             config=config,
@@ -159,11 +163,39 @@ def resume_paused_run(
         raise
     finally:
         close_checkpoint_database(checkpointer)
-        _settle_resumed_run_checkpoint(
-            paused_run_dir / manifest.checkpoint_db_filename, result
-        )
+        _settle_resumed_run_checkpoint(paused_run_dir / manifest.checkpoint_db_filename, result)
         if _should_cleanup_pii_mapping_after_resume(result):
             _cleanup_pii_mapping(manifest.run_id)
+
+
+def _invoke_pipeline(
+    pipeline: CompiledStateGraph,
+    pipeline_input: Any,
+    config: RunnableConfig,
+    progress_callback: ProgressCallback | None,
+) -> dict:
+    """Invoke normally or stream task lifecycle events to a caller."""
+    if progress_callback is None:
+        return cast(dict, pipeline.invoke(pipeline_input, config=config))
+    output: dict | None = None
+    for mode, event in pipeline.stream(
+        pipeline_input, config=config, stream_mode=["tasks", "values"]
+    ):
+        if mode == "tasks":
+            _report_task_event(progress_callback, cast(dict, event))
+        else:
+            output = cast(dict, event)
+    if output is None:
+        raise RuntimeError("Pipeline completed without emitting state")
+    return output
+
+
+def _report_task_event(callback: ProgressCallback, event: dict[str, Any]) -> None:
+    """Translate one LangGraph task event into a stable UI lifecycle event."""
+    if "result" not in event and "error" not in event:
+        callback("started", str(event["name"]))
+        return
+    callback("failed" if event.get("error") else "completed", str(event["name"]))
 
 
 def _build_pipeline(checkpointer: SqliteSaver) -> CompiledStateGraph:
@@ -210,7 +242,7 @@ def _settle_resumed_run_checkpoint(
 
 def _finalize_pipeline_output(
     pipeline: CompiledStateGraph,
-    config: dict,
+    config: RunnableConfig,
     output: dict,
     run_id: str,
     resume_path: str,
@@ -381,9 +413,7 @@ def _log_pipeline_completion(
         "pipeline_run_completed",
         run_id=run_id,
         gate_passed=(
-            result.quality_report.passes_quality_gate
-            if result.quality_report is not None
-            else None
+            result.quality_report.passes_quality_gate if result.quality_report is not None else None
         ),
         disposition=result.disposition.value,
         duration_ms=duration_ms,

@@ -14,9 +14,11 @@ from pydantic import BaseModel
 
 from src.checkpointing import save_agent_input_checkpoint, save_agent_output_checkpoint
 from src.core.llm_cache import configure_llm_cache
+from src.core.llm_factory import is_deepseek_model, structured_response_format
 from src.core.logger import get_logger
 from src.core.settings import get_config, get_tasks_config
 from src.orchestration.exceptions import AgentOutputError
+from src.tools.llm_gateway.structured_output import add_json_contract
 
 logger = get_logger(__name__)
 
@@ -108,23 +110,20 @@ def run_agent_task(
     # carry tools we leave response_format unset and let the tool chain run; we still
     # validate the final raw output ourselves below (same path, no output_pydantic
     # coercion that crashes on our PEP 604 "X | None" fields).
-    # For tool-free agents, response_format is safe and guarantees well-formed JSON
-    # on the first try without any coercion retry.
-    if agent.tools:
-        agent.llm.response_format = None
-        # output_pydantic constrains the agent to return a JSON object matching
-        # output_model, the same way the trigger scripts do. Without this, the agent
-        # can decide to return a prose error string instead of JSON (e.g. when it sees
-        # a quality-check WARNING and chooses to stop). We still validate result.raw
-        # ourselves below so we never hit CrewAI's PEP 604 schema-parser path.
+    # DeepSeek does not advertise response_format support to this CrewAI version.
+    # Tool loops must also avoid CrewAI's output_pydantic converter because it cannot
+    # parse the PEP 604 unions in Resume. Both paths are validated explicitly below.
+    llm: Any = agent.llm
+    task_description = add_json_contract(task_description, output_model, llm.model)
+    if agent.tools or is_deepseek_model(llm.model):
+        llm.response_format = None
         task = Task(
             description=task_description,
             expected_output=task_expected_output,
             agent=agent,
-            output_pydantic=output_model,
         )
     else:
-        agent.llm.response_format = output_model
+        llm.response_format = structured_response_format(llm.model, output_model)
         task = Task(
             description=task_description,
             expected_output=task_expected_output,

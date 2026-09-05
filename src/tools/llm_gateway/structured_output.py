@@ -8,32 +8,35 @@ review tools (ReviewResult) and the extraction tools (Resume, JobDescription)
 build on this one function.
 """
 
+import json
+from typing import Any
+
 from crewai import LLM
 from pydantic import BaseModel
 
 from src.core.llm_cache import configure_llm_cache
+from src.core.llm_factory import build_llm, is_deepseek_model
 from src.core.llm_token_tracker import ensure_token_budget
 from src.core.logger import get_logger
+from src.core.prompt_catalog import load_tool_prompt
 from src.core.resiliency import resilient_llm_call
 from src.core.settings import get_config
 
 logger = get_logger(__name__)
+JSON_CONTRACT_PROMPT = load_tool_prompt("structured_output/json_contract.md")
 
 
-def build_structured_llm(
-    output_model: type[BaseModel], temperature: float | None = None
-) -> LLM:
+def build_structured_llm(output_model: type[BaseModel], temperature: float | None = None) -> LLM:
     """Construct an LLM that returns JSON shaped like output_model.
 
     Uses the configured default temperature unless an explicit temperature is given
     (e.g. 0.0 for deterministic gate decisions like the entailment judge).
     """
     llm_config = get_config().llm
-    return LLM(
-        model=llm_config.model,
-        temperature=llm_config.temperature if temperature is None else temperature,
-        response_format=output_model,
-    )
+    overrides: dict[str, Any] = {"model": llm_config.structured_model}
+    if temperature is not None:
+        overrides["temperature"] = temperature
+    return build_llm(overrides, output_model)
 
 
 def request_structured_output[OutputModel: BaseModel](
@@ -62,20 +65,36 @@ def request_structured_output[OutputModel: BaseModel](
     # TODO: Accept an optional model= override so bounded tool calls can use a
     #       cheaper model than the agent's. Deferred: no cost measurement yet.
     llm_config = get_config().llm
+    structured_model = llm_config.structured_model
+    contracted_prompt = add_json_contract(system_prompt, output_model, structured_model)
 
     ####################################################
     # STEP 1: ENFORCE THE INPUT TOKEN BUDGET BEFORE ANY PROVIDER CALL#
     ####################################################
     ensure_token_budget(
-        f"{system_prompt}\n\n{user_content}",
-        llm_config.model,
+        f"{contracted_prompt}\n\n{user_content}",
+        structured_model,
         llm_config.structured_input_token_budget,
     )
 
     ####################################################
     # STEP 2: HAND THE VALIDATED INPUT TO THE RESILIENT CALL PATH#
     ####################################################
-    return _request_structured_output(output_model, system_prompt, user_content, temperature)
+    return _request_structured_output(output_model, contracted_prompt, user_content, temperature)
+
+
+def add_json_contract(system_prompt: str, output_model: type[BaseModel], model: str) -> str:
+    """Append a schema instruction when DeepSeek JSON-object mode is used.
+
+    Public: also used by `crew_task_execution.run_agent_task` so every CrewAI agent --
+    not just this module's direct gateway calls -- tells the model the exact field
+    names its target Pydantic model expects, instead of leaving the model to guess
+    them from prose alone.
+    """
+    if not is_deepseek_model(model):
+        return system_prompt
+    schema = json.dumps(output_model.model_json_schema(), separators=(",", ":"))
+    return f"{system_prompt}\n\n{JSON_CONTRACT_PROMPT.format(json_schema=schema)}"
 
 
 @resilient_llm_call()

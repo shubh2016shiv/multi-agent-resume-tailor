@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from src.agents.agent_config import load_agent_config
+from src.core.settings import get_agents_config
 
 
 class TestLoadAgentConfig:
@@ -123,3 +124,24 @@ class TestLoadAgentConfig:
 
             with pytest.raises(RuntimeError, match=required_field):
                 load_agent_config("my_agent")
+
+
+def test_all_agent_profiles_use_expected_deepseek_tiers():
+    """Every production agent selects its intentional DeepSeek model and mode."""
+    expected = {
+        "resume_content_extractor": ("deepseek/deepseek-v4-flash", "disabled", None),
+        "job_description_analyst": ("deepseek/deepseek-v4-flash", "disabled", None),
+        "gap_analysis_specialist": ("deepseek/deepseek-v4-pro", "enabled", "high"),
+        "professional_summary_writer": ("deepseek/deepseek-v4-pro", "disabled", None),
+        "experience_section_optimizer": ("deepseek/deepseek-v4-pro", "enabled", "high"),
+        "skills_section_strategist": ("deepseek/deepseek-v4-flash", "enabled", "low"),
+        "ats_optimization_specialist": ("deepseek/deepseek-v4-flash", "disabled", None),
+        "quality_feedback_reviewer": ("deepseek/deepseek-v4-flash", "disabled", None),
+    }
+    configs = get_agents_config()
+
+    for name, profile in expected.items():
+        config = configs[name]
+        actual = (config["llm"], config["thinking"], config.get("reasoning_effort"))
+        assert actual == profile
+        assert config["max_tokens"] > 0

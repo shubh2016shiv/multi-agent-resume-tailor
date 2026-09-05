@@ -60,18 +60,31 @@ feature_flags:
 # per-agent basis in `agents.yaml`.
 # ------------------------------------------------------------------------------
 llm:
-  # Default LLM provider.
-  # Options: "openai", "anthropic", "ollama", "google"
-  provider: "openai"
+  # Default LLM provider. Secrets remain environment-only.
+  # Options: "openai", "anthropic", "ollama", "google", "deepseek"
+  provider: "deepseek"
 
   # Default model to use for agents that don't specify one.
-  # Examples: "gpt-4o", "gpt-4-turbo-preview", "claude-3-opus-20240229"
-  model: "gpt-4o"
+  # LiteLLM uses the provider/model form and removes the prefix on the wire.
+  model: "deepseek/deepseek-v4-flash"
+
+  # Strict Pydantic/JSON contract calls use OpenAI structured outputs. This is
+  # intentionally separate from the DeepSeek models assigned to reasoning agents.
+  structured_model: "gpt-4o"
+
+  # DeepSeek's OpenAI-compatible endpoint. The key is read only from
+  # DEEPSEEK_API_KEY and must never be placed in this file.
+  api_base: "https://api.deepseek.com"
 
   # Default temperature for LLM responses.
   # Lower values (e.g., 0.2) are more deterministic and factual.
   # Higher values (e.g., 0.7) are more creative.
   temperature: 0.3
+
+  # Shared structured-review profile. Agent YAML files override these values.
+  thinking: "enabled"
+  reasoning_effort: "low"
+  max_tokens: 4096
 
   # Default timeout in seconds for API requests to the LLM.
   timeout: 120

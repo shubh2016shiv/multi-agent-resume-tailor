@@ -19,8 +19,14 @@ extract_resume_content_task:
     - Personal info: full_name, email, phone_number, location, website_or_portfolio.
     - professional_summary (the resume's own summary/objective, if present).
     - work_experience: every role the resume lists, with job_title, company, dates,
-      description, achievements, and skills_used -- copied as written.
-    - education, certifications, languages as listed.
+      description, achievements, and skills_used -- copied as written. Dates: output
+      ISO format YYYY-MM-DD (day "01" when the resume gives only month/year). A
+      current/ongoing role has no end date -- leave end_date null; never write a word
+      like "Present" or "Current" into it.
+    - education, certifications, languages as listed. Certifications and languages are
+      each a single descriptive string per entry (e.g. "AWS Certified Solutions
+      Architect", "Japanese -- Limited Working Proficiency") -- fold any extra detail
+      (issuing body, proficiency level) into that one string rather than a nested object.
     - skills as listed (use the resume's own categories where given).
     - for each skill ALSO set canonicalized_skill: the bare core skill with acronyms expanded
       and spelling/casing/spacing normalized (strip wrappers and trailing generic nouns like

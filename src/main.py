@@ -1,10 +1,24 @@
 """Command-line entry point for the resume tailoring pipeline."""
 
 import argparse
+import io
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+# CrewAI's console output writes emoji straight to stdout/stderr. Windows' default
+# console codepage (cp1252) can't encode them, which throws inside every CrewAI
+# EventBus handler (on_llm_call_started, on_task_completed, ...) on every agent call.
+# Reconfiguring the streams to UTF-8 here -- before anything else runs -- fixes it at
+# the source instead of stripping characters or catching the encoding error downstream.
+# `reconfigure` only exists on the concrete TextIOWrapper (not the general TextIO type
+# sys.stdout/stderr are declared as), and a test runner or other harness can replace
+# these streams with something else -- the isinstance check keeps this safe there too.
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper) and _stream.encoding.lower() != "utf-8":
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 if TYPE_CHECKING:
     from src.data_models.orchestration import OrchestrationResult

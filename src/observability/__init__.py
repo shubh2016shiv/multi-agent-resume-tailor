@@ -1,38 +1,33 @@
-"""Observability facade for the Resume Tailor multi-agent system.
+"""What this package does, in plain words.
 
-This package is the ONE seam the rest of the app imports for tracing. The
-backend is LangSmith; swapping vendors means changing only the backend modules,
-not the ~15 call sites that import from here.
+When agents talk to an LLM, you usually cannot see what was sent, what came
+back, how many tokens it used, or what it cost. This package turns that
+recording on (when configured) and sends it to LangSmith — a web dashboard
+for LLM apps.
 
-WHAT GETS CAPTURED
-------------------
-Agent behavior is traced on two layers (details in ``langsmith_backend.py``):
-- Automatic LLM layer: every CrewAI/LiteLLM model call -> prompt, completion,
-  tokens, cost, latency.
-- Readable workflow layer: ``@trace_agent`` / ``@trace_tool`` add named spans
-  so the dashboard shows a per-agent -> per-LLM-call tree.
+Import from here only::
 
-Quick start
------------
-```python
-# 1. Initialize once at application startup.
-from src.observability import init_observability
-init_observability("resume-tailor-agents")
+    from src.observability import init_observability, trace_agent, ...
 
-# 2. Decorate agent / tool functions.
-from src.observability import trace_agent, trace_tool
+Do not import the files inside this folder from the rest of the app. That way,
+if we ever switch away from LangSmith, only this package changes.
 
-@trace_agent
-def run_my_agent(input_data):
-    return processed_data
+Two kinds of recording
+----------------------
+1. Automatic (already turned on in production): after startup succeeds, every
+   LLM call that goes through LiteLLM can show up in LangSmith with prompt,
+   reply, tokens, cost, and timing. You do not decorate each agent for this.
+   Startup runs from ``src/orchestration/runner.py``.
 
-# 3. Log iteration metrics during critique/regenerate loops.
-from src.observability import log_iteration_metrics
-log_iteration_metrics("my_agent", iteration=1, metrics={"score": 85, "tokens": 1200})
-```
+2. Named labels (ready, but not used in production yet): put ``@trace_agent``
+   or ``@trace_tool`` on a function if you want a clearly named box in the
+   dashboard tree. ``log_iteration_metrics`` can attach custom scores to that
+   box. These helpers exist and are tested; nothing in production calls them
+   today.
 
-All functions degrade to safe no-ops when tracing is disabled or the
-``LANGSMITH_API_KEY`` is unset — the pipeline always runs.
+Safety rule: if the API key is missing, tracing is disabled in config, or a
+library is unavailable, these functions quietly do nothing. The resume
+pipeline still runs.
 """
 
 from src.observability.iteration_metrics import log_iteration_metrics

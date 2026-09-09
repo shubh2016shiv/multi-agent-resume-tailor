@@ -1,27 +1,25 @@
-"""LangSmith initialization and lifecycle.
+"""Turn LangSmith recording on (or leave it off safely).
 
-This module is the single place that talks to LangSmith. The rest of the app
-only ever imports the facade in ``src/observability/__init__.py``; it never
-imports this file directly. That keeps the tracing vendor swappable behind one
-seam.
+This file is the only place that configures LangSmith and tells LiteLLM to
+send each LLM call to the dashboard. Other app code should import
+``src.observability``, not this file.
 
-HOW AGENT BEHAVIOR IS CAPTURED (two complementary layers)
----------------------------------------------------------
-1. Automatic LLM layer — CrewAI runs every model call through LiteLLM. Setting
-   ``litellm.callbacks = ["langsmith"]`` once makes LiteLLM stream each call
-   (prompt, completion, token counts, cost, latency) straight to LangSmith. No
-   per-agent code is needed for this.
-2. Readable workflow layer — ``trace_agent`` / ``trace_tool`` wrap functions
-   with ``langsmith.traceable`` so each agent run shows up as a named span in
-   the dashboard. The LiteLLM calls from layer 1 nest inside that span
-   automatically, giving a per-agent -> per-LLM-call tree with token/cost
-   rollups.
+What "on" means
+---------------
+Agents talk to models through LiteLLM. Once we add ``"langsmith"`` to
+LiteLLM's callback list, LiteLLM notifies LangSmith after every model call
+with the prompt, the reply, token counts, cost, and how long it took. You do
+not need to change agent code for that.
 
-DESIGN RULES
-------------
-- Never raise into the pipeline. If the key/library is missing or tracing is
-  disabled, every function degrades to a safe no-op and logs why.
-- Always mirror metrics to structlog so behavior is observable even offline.
+Named boxes around agents (``@trace_agent`` / ``@trace_tool``) are a separate
+feature in ``tracing.py``. Those helpers are available but not wired onto
+production functions yet.
+
+Rules we keep
+-------------
+- Never crash the pipeline because tracing failed.
+- If something is missing (key, library, config switch), log why and return
+  False / stay off.
 """
 
 import os
@@ -31,43 +29,56 @@ from src.core.settings import get_config
 
 logger = get_logger(__name__)
 
-# Set True only after a successful init_observability() call.
+# True only after init_observability() finishes successfully.
 _is_initialized = False
 
 
 def init_observability(project_name: str = "resume-tailor-agents", enabled: bool = True) -> bool:
-    """Initialize LangSmith tracing once at application startup.
+    """Start LangSmith recording once when the app starts.
 
-    Expects: ``LANGSMITH_API_KEY`` is set (read from settings, which loads it
-        from .env); ``observability`` settings present in config.
-    Returns: True if tracing is now active, False if it was disabled, the key
-        was missing, or the libraries are unavailable (pipeline still runs).
-    Notes: idempotent — repeat calls are no-ops that return the current state.
+    What it needs:
+        - ``observability.enabled`` true in settings (unless you pass
+          ``enabled=False`` to force off, e.g. in tests)
+        - ``LANGSMITH_API_KEY`` available via settings (from ``.env``)
+        - LiteLLM installed
+
+    What it returns:
+        - ``True`` — recording is active
+        - ``False`` — recording stayed off (missing key, disabled, or import
+          failed). The rest of the app still runs normally.
+
+    Safe to call more than once: later calls just report the current state.
+
+    Who calls this today:
+        ``src/orchestration/runner.py`` (when that module is imported).
     """
     global _is_initialized
 
     ####################################################
-    # STEP 1: EXIT EARLY IF OBSERVABILITY IS ALREADY ACTIVE#
+    # STEP 1: EXIT EARLY IF OBSERVABILITY IS ALREADY ACTIVE
     ####################################################
+    # Calling init again (or importing runner twice) must not redo setup.
     if _is_initialized:
         return True
 
     ####################################################
-    # STEP 2: READ OBSERVABILITY SETTINGS FROM CENTRAL APP CONFIG#
+    # STEP 2: READ OBSERVABILITY SETTINGS FROM CENTRAL APP CONFIG
     ####################################################
     config = get_config()
     observability_config = config.observability
 
     ####################################################
-    # STEP 3: RESPECT BOTH THE CALLER SWITCH AND THE APP-LEVEL SWITCH#
+    # STEP 3: RESPECT BOTH THE CALLER SWITCH AND THE APP-LEVEL SWITCH
     ####################################################
+    # Tests can pass enabled=False; settings.yaml can also turn tracing off.
     if not enabled or not observability_config.enabled:
         logger.info("langsmith_disabled", reason="observability.enabled is false")
         return False
 
     ####################################################
-    # STEP 4: REQUIRE THE LANGSMITH API KEY BEFORE SETUP#
+    # STEP 4: REQUIRE THE LANGSMITH API KEY BEFORE SETUP
     ####################################################
+    # Better to stay off with a clear warning than fail later inside SDKs.
     api_key = config.langsmith_api_key
     if not api_key:
         logger.warning(
@@ -77,8 +88,10 @@ def init_observability(project_name: str = "resume-tailor-agents", enabled: bool
         return False
 
     ####################################################
-    # STEP 5: REGISTER THE LANGSMITH CALLBACK WITH LITELLM#
+    # STEP 5: REGISTER THE LANGSMITH CALLBACK WITH LITELLM
     ####################################################
+    # This is the automatic recorder: after this, LiteLLM can report every
+    # model call (agents + structured tools) without decorating those calls.
     try:
         import litellm
     except ImportError:
@@ -92,21 +105,18 @@ def init_observability(project_name: str = "resume-tailor-agents", enabled: bool
         litellm.callbacks = [*litellm.callbacks, "langsmith"]
 
     ####################################################
-    # STEP 6: HAND OFF SETTINGS TO THIRD-PARTY LIBRARIES VIA ENV VARS#
+    # STEP 6: HAND OFF SETTINGS TO THIRD-PARTY LIBRARIES VIA ENV VARS
     ####################################################
-    # WRITE config out to environment variables — this is the ONE place in the
-    # codebase that does so, and it is on purpose. The LangSmith SDK and
-    # LiteLLM's "langsmith" callback are third-party libraries that read their
-    # settings ONLY from these env vars; they give us no Python API to pass the
-    # values in directly. So this block is a one-way hand-off: every value comes
-    # FROM settings (above), and we copy it OUT to where those libraries look.
+    # LangSmith and LiteLLM's langsmith callback only read config from
+    # environment variables. We intentionally copy our typed settings into
+    # those vars here — the one place in the app that does this hand-off.
     os.environ["LANGSMITH_TRACING"] = "true"
     os.environ["LANGSMITH_API_KEY"] = api_key
     os.environ["LANGSMITH_PROJECT"] = project_name or observability_config.project
     os.environ["LANGSMITH_ENDPOINT"] = observability_config.endpoint
 
     ####################################################
-    # STEP 7: MARK OBSERVABILITY AS ACTIVE AND LOG THE RESULT#
+    # STEP 7: MARK OBSERVABILITY AS ACTIVE AND LOG THE RESULT
     ####################################################
     _is_initialized = True
     logger.info(
@@ -119,5 +129,13 @@ def init_observability(project_name: str = "resume-tailor-agents", enabled: bool
 
 
 def is_observability_enabled() -> bool:
-    """Return True if LangSmith tracing is initialized and active."""
+    """Return whether LangSmith recording was successfully turned on.
+
+    Prefer calling this function over copying a bool at import time. Startup
+    often happens *after* other observability modules are imported, so a
+    cached import-time value would stay False forever.
+    """
+    ####################################################
+    # STEP 1: REPORT THE LIVE INITIALIZATION FLAG
+    ####################################################
     return _is_initialized

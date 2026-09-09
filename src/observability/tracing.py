@@ -1,11 +1,18 @@
-"""Function-level tracing via langsmith.traceable.
+"""Optional labels so dashboard boxes have clear names.
 
-``trace_agent`` and ``trace_tool`` wrap functions so LangSmith records them
-as named spans. CrewAI agent runs nest inside ``trace_agent`` spans; LLM calls
-nest inside ``trace_tool`` spans, building a per-agent -> per-LLM-call tree.
+Put ``@trace_agent`` above a function that runs a whole agent, or
+``@trace_tool`` above a helper. LangSmith then shows a named box for that
+function. LLM calls that happen inside can appear nested under that box
+(when the automatic LiteLLM recorder from ``langsmith_backend`` is also on).
 
-When tracing is off or the langsmith library is missing, these decorators
-return the function unchanged — no tracing, no crash.
+Are these used in production today?
+-----------------------------------
+No. They are public, tested helpers. Token/cost recording can still work from
+LiteLLM alone. What you do not get without these decorators is the tidy
+named parent box that groups calls by agent.
+
+If tracing is off, or the LangSmith library is missing, these decorators
+return your function unchanged — normal behavior, no crash.
 """
 
 from __future__ import annotations
@@ -19,24 +26,30 @@ logger = get_logger(__name__)
 
 
 def build_traced_function(run_type: Literal["chain", "tool"], func):
-    """Wrap a function so LangSmith records it as a span, or leave it alone.
+    """Return a LangSmith-wrapped function, or the original if tracing is off.
 
-    run_type is "chain" for whole agents or "tool" for helper functions.
-    If tracing is off (or the langsmith library is missing), the function is
-    returned exactly as it came in — it runs normally with no tracing.
+    Args:
+        run_type: ``"chain"`` for a whole agent-style step; ``"tool"`` for a
+            smaller helper.
+        func: The function to wrap.
+
+    Returns:
+        Either ``func`` unchanged, or a wrapper that opens a named dashboard
+        box whenever ``func`` runs.
     """
     ####################################################
-    # STEP 1: LEAVE THE FUNCTION ALONE WHEN OBSERVABILITY IS OFF#
+    # STEP 1: LEAVE THE FUNCTION ALONE WHEN OBSERVABILITY IS OFF
     ####################################################
-    # Call the function (don't import the flag's value) so we read whether
-    # tracing is live RIGHT NOW. init runs after this module imports, so a
-    # snapshotted bool would be stale forever.
+    # Ask is_observability_enabled() now — do not cache the answer at import,
+    # because init usually runs later.
     if not is_observability_enabled():
         return func
 
     ####################################################
-    # STEP 2: IMPORT LANGSMITH ONLY WHEN WE ACTUALLY NEED TO TRACE#
+    # STEP 2: IMPORT LANGSMITH ONLY WHEN WE ACTUALLY NEED TO TRACE
     ####################################################
+    # Importing only here keeps this package loadable even if langsmith is
+    # not installed.
     try:
         from langsmith import traceable
     except ImportError:
@@ -44,22 +57,37 @@ def build_traced_function(run_type: Literal["chain", "tool"], func):
         return func
 
     ####################################################
-    # STEP 3: WRAP THE FUNCTION AS A NAMED LANGSMITH SPAN#
+    # STEP 3: WRAP THE FUNCTION AS A NAMED LANGSMITH SPAN
     ####################################################
+    # The dashboard box title is the function's name (func.__name__).
     return traceable(run_type=run_type, name=func.__name__)(func)
 
 
 def trace_agent(func):
-    """Make an agent show up as a named "chain" span in LangSmith."""
+    """Decorator: show this function as a named agent-level box in LangSmith.
+
+    Example::
+
+        @trace_agent
+        def run_experience_optimizer(...):
+            ...
+    """
     ####################################################
-    # STEP 1: WRAP THE FUNCTION AS AN AGENT-LEVEL SPAN#
+    # STEP 1: DELEGATE TO THE SHARED WRAPPER AS RUN TYPE "chain"
     ####################################################
     return build_traced_function("chain", func)
 
 
 def trace_tool(func):
-    """Make a helper function show up as a named "tool" span in LangSmith."""
+    """Decorator: show this helper as a named tool-level box in LangSmith.
+
+    Example::
+
+        @trace_tool
+        def audit_summary(...):
+            ...
+    """
     ####################################################
-    # STEP 1: WRAP THE FUNCTION AS A TOOL-LEVEL SPAN#
+    # STEP 1: DELEGATE TO THE SHARED WRAPPER AS RUN TYPE "tool"
     ####################################################
     return build_traced_function("tool", func)

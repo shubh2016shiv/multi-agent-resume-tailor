@@ -270,42 +270,42 @@ Now we have three protections. But the order matters enormously. Here's the
 structure, read from the outside in:
 
 ```text
-                    ┌─────────────────────────────────────┐
-                    │         CORRELATION ID              │
-                    │  (every log line tagged with one    │
-                    │   traceable id for this call)       │
-                    │                                     │
-                    │  ┌───────────────────────────────┐  │
-                    │  │      CIRCUIT BREAKER          │  │
-                    │  │  (fast-fail if provider looks │  │
-                    │  │   broken; sees final outcome  │  │
-                    │  │   of the logical call, not    │  │
-                    │  │   individual retry attempts)  │  │
-                    │  │                               │  │
-                    │  │  ┌─────────────────────────┐  │  │
-                    │  │  │    RETRY + BACKOFF      │  │  │
-                    │  │  │  (retry transient       │  │  │
-                    │  │  │   errors — timeouts,    │  │  │
-                    │  │  │   connection drops,     │  │  │
-                    │  │  │   rate-limit hits —     │  │  │
-                    │  │  │   with exponential      │  │  │
-                    │  │  │   backoff + jitter)     │  │  │
-                    │  │  │                         │  │  │
-                    │  │  │  ┌───────────────────┐  │  │  │
-                    │  │  │  │   RATE-LIMIT GATE │  │  │  │
-                    │  │  │  │  (stay within the │  │  │  │
-                    │  │  │  │   per-minute      │  │  │  │
-                    │  │  │  │   provider budget;│  │  │  │
-                    │  │  │  │   self-heal by    │  │  │  │
-                    │  │  │  │   sleeping)       │  │  │  │
-                    │  │  │  └────────┬──────────┘  │  │  │
+                    ┌──────────────────────────────────────┐
+                    │         CORRELATION ID               │
+                    │  (every log line tagged with one     │
+                    │   traceable id for this call)        │
+                    │                                      │
+                    │  ┌────────────────────────────────┐  │
+                    │  │      CIRCUIT BREAKER           │  │
+                    │  │  (fast-fail if provider looks  │  │
+                    │  │   broken; sees final outcome   │  │
+                    │  │   of the logical call, not     │  │
+                    │  │   individual retry attempts)   │  │
+                    │  │                                │  │
+                    │  │  ┌──────────────────────────┐  │  │
+                    │  │  │    RETRY + BACKOFF       │  │  │
+                    │  │  │  (retry transient        │  │  │
+                    │  │  │   errors — timeouts,     │  │  │
+                    │  │  │   connection drops,      │  │  │
+                    │  │  │   rate-limit hits —      │  │  │
+                    │  │  │   with exponential       │  │  │
+                    │  │  │   backoff + jitter)      │  │  │
+                    │  │  │                          │  │  │
+                    │  │  │  ┌───────────────────┐   │  │  │
+                    │  │  │  │   RATE-LIMIT GATE │   │  │  │
+                    │  │  │  │  (stay within the │   │  │  │
+                    │  │  │  │   per-minute      │   │  │  │
+                    │  │  │  │   provider budget;│   │  │  │
+                    │  │  │  │   self-heal by    │   │  │  │
+                    │  │  │  │   sleeping)       │   │  │  │
+                    │  │  │  └────────┬──────────┘   │  │  │
                     │  │  │           │              │  │  │
                     │  │  │           ▼              │  │  │
                     │  │  │     YOUR FUNCTION        │  │  │
                     │  │  │  (the real provider call)│  │  │
-                    │  │  └─────────────────────────┘  │  │
-                    │  └───────────────────────────────┘  │
-                    └─────────────────────────────────────┘
+                    │  │  └──────────────────────────┘  │  │
+                    │  └────────────────────────────────┘  │
+                    └──────────────────────────────────────┘
 ```
 
 ### Why this order (and not any other)

@@ -2,7 +2,7 @@
 
 import time
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -20,15 +20,18 @@ from src.hitl.professional_experience.models import (
     ExperienceClarificationPausedRunManifest,
 )
 from src.hitl.professional_experience.persistence import (
+    SHEET_FILENAME,
+    PausedRunLayout,
     archive_checkpoint_database,
-    close_checkpoint_database,
-    load_answered_clarifications,
-    load_paused_run_state,
-    open_checkpoint_database,
-    save_clarification_sheet,
+    load_paused_run,
+    read_answered_clarifications,
     save_paused_run_state,
 )
 from src.observability import init_observability
+from src.orchestration.checkpointing import (
+    close_checkpoint_database,
+    open_checkpoint_database,
+)
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.human_review_policy import derive_run_disposition
 from src.orchestration.state import ResumeEnhancementPipelineState
@@ -107,27 +110,37 @@ def tailor_resume(
             _cleanup_pii_mapping(run_id)
 
 
+# HITL COMPONENT 6 -- RESUME. See
+# src/hitl/professional_experience/README.md#9-component-6--resume-mechanism
 def resume_paused_run(
     paused_run_path: str,
     progress_callback: ProgressCallback | None = None,
 ) -> OrchestrationResult:
-    """Resume a previously paused professional-experience clarification run."""
-    paused_run_dir = Path(paused_run_path)
-    manifest, checkpointer = load_paused_run_state(paused_run_path)
+    """Resume a previously paused professional-experience clarification run.
+
+    Everything that can refuse the resume is checked before any pipeline
+    machinery is opened: an expired run and an unanswered sheet both fail here,
+    cheaply, instead of after a checkpoint connection and a graph compile.
+    """
+    layout, manifest = load_paused_run(paused_run_path)
+    if manifest.is_expired:
+        raise ValueError(
+            f"This paused run expired on {manifest.expires_at.isoformat()} and can no "
+            "longer be resumed. Start a fresh run to tailor this resume again."
+        )
+    answered_clarifications = read_answered_clarifications(layout)
+    if not answered_clarifications:
+        raise ValueError(
+            f"{SHEET_FILENAME} has no answered questions yet; answer at least "
+            "one clarification before resuming the paused run."
+        )
 
     start_time = time.monotonic()
     result: OrchestrationResult | None = None
+    checkpointer = open_checkpoint_database(layout.checkpoint_db)
     pipeline = _build_pipeline(checkpointer)
     config: RunnableConfig = {"configurable": {"thread_id": manifest.run_id}}
     try:
-        answered_clarifications = load_answered_clarifications(
-            str(paused_run_dir / manifest.clarifications_filename)
-        )
-        if not answered_clarifications:
-            raise ValueError(
-                "clarifications_sheet.json has no answered questions yet; answer at least "
-                "one clarification before resuming the paused run."
-            )
         logger.info(
             "pipeline_run_started",
             run_id=manifest.run_id,
@@ -149,7 +162,7 @@ def resume_paused_run(
             run_id=manifest.run_id,
             resume_path=manifest.resume_path,
             jd_path=manifest.jd_path,
-            paused_run_path=paused_run_path,
+            paused_run_layout=layout,
         )
         _log_pipeline_completion(manifest.run_id, result, start_time)
         return result
@@ -163,7 +176,7 @@ def resume_paused_run(
         raise
     finally:
         close_checkpoint_database(checkpointer)
-        _settle_resumed_run_checkpoint(paused_run_dir / manifest.checkpoint_db_filename, result)
+        _settle_resumed_run_checkpoint(layout, result)
         if _should_cleanup_pii_mapping_after_resume(result):
             _cleanup_pii_mapping(manifest.run_id)
 
@@ -222,13 +235,16 @@ def _settle_fresh_run_checkpoint(
     fresh run has nothing to resume, so its checkpoint history is removed.
     """
     if result is not None and result.paused_run_path:
-        archive_checkpoint_database(checkpoint_db_path, Path(result.paused_run_path))
+        archive_checkpoint_database(
+            checkpoint_db_path,
+            PausedRunLayout.at(result.paused_run_path),
+        )
         return
     checkpoint_db_path.unlink(missing_ok=True)
 
 
 def _settle_resumed_run_checkpoint(
-    checkpoint_db_path: Path,
+    layout: PausedRunLayout,
     result: OrchestrationResult | None,
 ) -> None:
     """Delete the paused run's checkpoint DB only once the run truly completed.
@@ -237,7 +253,7 @@ def _settle_resumed_run_checkpoint(
     can fix the sheet (or answer the new questions) and resume again.
     """
     if result is not None and result.paused_run_path is None:
-        checkpoint_db_path.unlink(missing_ok=True)
+        layout.checkpoint_db.unlink(missing_ok=True)
 
 
 def _finalize_pipeline_output(
@@ -247,29 +263,35 @@ def _finalize_pipeline_output(
     run_id: str,
     resume_path: str,
     jd_path: str,
-    paused_run_path: str | None = None,
+    paused_run_layout: PausedRunLayout | None = None,
 ) -> OrchestrationResult:
-    """Convert a fresh invoke() result into a paused or completed orchestration result."""
+    """Convert an invoke() result into a paused or completed orchestration result.
+
+    A run that pauses again after a resume reuses the same paused-run directory,
+    so the candidate always has exactly one folder to work in.
+    """
     if _pipeline_interrupted(output):
         snapshot = pipeline.get_state(config)
         snapshot_state = cast(ResumeEnhancementPipelineState, snapshot.values)
-        effective_paused_run_path = paused_run_path or _paused_run_directory(
-            snapshot_state,
-            run_id,
+        layout = paused_run_layout or PausedRunLayout.at(
+            _paused_run_directory(snapshot_state, run_id)
         )
+        paused_at = datetime.now(UTC)
         manifest = ExperienceClarificationPausedRunManifest(
             run_id=run_id,
             resume_path=resume_path,
             jd_path=jd_path,
+            paused_at=paused_at,
+            expires_at=paused_at + timedelta(hours=get_config().workflow.clarification_ttl_hours),
         )
         save_paused_run_state(
-            Path(effective_paused_run_path),
+            layout,
             manifest,
             snapshot_state.get("experience_clarifications") or [],
         )
         result = _build_paused_orchestration_result(
             snapshot_state,
-            paused_run_path=effective_paused_run_path,
+            paused_run_path=str(layout.root),
         )
         _persist_result(result)
         return result
@@ -338,7 +360,14 @@ def _build_completed_orchestration_result(
 
 
 def _persist_result(result: OrchestrationResult) -> str:
-    """Persist one orchestration result next to the paused run or rendered artifacts."""
+    """Persist one orchestration result next to the paused run or rendered artifacts.
+
+    The clarification sheet is deliberately NOT written here. A paused run already
+    got one from save_paused_run_state, and writing it again produced two
+    identical writes to the same path. A completed run must not get one at all:
+    its folder has no manifest and no checkpoint, so a sheet there would invite
+    the candidate to answer questions that can never be resumed.
+    """
     output_dir = _result_output_dir(result)
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -348,8 +377,6 @@ def _persist_result(result: OrchestrationResult) -> str:
         path=str(path),
         disposition=result.disposition.value,
     )
-    if result.clarifications_requested:
-        save_clarification_sheet(output_dir, result.clarifications_requested)
     return str(path)
 
 

@@ -34,6 +34,7 @@ from src.agents.professional_experience.models import (
     OptimizedExperienceSection,
 )
 from src.core.logger import get_logger
+from src.core.settings import get_config
 from src.data_models.job import JobDescription
 from src.data_models.resume import Experience, Resume
 from src.data_models.strategy import AlignmentStrategy
@@ -127,6 +128,15 @@ def _resume_with_candidate_answers_as_source(
     return resume.model_copy(update={"work_experience": updated_experiences})
 
 
+# HITL COMPONENT 2 -- PAUSE. See
+# src/hitl/professional_experience/README.md#5-component-2--pause-mechanism
+#
+# Resume-safety note (README section 11 "The double-execution trap"): LangGraph
+# re-runs this whole node from the top on resume, not just from the interrupt()
+# line. The `if clarification_answers:` check below is what makes that safe --
+# on resume, Command(update=...) has already populated clarification_answers,
+# so this branch returns BEFORE interrupt() is reached a second time. Do not
+# reorder these checks or add code above interrupt() without re-verifying that.
 def await_candidate_clarifications(state: ResumeEnhancementPipelineState):
     """Pause the graph when the experience stage needs candidate-owned bullet facts."""
     clarifications = state.get("experience_clarifications") or []
@@ -148,7 +158,9 @@ def await_candidate_clarifications(state: ResumeEnhancementPipelineState):
     interrupt(
         {
             "type": "candidate_clarifications_required",
-            "questions": [clarification.model_dump(mode="json") for clarification in clarifications],
+            "questions": [
+                clarification.model_dump(mode="json") for clarification in clarifications
+            ],
         }
     )
     return {}
@@ -181,9 +193,38 @@ def _optimize_experience_entries(
     )
     sections = [section for section, _ in role_outcomes]
     clarifications = [
-        clarification for _, role_clarifications in role_outcomes for clarification in role_clarifications
+        clarification
+        for _, role_clarifications in role_outcomes
+        for clarification in role_clarifications
     ]
-    return _merge_optimized_experience_sections(sections), clarifications
+    return (
+        _merge_optimized_experience_sections(sections),
+        _cap_clarifications(clarifications, run_id),
+    )
+
+
+def _cap_clarifications(
+    clarifications: list[ExperienceBulletClarification],
+    run_id: str,
+) -> list[ExperienceBulletClarification]:
+    """Bound how many questions one pause may ask the candidate.
+
+    A candidate handed forty questions answers none of them carefully, so the
+    review's own recall becomes self-defeating past a point. Roles are processed
+    in resume order, so truncating keeps whole earlier (most recent) roles rather
+    than a scattering across all of them, and what was dropped is logged rather
+    than silently discarded.
+    """
+    limit = get_config().workflow.max_clarifications_per_run
+    if len(clarifications) <= limit:
+        return clarifications
+    logger.warning(
+        "experience_clarifications_capped",
+        run_id=run_id,
+        requested=len(clarifications),
+        kept=limit,
+    )
+    return clarifications[:limit]
 
 
 def _build_resume_with_single_experience(resume: Resume, experience: Experience) -> Resume:
@@ -205,8 +246,7 @@ def _rebuild_rewritten_role_from_proposal(
     never be changed by the LLM, whatever the rewrite proposal contains.
     """
     rewritten_achievements = [
-        bullet_rewrite.rewritten_bullet
-        for bullet_rewrite in rewrite_proposal.rewritten_bullets
+        bullet_rewrite.rewritten_bullet for bullet_rewrite in rewrite_proposal.rewritten_bullets
     ]
     return original_experience.model_copy(update={"achievements": rewritten_achievements})
 
@@ -243,8 +283,7 @@ def _collect_rewrite_truthfulness_findings(
         for bullet_index, _ in enumerate(original_experience.achievements)
     ]
     returned_bullet_ids = [
-        bullet_rewrite.bullet_id
-        for bullet_rewrite in rewrite_proposal.rewritten_bullets
+        bullet_rewrite.bullet_id for bullet_rewrite in rewrite_proposal.rewritten_bullets
     ]
     if returned_bullet_ids != expected_bullet_ids:
         return [
@@ -314,7 +353,9 @@ def _accepted_section(revised_role: Experience, note: str) -> OptimizedExperienc
     )
 
 
-def _source_preserved_section(experience: Experience, reasons: list[str]) -> OptimizedExperienceSection:
+def _source_preserved_section(
+    experience: Experience, reasons: list[str]
+) -> OptimizedExperienceSection:
     """Return the untouched source role after no truthful rewrite survived one repair."""
     return OptimizedExperienceSection(
         optimized_experiences=[experience],
@@ -375,8 +416,7 @@ def _render_quality_findings_for_repair(
 ) -> list[str]:
     """Convert structured rewrite comments into concise repair instructions."""
     return [
-        f"{review_comment.message}. {review_comment.advice}"
-        for review_comment in rewrite_comments
+        f"{review_comment.message}. {review_comment.advice}" for review_comment in rewrite_comments
     ]
 
 

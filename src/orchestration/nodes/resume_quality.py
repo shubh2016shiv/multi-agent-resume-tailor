@@ -14,7 +14,7 @@ from src.data_models.job import JobDescription
 from src.data_models.resume import Resume
 from src.formatters.quality_feedback_formatter import format_quality_feedback_context
 from src.orchestration.crew_task_execution import run_agent_task
-from src.orchestration.human_review_policy import is_ats_unverifiable
+from src.orchestration.human_review_policy import is_ats_unverifiable, is_relevance_unverifiable
 from src.orchestration.state import ResumeEnhancementPipelineState
 from src.resume_quality_evaluation import (
     apply_release_hard_blocks,
@@ -58,8 +58,8 @@ def evaluate_resume_quality(state: ResumeEnhancementPipelineState) -> dict:
     # An unverifiable ATS outcome (INCONCLUSIVE: no .tex to inspect) escalates to human
     # review here -- there is nothing to patch. A FAIL is left False: the patch node tries
     # a deterministic restore first. The full escalation policy lives in human_review_policy.
-    human_review_required = (
-        is_ats_unverifiable(structure_evaluation) or not quality_report.relevance.is_conclusive
+    human_review_required = is_ats_unverifiable(structure_evaluation) or is_relevance_unverifiable(
+        quality_report.relevance
     )
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(

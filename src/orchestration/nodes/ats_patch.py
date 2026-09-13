@@ -15,7 +15,6 @@ exhaustive; if it does not fix the FAIL, a second identical pass cannot either.
 #       investigation decides whether it is permanent infrastructure or a temporary guard.
 """
 
-import time
 from typing import Any
 
 from src.agents.professional_experience.models import OptimizedExperienceSection
@@ -23,6 +22,7 @@ from src.core.logger import get_logger
 from src.data_models.evaluation import ATSMetrics, RenderedStructureEvaluation, ResumeQualityReport
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.orchestration.human_review_policy import is_ats_unrecoverable
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.resume_quality_evaluation import (
     apply_release_hard_blocks,
@@ -34,6 +34,7 @@ from src.resume_quality_evaluation import (
 logger = get_logger(__name__)
 
 
+@pipeline_stage("patch_ats_assembly")
 def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
     """Restore essential sections the assembler dropped, then re-grade ATS. No LLM.
 
@@ -49,12 +50,6 @@ def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
             QA had already set it for an unrelated reason -- e.g. inconclusive relevance
             -- OR the restore could not fix the ATS FAIL).
     """
-    start_time = time.monotonic()
-    logger.info(
-        "pipeline_stage_started",
-        stage="patch_ats_assembly",
-        run_id=state["run_id"],
-    )
     optimized_resume = require(state["optimized_resume"], "optimized_resume")
     patched_final = _restore_missing_essential_sections(
         final_resume=optimized_resume.final_resume,
@@ -71,13 +66,6 @@ def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
     )
     quality_report = _regrade_ats_dimension(
         require(state["quality_report"], "quality_report"), new_outcome
-    )
-    duration_ms = round((time.monotonic() - start_time) * 1000)
-    logger.info(
-        "pipeline_stage_completed",
-        stage="patch_ats_assembly",
-        run_id=state["run_id"],
-        duration_ms=duration_ms,
     )
     return {
         "optimized_resume": optimized_resume.model_copy(update={"final_resume": patched_final}),

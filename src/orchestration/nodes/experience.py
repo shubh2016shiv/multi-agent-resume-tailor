@@ -22,7 +22,6 @@ Role metadata is always rebuilt from the source object, so the LLM's writable
 surface is the achievements text only.
 """
 
-import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -49,6 +48,7 @@ from src.hitl.professional_experience.models import (
     build_experience_bullet_id,
 )
 from src.orchestration.crew_task_execution import run_agent_task
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.contracts import ReviewComment, ReviewResult, Severity
 from src.tools.engines.resume_diagnostics import audit_experience_rewrite_quality
@@ -66,6 +66,7 @@ class RoleRewriteDecision:
     finalized_section: OptimizedExperienceSection
 
 
+@pipeline_stage("optimize_experience")
 def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
     """Rewrite work-experience bullets with one role-scoped call per entry.
 
@@ -74,17 +75,10 @@ def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_experience and experience_clarifications.
     Returns: partial state with the merged section and the candidate questions.
     """
-    start_time = time.monotonic()
     resume = require(state["resume"], "resume")
     job_description = require(state["job_description"], "job_description")
     strategy = require(state["alignment_strategy"], "alignment_strategy")
     clarification_answers = state.get("clarification_answers") or []
-    logger.info(
-        "pipeline_stage_started",
-        stage="optimize_experience",
-        run_id=state["run_id"],
-        answered_clarifications=len(clarification_answers),
-    )
     optimized_experience, clarifications = _optimize_experience_entries(
         resume, job_description, strategy, clarification_answers, state["run_id"]
     )
@@ -92,13 +86,14 @@ def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
         resume,
         clarification_answers,
     )
-    duration_ms = round((time.monotonic() - start_time) * 1000)
+    # Both HITL counts in one event: how many answers this pass consumed, and how
+    # many new questions it raised. Kept out of the timing event so every stage's
+    # start/complete pair has the same shape.
     logger.info(
-        "pipeline_stage_completed",
-        stage="optimize_experience",
+        "experience_clarification_flow",
         run_id=state["run_id"],
+        answered_clarifications=len(clarification_answers),
         clarifications_requested=len(clarifications),
-        duration_ms=duration_ms,
     )
     return {
         "resume": source_resume_for_downstream_review,

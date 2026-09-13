@@ -1,7 +1,5 @@
 """Stage 5 resume quality evaluation node."""
 
-import time
-
 from src.agents.quality_feedback import create_quality_feedback_agent
 from src.core.logger import get_logger
 from src.data_models.evaluation import (
@@ -15,6 +13,7 @@ from src.data_models.resume import Resume
 from src.formatters.quality_feedback_formatter import format_quality_feedback_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.human_review_policy import is_ats_unverifiable, is_relevance_unverifiable
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.resume_quality_evaluation import (
     apply_release_hard_blocks,
@@ -28,6 +27,7 @@ from src.resume_quality_evaluation import (
 logger = get_logger(__name__)
 
 
+@pipeline_stage("evaluate_resume_quality")
 def evaluate_resume_quality(state: ResumeEnhancementPipelineState) -> dict:
     """Validate the optimized resume for quality and consistency.
 
@@ -35,12 +35,6 @@ def evaluate_resume_quality(state: ResumeEnhancementPipelineState) -> dict:
     Writes the quality report and rendered-structure evaluation.
     Returns: partial state with both typed artifacts.
     """
-    start_time = time.monotonic()
-    logger.info(
-        "pipeline_stage_started",
-        stage="evaluate_resume_quality",
-        run_id=state["run_id"],
-    )
     quality_feedback = _request_quality_feedback(state)
     quality_report, structure_evaluation = _ground_quality_dimensions(
         quality_feedback=quality_feedback,
@@ -53,13 +47,6 @@ def evaluate_resume_quality(state: ResumeEnhancementPipelineState) -> dict:
     # a deterministic restore first. The full escalation policy lives in human_review_policy.
     human_review_required = is_ats_unverifiable(structure_evaluation) or is_relevance_unverifiable(
         quality_report.relevance
-    )
-    duration_ms = round((time.monotonic() - start_time) * 1000)
-    logger.info(
-        "pipeline_stage_completed",
-        stage="evaluate_resume_quality",
-        run_id=state["run_id"],
-        duration_ms=duration_ms,
     )
     return {
         "quality_report": quality_report,

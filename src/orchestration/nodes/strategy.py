@@ -1,18 +1,18 @@
 """Stage 2 strategy node for the resume enhancement graph."""
 
-import time
-
 from src.agents.gap_analysis import create_gap_analysis_agent
 from src.core.logger import get_logger
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.gap_analysis_formatter import format_gap_analysis_context
 from src.orchestration.crew_task_execution import run_agent_task
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.engines.job_matching import match_resume_to_job
 
 logger = get_logger(__name__)
 
 
+@pipeline_stage("run_gap_analysis")
 def run_gap_analysis(state: ResumeEnhancementPipelineState) -> dict:
     """Identify resume/job gaps and produce a tailoring strategy.
 
@@ -25,12 +25,6 @@ def run_gap_analysis(state: ResumeEnhancementPipelineState) -> dict:
     agent's context. The agent reads those pre-computed facts -- it never reconstructs
     the resume to call a tool, which is what previously looped the stage to timeout.
     """
-    start_time = time.monotonic()
-    logger.info(
-        "pipeline_stage_started",
-        stage="run_gap_analysis",
-        run_id=state["run_id"],
-    )
     resume = require(state["resume"], "resume")
     job_description = require(state["job_description"], "job_description")
     match_report = match_resume_to_job(resume, job_description)
@@ -48,15 +42,7 @@ def run_gap_analysis(state: ResumeEnhancementPipelineState) -> dict:
         output_model=AlignmentStrategy,
         run_id=state["run_id"],
     )
-    result = {
+    return {
         "requirement_match_report": match_report,
         "alignment_strategy": alignment_strategy,
     }
-    duration_ms = round((time.monotonic() - start_time) * 1000)
-    logger.info(
-        "pipeline_stage_completed",
-        stage="run_gap_analysis",
-        run_id=state["run_id"],
-        duration_ms=duration_ms,
-    )
-    return result

@@ -17,8 +17,6 @@ Reads from state: resume, job_description, alignment_strategy.
 Writes to state: optimized_skills.
 """
 
-import time
-
 from src.agents.skill_optimizer import create_skill_optimizer_agent
 from src.core.logger import get_logger
 from src.data_models.resume import OptimizedSkillsSection, Resume
@@ -27,6 +25,7 @@ from src.formatters.skills_optimizer_formatter import (
     format_skills_rewrite_context,
 )
 from src.orchestration.crew_task_execution import run_agent_task
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.contracts import Confidence, ReviewComment, ReviewResult, Severity
 from src.tools.engines.truthfulness.skills_evidence import validate_skills_evidence
@@ -36,6 +35,7 @@ logger = get_logger(__name__)
 _SERIOUS_SEVERITIES = {Severity.BLOCKER, Severity.MAJOR}
 
 
+@pipeline_stage("optimize_skills")
 def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     """Reorder, categorize, and ATS-optimize the skills section.
 
@@ -43,12 +43,6 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_skills.
     Returns: partial state with the typed OptimizedSkillsSection.
     """
-    start_time = time.monotonic()
-    logger.info(
-        "pipeline_stage_started",
-        stage="optimize_skills",
-        run_id=state["run_id"],
-    )
 
     ####################################################
     # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
@@ -97,13 +91,6 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     # guaranteed here in code, not left to the agent.
     optimized_skills = preserve_original_skills(optimized_skills, resume)
 
-    duration_ms = round((time.monotonic() - start_time) * 1000)
-    logger.info(
-        "pipeline_stage_completed",
-        stage="optimize_skills",
-        run_id=state["run_id"],
-        duration_ms=duration_ms,
-    )
     return {"optimized_skills": optimized_skills}
 
 

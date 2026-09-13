@@ -12,7 +12,6 @@ the configured output_dir, nested <output_dir>/<candidate>/<designation>/ with a
 self-describing file name (see document_rendering.output_location).
 """
 
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from src.core.settings import get_config
 from src.data_models.job import JobDescription
 from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import Resume
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.engines.document_rendering import is_render_available, render_resume_document
 from src.tools.engines.document_rendering.docx_renderer import render_resume_docx
@@ -30,6 +30,7 @@ from src.tools.engines.document_rendering.output_paths import resume_filename, r
 logger = get_logger(__name__)
 
 
+@pipeline_stage("render_final_resume")
 def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
     """Write the assembled resume to disk (Markdown always, PDF best-effort).
 
@@ -39,12 +40,6 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
 
     Precondition: rehydrate_pii has already restored real PII into final_resume.
     """
-    start_time = time.monotonic()
-    logger.info(
-        "pipeline_stage_started",
-        stage="render_final_resume",
-        run_id=state["run_id"],
-    )
     final_resume = require(state["optimized_resume"], "optimized_resume").final_resume
     job = require(state["job_description"], "job_description")
     output_dir = resume_output_dir(final_resume, job, Path(get_config().file_paths.output_dir))
@@ -54,12 +49,10 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
     markdown_path = _write_markdown(final_resume, job, output_dir, when)
     docx_path = _write_docx(final_resume, job, output_dir, when)
     pdf_path, pdf_skipped_reason = _try_render_pdf(final_resume, job, output_dir, when)
-    duration_ms = round((time.monotonic() - start_time) * 1000)
+    # Which files landed is this stage's own fact, not part of its timing event.
     logger.info(
-        "pipeline_stage_completed",
-        stage="render_final_resume",
+        "resume_artifacts_written",
         run_id=state["run_id"],
-        duration_ms=duration_ms,
         md_path=str(markdown_path),
         docx_path=str(docx_path),
         pdf_rendered=pdf_path is not None,

@@ -14,14 +14,13 @@ Reads from state: resume, job_description, alignment_strategy.
 Writes to state: professional_summary.
 """
 
-import time
-
 from src.agents.professional_summary import create_professional_summary_agent
 from src.agents.professional_summary.models import ProfessionalSummary, SummaryDraft
 from src.core.logger import get_logger
 from src.formatters.professional_summary_formatter import format_professional_summary_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.exceptions import PipelineQualityGateError
+from src.orchestration.nodes._stage import pipeline_stage
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.contracts import Severity
 from src.tools.engines.resume_diagnostics.summary_quality import audit_summary_text
@@ -35,18 +34,13 @@ logger = get_logger(__name__)
 BLOCKING_SEVERITIES = {Severity.MAJOR, Severity.BLOCKER}
 
 
+@pipeline_stage("write_professional_summary")
 def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     """Generate a professional summary tailored to the job description.
 
     Raises: PipelineQualityGateError if the recommended draft fails the quality gate
             (STEP 5) -- a hard-constraint violation must not reach resume assembly.
     """
-    start_time = time.monotonic()
-    logger.info(
-        "pipeline_stage_started",
-        stage="write_professional_summary",
-        run_id=state["run_id"],
-    )
 
     ####################################################
     # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
@@ -86,13 +80,6 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     ####################################################
     enforce_summary_quality_gate(professional_summary)
 
-    duration_ms = round((time.monotonic() - start_time) * 1000)
-    logger.info(
-        "pipeline_stage_completed",
-        stage="write_professional_summary",
-        run_id=state["run_id"],
-        duration_ms=duration_ms,
-    )
     return {"professional_summary": professional_summary}
 
 

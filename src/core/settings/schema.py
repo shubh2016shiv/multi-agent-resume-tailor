@@ -177,6 +177,24 @@ class WorkflowConfig(BaseModel):
     max_iterations: int = 3
     quality_threshold: float = 80.0
     quality_metrics: QualityMetricsConfig = Field(default_factory=QualityMetricsConfig)
+    clarification_ttl_hours: int = Field(
+        default=168,
+        gt=0,
+        description=(
+            "How long a paused run stays resumable after it asks the candidate for "
+            "facts. Without a deadline a paused run waits forever and its checkpoint "
+            "is never reclaimed."
+        ),
+    )
+    max_clarifications_per_run: int = Field(
+        default=12,
+        gt=0,
+        description=(
+            "Upper bound on questions asked in one pause, across all roles. A "
+            "reviewer handed forty questions answers none of them carefully, so the "
+            "lowest-value questions are dropped rather than shipped."
+        ),
+    )
 
 
 class FilePathsConfig(BaseModel):

@@ -37,7 +37,7 @@ made before the phase.
 - [x] 1.4 Put the whole escalation policy in `human_review_policy`
 - [x] 1.5 Stop the feedback fallback from hiding programming errors
 - [ ] 1.6 End-to-end verification run (costs LLM calls -- ask before running)
-- [ ] 2.1 Correct out-of-date docstrings and comments
+- [x] 2.1 Correct out-of-date docstrings and comments
 - [ ] 3.0 Tests that pin current behaviour before refactoring
 - [ ] 3.1 `require()` helper replaces the assert blocks
 - [ ] 3.2 `@pipeline_stage` decorator replaces the logging boilerplate
@@ -133,9 +133,9 @@ commit is a clean diff you can revert.
 | `state.py:4` | "Every field starts as None" → except `human_review_required` (False) and `clarification_answers` (empty list) |
 | `nodes/summary.py:41` | `Raises: ValueError` → `PipelineQualityGateError` |
 | `nodes/skills.py:122`, `nodes/experience.py:399` | remove "validated by CrewAI output_pydantic"; it's validated by `run_agent_task` |
-| `nodes/ats_patch.py:44-45` | repair the broken "guarantees this)" sentence (the router in `graph.py` guarantees FAIL) |
-| `nodes/ats_patch.py:151-155` | move the TODO from after `return` into the docstring |
-| `human_review_policy.py` | already done in 1.4 |
+| `nodes/ats_patch.py:44-45` | done in 1.3 (fixed as part of the bug-fix commit) |
+| `nodes/ats_patch.py:151-155` | done in 1.3 |
+| `human_review_policy.py` | done in 1.4 |
 
 ---
 

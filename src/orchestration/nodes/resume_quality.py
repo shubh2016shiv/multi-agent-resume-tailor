@@ -78,7 +78,13 @@ def evaluate_resume_quality(state: ResumeEnhancementPipelineState) -> dict:
 def _request_quality_feedback(
     state: ResumeEnhancementPipelineState,
 ) -> QualityFeedback:
-    """Request optional LLM feedback without allowing failure to affect evaluation."""
+    """Request optional LLM feedback without allowing failure to affect evaluation.
+
+    run_id is read before the try block on purpose: a missing state key is a pipeline
+    invariant violation (a programming error), not an advisory-agent failure, and must
+    not be caught by the except below and hidden behind the neutral fallback text.
+    """
+    run_id = state["run_id"]
     assert state["optimized_resume"] is not None, "optimized_resume is required for feedback"
     assert state["resume"] is not None, "resume is required for feedback"
     assert state["job_description"] is not None, "job_description is required for feedback"
@@ -94,7 +100,7 @@ def _request_quality_feedback(
             task_name="write_quality_feedback_task",
             context=context,
             output_model=QualityFeedback,
-            run_id=state["run_id"],
+            run_id=run_id,
         )
     except Exception as error:  # noqa: BLE001 -- advisory failure must not block evaluation
         logger.warning("Quality feedback unavailable", error=str(error))

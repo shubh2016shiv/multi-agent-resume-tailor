@@ -3,6 +3,8 @@
 from typing import cast
 from unittest.mock import patch
 
+import pytest
+
 from src.data_models.evaluation import QualityFeedback
 from src.orchestration.nodes.resume_quality import _request_quality_feedback
 from src.orchestration.state import ResumeEnhancementPipelineState
@@ -64,3 +66,26 @@ def test_feedback_failure_returns_neutral_advisory_fallback() -> None:
 
     assert feedback.assessment_summary == "Automated narrative feedback was unavailable."
     assert feedback.feedback_for_improvement is None
+
+
+def test_missing_run_id_raises_instead_of_returning_the_advisory_fallback() -> None:
+    """A missing state key is a programming error, not an advisory-agent failure.
+
+    Regression test: run_id used to be read inside the try block, so a missing
+    key raised KeyError there and the broad `except Exception` caught it,
+    silently returning the neutral fallback text instead of surfacing the bug.
+    """
+    state = cast(
+        ResumeEnhancementPipelineState,
+        {
+            "optimized_resume": object(),
+            "resume": object(),
+            "job_description": object(),
+        },
+    )
+    with patch(
+        "src.orchestration.nodes.resume_quality.format_quality_feedback_context",
+        return_value="context",
+    ):
+        with pytest.raises(KeyError):
+            _request_quality_feedback(state)

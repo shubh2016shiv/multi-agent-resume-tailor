@@ -387,6 +387,50 @@ The philosophy is that a wrong resume is worse than no resume. Every guardrail p
 
 ---
 
+## 9b. Why One Lock Serializes Every Agent Call
+
+`crew_task_execution.py` guards `Crew.kickoff()` with a single process-wide
+`threading.Lock` (`_KICKOFF_LOCK`). It is not decoration — removing it breaks real runs.
+
+**Why a lock is needed at all.** A lock is required only when three things are true at
+once: two or more threads run the same code; they touch one shared resource that is not
+their own private copy; and that resource does not protect itself. If any one is false,
+you do not need a lock — give each thread its own copy, or use an already-thread-safe
+primitive, instead.
+
+**Why all three are true here.**
+
+| Condition | How this pipeline meets it |
+|---|---|
+| Concurrency | The graph fans out: Stage 1 (extract + analyze) and Stage 3 (summary + experience + skills) run nodes in parallel threads, and the experience node adds its own `ThreadPoolExecutor` over roles. Many `run_agent_task()` calls overlap. |
+| Shared mutable state | Every CrewAI `kickoff()` writes ONE shared SQLite file (`latest_kickoff_task_outputs.db`) — the same path for every Crew in the process. |
+| Not self-synchronized | CrewAI 0.134 opens that file with `sqlite3.connect()` and no `busy_timeout`, so the moment two writers overlap one fails immediately with "database is locked" rather than waiting its turn. |
+
+All three held, and a real end-to-end run crashed in the experience stage. CrewAI offers
+no way to disable that store or make it tolerant, and we do not own its connection, so
+the only fix we control is to stop the overlap: serialize `kickoff()` process-wide.
+
+**The cost, stated plainly.** The lock wraps the whole `kickoff()`, and that call includes
+the LLM network request. So every CrewAI agent call in the process runs one at a time:
+the graph's parallel stages and the experience thread pool do **not** overlap their LLM
+time. What still runs concurrently is everything outside `kickoff()` — notably the
+judgment engines that go through `src/tools/llm_gateway/` (the rewrite-quality and
+fact-gap reviews), which are not Crew calls. Phase 4 of
+`docs/orchestration_cleanup_plan.md` is the open investigation into narrowing this.
+
+**Recognizing the next one.** Reach for a lock when concurrent code funnels through a
+single un-synchronized shared resource: a library that writes a fixed file per process, a
+module-level mutable global touched from threads, a non-thread-safe client reused across
+threads. The tell at debug time is a failure that is *intermittent and load-dependent*
+("locked", "busy", lost writes, a counter that is wrong only under load) — the signature
+of a race, not a logic bug. Prefer avoiding the lock: separate resources per thread, a
+thread-safe primitive, or separate processes. A lock is right only when the shared,
+un-synchronized resource belongs to a dependency you do not control — exactly this case.
+Keep the critical section as small as correctness allows; here it must wrap the whole
+`kickoff()`, because that is where CrewAI does the hidden write.
+
+---
+
 ## 10. How to Extend the System
 
 When you add a capability, you will almost always be adding a **stage** (a new agent in the line) or a **node** (a code step). Follow the grain of the existing design; do not invent a new shape.

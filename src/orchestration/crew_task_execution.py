@@ -22,49 +22,24 @@ from src.tools.llm_gateway.structured_output import add_json_contract
 
 logger = get_logger(__name__)
 
-# -----------------------------------------------------------------------------
-# WHY A THREAD LOCK LIVES HERE  (read before removing it -- it is not decoration)
+# What the CLI tells the user when an agent's output cannot be parsed at all.
+AGENT_OUTPUT_ERROR_USER_ACTION = (
+    "This is usually a transient formatting slip by the model, not a problem with "
+    "your resume or job description -- running the pipeline again typically resolves "
+    "it. If it keeps happening on the same input, please report it."
+)
+
+
+# Serializes every Crew.kickoff() process-wide. CrewAI 0.134 writes one shared SQLite
+# file (latest_kickoff_task_outputs.db, same path for every Crew) with no busy_timeout,
+# so two overlapping kickoffs fail instantly with "database is locked" -- and this
+# pipeline overlaps them constantly (parallel Stage 1/Stage 3 nodes, plus the experience
+# node's own thread pool). We do not own that connection and it cannot be disabled, so
+# the only fix we control is to stop the overlap.
 #
-# WHAT A LOCK IS FOR (the general principle)
-#   A threading.Lock serializes access to a SHARED RESOURCE that cannot tolerate two
-#   threads touching it at once. You need one when ALL THREE of these are true:
-#     1. Concurrency: two+ threads can run the same code at the same time.
-#     2. Shared mutable state: they touch one resource that is not their own private
-#        copy -- a file, a DB connection/file, a global counter, a network handle.
-#     3. The resource is not internally synchronized: it does not protect itself, so
-#        overlapping access corrupts it, loses writes, or errors out.
-#   If any one is false you do NOT need a lock: no concurrency (single thread), or
-#   each thread has its own copy (no sharing), or the resource is already thread-safe
-#   (e.g. an OS pipe, a queue.Queue, a DB with proper locking + busy-timeout).
-#
-# WHY IT WAS REQUIRED HERE (the specific trigger)
-#   - Concurrency: the LangGraph graph fans out -- Stage 1 (extract + analyze) and
-#     Stage 3 (summary + experience + skills) run nodes in parallel THREADS, and the
-#     experience node adds its own ThreadPoolExecutor. Many run_agent_task() at once.
-#   - Shared state: every CrewAI kickoff() writes ONE shared SQLite file
-#     (latest_kickoff_task_outputs.db) -- the same path for every Crew in the process.
-#   - Not synchronized: CrewAI 0.134 opens that file with sqlite3.connect() and no
-#     busy_timeout, so the moment two writers overlap, one fails IMMEDIATELY with
-#     "database is locked" instead of waiting its turn.
-#   All three were true -> a real e2e run crashed in the experience stage. CrewAI gives
-#   no way to disable the store or make it tolerant, and we do not own its connection,
-#   so the only fix WE control is to stop the overlap: serialize kickoff() process-wide.
-#
-# WHERE TO APPLY THIS (how to recognize the next one -- you cannot know preemptively,
-# but you can know the SHAPE)
-#   Reach for a lock when concurrent code funnels through a single un-synchronized
-#   shared resource: a library that writes a fixed file/db per process, a module-level
-#   mutable global (dict/list/counter) mutated from threads, a non-thread-safe client
-#   reused across threads. The tell at debug time is an error that is INTERMITTENT and
-#   load-dependent ("locked", "busy", corrupted/lost writes, a counter that is wrong
-#   only under load) -- the signature of a race, not a logic bug.
-#   PREFER avoiding the lock when you can: give each thread its OWN resource (separate
-#   file/dir/connection), use an already-thread-safe primitive (queue.Queue), or push
-#   the work to separate processes. A lock is the right tool only when the shared,
-#   un-synchronized resource is fixed by a dependency you do not control -- exactly
-#   this case. Keep the critical section as SMALL as correctness allows; here it must
-#   wrap the whole kickoff() because that is where CrewAI does the hidden write.
-# -----------------------------------------------------------------------------
+# Cost: kickoff() includes the LLM call, so this makes every agent call sequential.
+# The full reasoning, the cost, and how to recognize the next case of this are in
+# orchestration_architecture.md section 9b. Read that before removing this.
 _KICKOFF_LOCK = threading.Lock()
 
 
@@ -73,7 +48,7 @@ def run_agent_task(
     task_name: str,
     context: str,
     output_model: type[BaseModel],
-    run_id: str = "unknown",
+    run_id: str,
 ) -> Any:
     """Run one CrewAI task and return the validated Pydantic output.
 
@@ -103,32 +78,25 @@ def run_agent_task(
     task_description = task_config.get("description", "") + "\n\nCONTEXT:\n" + context
     task_expected_output = task_config.get("expected_output", "Structured output.")
 
-    # Tool-using agents must call tools before they can produce the output. Setting
-    # response_format on the LLM instructs the provider to return structured JSON in
-    # the FIRST response, which bypasses the tool-call loop entirely -- the model
-    # skips its tools and returns an empty schema skeleton instead. So for agents that
-    # carry tools we leave response_format unset and let the tool chain run; we still
-    # validate the final raw output ourselves below (same path, no output_pydantic
-    # coercion that crashes on our PEP 604 "X | None" fields).
-    # DeepSeek does not advertise response_format support to this CrewAI version.
-    # Tool loops must also avoid CrewAI's output_pydantic converter because it cannot
-    # parse the PEP 604 unions in Resume. Both paths are validated explicitly below.
+    # Asking the provider for structured JSON makes it answer in the FIRST response,
+    # which skips the tool-call loop entirely -- a tool-carrying agent then returns an
+    # empty schema skeleton instead of calling its tools. So tool-carrying agents get
+    # no response_format and are steered by the JSON contract in the prompt instead.
+    # DeepSeek is excluded too: it does not advertise response_format support to this
+    # CrewAI version. Either way the raw output is validated below, which also avoids
+    # CrewAI's output_pydantic converter -- it cannot parse our PEP 604 "X | None".
     llm: Any = agent.llm
     task_description = add_json_contract(task_description, output_model, llm.model)
-    if agent.tools or is_deepseek_model(llm.model):
-        llm.response_format = None
-        task = Task(
-            description=task_description,
-            expected_output=task_expected_output,
-            agent=agent,
-        )
-    else:
-        llm.response_format = structured_response_format(llm.model, output_model)
-        task = Task(
-            description=task_description,
-            expected_output=task_expected_output,
-            agent=agent,
-        )
+    llm.response_format = (
+        None
+        if agent.tools or is_deepseek_model(llm.model)
+        else structured_response_format(llm.model, output_model)
+    )
+    task = Task(
+        description=task_description,
+        expected_output=task_expected_output,
+        agent=agent,
+    )
     # Save the full task_description to a file before the LLM call so we can
     # inspect exactly what the agent received. No-ops unless DEBUG_CHECKPOINTS=1.
     # SAVE CHECKPOINT INPUT CONTEXT
@@ -140,15 +108,10 @@ def run_agent_task(
         task_description=task_description,
     )
 
-    # Serialize the kickoff so concurrent pipeline nodes never write CrewAI's shared
-    # SQLite store at the same time (see _KICKOFF_LOCK above).
-    #
-    # This is the ONE place every Crew in the pipeline is constructed, so this single
-    # config value is the centralized on/off switch for CrewAI's rich-console output
-    # (crew/task trees, tool/LLM status, and failure panels) across the entire run --
-    # see AgentDefaults.verbose in src/core/settings/schema.py.
+    # The only place a Crew is built, so AgentDefaults.verbose here is the single
+    # on/off switch for CrewAI's rich-console output across the whole run.
     crew_verbose = get_config().llm.agent_defaults.verbose
-    with _KICKOFF_LOCK:
+    with _KICKOFF_LOCK:  # see the note on _KICKOFF_LOCK above
         result = Crew(
             agents=[agent],
             tasks=[task],
@@ -179,15 +142,8 @@ def run_agent_task(
     return validated
 
 
-AGENT_OUTPUT_ERROR_USER_ACTION = (
-    "This is usually a transient formatting slip by the model, not a problem with "
-    "your resume or job description -- running the pipeline again typically resolves "
-    "it. If it keeps happening on the same input, please report it."
-)
-
-
 def _validate_agent_output(
-    raw_output: str, output_model: type[BaseModel], agent_role: str, task_name: str = "unknown"
+    raw_output: str, output_model: type[BaseModel], agent_role: str, task_name: str
 ) -> Any:
     """Validate an agent's raw text output into output_model.
 

@@ -6,7 +6,14 @@ They live here as the single code-authoritative source so the overall score is a
 deterministic blend of the dimension scores, not an LLM-narrated number.
 """
 
-from src.data_models.evaluation import ResumeQualityReport
+from src.core.logger import get_logger
+from src.data_models.evaluation import (
+    AtsCheckStatus,
+    RenderedStructureEvaluation,
+    ResumeQualityReport,
+)
+
+logger = get_logger(__name__)
 
 ACCURACY_WEIGHT = 0.40
 RELEVANCE_WEIGHT = 0.35
@@ -43,6 +50,40 @@ def apply_resume_quality_gate(
     """
     passes_quality_gate = quality_report.overall_quality_score >= threshold
     return quality_report.model_copy(update={"passes_quality_gate": passes_quality_gate})
+
+
+def apply_release_hard_blocks(
+    quality_report: ResumeQualityReport,
+    ats_outcome: RenderedStructureEvaluation,
+) -> ResumeQualityReport:
+    """Force passes_quality_gate=False when the rendered artifact outranks self-cert.
+
+    Two conditions hard-block release regardless of the blended overall score:
+    a rendered-ATS status other than PASS (the rendered artifact is authoritative
+    over the agent's self-cert), and relevance that could not be conclusively judged
+    (e.g. a job description with no structured requirements or ATS keywords -- there
+    is nothing to score against, so a passing score would be meaningless).
+
+    Expects apply_resume_quality_gate to have already set the score-threshold gate.
+    Call this again after any later re-grade of the ATS dimension (e.g.
+    patch_ats_assembly's deterministic section restore) so an earlier hard block
+    can never be silently cleared by a later, unrelated recomputation.
+    """
+    blocked_report = quality_report
+    if ats_outcome.status is not AtsCheckStatus.PASS:
+        blocked_report = blocked_report.model_copy(update={"passes_quality_gate": False})
+        logger.info(
+            "quality_hard_block_applied",
+            reason="ats_not_pass",
+            ats_status=ats_outcome.status.value,
+        )
+    if not blocked_report.relevance.is_conclusive:
+        blocked_report = blocked_report.model_copy(update={"passes_quality_gate": False})
+        logger.info(
+            "quality_hard_block_applied",
+            reason="relevance_inconclusive",
+        )
+    return blocked_report
 
 
 def should_render_resume(quality_report: ResumeQualityReport) -> bool:

@@ -5,7 +5,6 @@ import time
 from src.agents.quality_feedback import create_quality_feedback_agent
 from src.core.logger import get_logger
 from src.data_models.evaluation import (
-    AtsCheckStatus,
     ATSMetrics,
     QualityFeedback,
     RenderedStructureEvaluation,
@@ -18,6 +17,7 @@ from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.human_review_policy import is_ats_unverifiable
 from src.orchestration.state import ResumeEnhancementPipelineState
 from src.resume_quality_evaluation import (
+    apply_release_hard_blocks,
     apply_resume_quality_gate,
     calculate_overall_quality_score,
     evaluate_job_alignment,
@@ -152,19 +152,5 @@ def _ground_quality_dimensions(
         overall_score=grounded_overall,
         passes_gate=quality_report.passes_quality_gate,
     )
-    # Hard block: the rendered ATS verdict is authoritative. FAIL or INCONCLUSIVE blocks
-    # release even if the blended score cleared the threshold; self-cert never overrides.
-    if ats_outcome.status is not AtsCheckStatus.PASS:
-        quality_report = quality_report.model_copy(update={"passes_quality_gate": False})
-        logger.info(
-            "quality_hard_block_applied",
-            reason="ats_not_pass",
-            ats_status=ats_outcome.status.value,
-        )
-    if not grounded_relevance.is_conclusive:
-        quality_report = quality_report.model_copy(update={"passes_quality_gate": False})
-        logger.info(
-            "quality_hard_block_applied",
-            reason="relevance_inconclusive",
-        )
+    quality_report = apply_release_hard_blocks(quality_report, ats_outcome)
     return quality_report, ats_outcome

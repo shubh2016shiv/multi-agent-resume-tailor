@@ -10,6 +10,7 @@ weights. No LLM-owned score or gate is exposed from this package.
 from src.resume_quality_evaluation.job_alignment import evaluate_job_alignment
 from src.resume_quality_evaluation.quality_decision import (
     QUALITY_PASS_THRESHOLD,
+    apply_release_hard_blocks,
     apply_resume_quality_gate,
     calculate_overall_quality_score,
     should_render_resume,
@@ -19,6 +20,7 @@ from src.resume_quality_evaluation.truthfulness import evaluate_resume_truthfuln
 
 __all__ = [
     "QUALITY_PASS_THRESHOLD",
+    "apply_release_hard_blocks",
     "apply_resume_quality_gate",
     "calculate_overall_quality_score",
     "evaluate_job_alignment",

@@ -20,16 +20,12 @@ from typing import Any
 
 from src.agents.professional_experience.models import OptimizedExperienceSection
 from src.core.logger import get_logger
-from src.data_models.evaluation import (
-    AtsCheckStatus,
-    ATSMetrics,
-    RenderedStructureEvaluation,
-    ResumeQualityReport,
-)
+from src.data_models.evaluation import ATSMetrics, RenderedStructureEvaluation, ResumeQualityReport
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.orchestration.human_review_policy import is_ats_unrecoverable
 from src.orchestration.state import ResumeEnhancementPipelineState
 from src.resume_quality_evaluation import (
+    apply_release_hard_blocks,
     apply_resume_quality_gate,
     calculate_overall_quality_score,
     evaluate_rendered_structure,
@@ -41,15 +37,17 @@ logger = get_logger(__name__)
 def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
     """Restore essential sections the assembler dropped, then re-grade ATS. No LLM.
 
-    Precondition: entered only when rendered_structure_evaluation.status is FAIL.
-    guarantees this). Refills each empty essential section from canonical upstream typed
-    state, re-grades the rebuilt resume, and re-applies the gate.
+    Precondition: entered only when rendered_structure_evaluation.status is FAIL
+    (the router in graph.py guarantees this). Refills each empty essential section
+    from canonical upstream typed state, re-grades the rebuilt resume, and
+    re-applies the gate.
 
     Reads optimized resume sections and the existing quality report.
     Writes: optimized_resume (patched final_resume -- overwritten, the pre-patch assembler
             output is not retained), quality_report (re-graded and re-gated),
-            rendered_structure_evaluation
-            (the re-grade), human_review_required (True if the restore could not fix it).
+            rendered_structure_evaluation (the re-grade), human_review_required (True if
+            QA had already set it for an unrelated reason -- e.g. inconclusive relevance
+            -- OR the restore could not fix the ATS FAIL).
     """
     start_time = time.monotonic()
     logger.info(
@@ -90,9 +88,13 @@ def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
         "optimized_resume": optimized_resume.model_copy(update={"final_resume": patched_final}),
         "quality_report": quality_report,
         "rendered_structure_evaluation": new_outcome,
-        # A restore that still does not PASS means recovery is exhausted (the section was
-        # empty upstream too). The escalation policy lives in human_review_policy.
-        "human_review_required": is_ats_unrecoverable(new_outcome),
+        # OR, not overwrite: QA may have already set this True for a reason unrelated to
+        # the ATS check (inconclusive relevance), and a successful restore here must not
+        # silently clear that escalation. A restore that still does not PASS means ATS
+        # recovery is exhausted (the section was empty upstream too) -- also escalates.
+        # The escalation policy lives in human_review_policy.
+        "human_review_required": state["human_review_required"]
+        or is_ats_unrecoverable(new_outcome),
     }
 
 
@@ -123,12 +125,13 @@ def _regrade_ats_dimension(
     ats_outcome: RenderedStructureEvaluation,
 ) -> ResumeQualityReport:
     """Rebuild the ATS dimension and overall score from the re-graded outcome, reusing the
-    pre-patch accuracy/relevance, then re-apply the gate and hard-block on a non-PASS status.
+    pre-patch accuracy/relevance, then re-apply the gate and both release hard blocks.
 
-    This repeats the small ATS-grounding tail from quality._ground_quality_dimensions. The
-    duplication is deliberate: Phase 1 is verified and clean, and extracting a shared helper
-    would change its contract and raise a layer question (the gate lives in the agent engines
-    package). Local duplication of ~6 lines is the lower-risk choice here.
+    TODO: relevance is NOT re-graded after restore; a restored skills section can raise JD
+          keyword coverage, so the reused relevance score may understate the patched resume.
+          Proposed: re-run evaluate_job_alignment(patched_final, job) in this node.
+          Deferred: this recovery step currently re-runs rendered structure only; revisit if a
+          restored resume sits just under threshold purely on stale relevance.
     """
     grounded_ats = ATSMetrics(
         ats_score=ats_outcome.ats_score,
@@ -145,11 +148,4 @@ def _regrade_ats_dimension(
         update={"ats_optimization": grounded_ats, "overall_quality_score": overall}
     )
     regraded = apply_resume_quality_gate(regraded)
-    if ats_outcome.status is not AtsCheckStatus.PASS:
-        regraded = regraded.model_copy(update={"passes_quality_gate": False})
-    return regraded
-    # TODO: relevance is NOT re-graded after restore; a restored skills section can raise JD
-    #       keyword coverage, so the reused relevance score may understate the patched resume.
-    #       Proposed: re-run evaluate_job_alignment(patched_final, job) in this node.
-    #       Deferred: this recovery step currently re-runs rendered structure only; revisit if a
-    #       restored resume sits just under threshold purely on stale relevance.
+    return apply_release_hard_blocks(regraded, ats_outcome)

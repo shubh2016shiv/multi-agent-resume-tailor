@@ -29,8 +29,8 @@ made before the phase.
 
 ## Progress
 
-- [ ] 0.1 Commit the in-progress work
-- [ ] 0.2 Fix the out-of-date quality-feedback test
+- [x] 0.1 Commit the in-progress work
+- [x] 0.2 Fix the out-of-date quality-feedback test
 - [ ] 1.1 Failing tests for the ATS-patch escalation bug
 - [ ] 1.2 One shared release hard-block helper
 - [ ] 1.3 Patch node keeps an earlier human-review flag

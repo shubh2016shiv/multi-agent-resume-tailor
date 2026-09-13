@@ -2,6 +2,7 @@
 
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -34,14 +35,36 @@ from src.orchestration.checkpointing import (
 )
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.human_review_policy import derive_run_disposition
-from src.orchestration.state import ResumeEnhancementPipelineState, require
+from src.orchestration.state import (
+    ResumeEnhancementPipelineState,
+    new_pipeline_state,
+    require,
+)
 from src.tools.engines.document_rendering.output_paths import resume_output_dir
 
 logger = get_logger(__name__)
 
-init_observability("resume-tailor-agents")
-
 ProgressCallback = Callable[[str, str], None]
+
+
+@dataclass(frozen=True)
+class _RunPlan:
+    """One execution's inputs, plus everything that differs between the two modes.
+
+    Exactly one of in_flight_checkpoint_db / paused_run_layout is set:
+    in_flight_checkpoint_db for a fresh run, whose checkpoint is archived into a
+    paused-run directory or deleted when the run ends; paused_run_layout for a
+    resume, whose checkpoint already lives in that directory.
+    """
+
+    run_id: str
+    resume_path: str
+    jd_path: str
+    checkpointer: SqliteSaver
+    pipeline_input: Any
+    started_log_fields: dict[str, Any]
+    in_flight_checkpoint_db: Path | None = None
+    paused_run_layout: PausedRunLayout | None = None
 
 
 def tailor_resume(
@@ -50,64 +73,21 @@ def tailor_resume(
     progress_callback: ProgressCallback | None = None,
 ) -> OrchestrationResult:
     """Run a fresh pipeline execution from source documents."""
+    init_observability("resume-tailor-agents")
     run_id = uuid4().hex
-    start_time = time.monotonic()
-    result: OrchestrationResult | None = None
     checkpoint_db_path = _in_flight_checkpoint_db_path(run_id)
-    checkpointer = open_checkpoint_database(checkpoint_db_path)
-    pipeline = _build_pipeline(checkpointer)
-    config: RunnableConfig = {"configurable": {"thread_id": run_id}}
-    logger.info(
-        "pipeline_run_started",
-        run_id=run_id,
-        resume_path=resume_path,
-        jd_path=jd_path,
-        resume_mode="fresh",
-    )
-    initial_state: ResumeEnhancementPipelineState = {
-        "run_id": run_id,
-        "resume_path": resume_path,
-        "jd_path": jd_path,
-        "clarification_answers": [],
-        "resume": None,
-        "job_description": None,
-        "requirement_match_report": None,
-        "alignment_strategy": None,
-        "professional_summary": None,
-        "optimized_experience": None,
-        "experience_clarifications": None,
-        "optimized_skills": None,
-        "optimized_resume": None,
-        "quality_report": None,
-        "rendered_structure_evaluation": None,
-        "human_review_required": False,
-        "rendered_artifacts": None,
-    }
-    try:
-        output = _invoke_pipeline(pipeline, initial_state, config, progress_callback)
-        result = _finalize_pipeline_output(
-            pipeline=pipeline,
-            config=config,
-            output=output,
+    return _execute_run(
+        _RunPlan(
             run_id=run_id,
             resume_path=resume_path,
             jd_path=jd_path,
-        )
-        _log_pipeline_completion(run_id, result, start_time)
-        return result
-    except Exception:
-        duration_ms = round((time.monotonic() - start_time) * 1000)
-        logger.exception(
-            "pipeline_run_failed",
-            run_id=run_id,
-            duration_ms=duration_ms,
-        )
-        raise
-    finally:
-        close_checkpoint_database(checkpointer)
-        _settle_fresh_run_checkpoint(checkpoint_db_path, result)
-        if _should_cleanup_pii_mapping(result):
-            _cleanup_pii_mapping(run_id)
+            checkpointer=open_checkpoint_database(checkpoint_db_path),
+            pipeline_input=new_pipeline_state(run_id, resume_path, jd_path),
+            started_log_fields={"resume_mode": "fresh"},
+            in_flight_checkpoint_db=checkpoint_db_path,
+        ),
+        progress_callback,
+    )
 
 
 # HITL COMPONENT 6 -- RESUME. See
@@ -122,6 +102,7 @@ def resume_paused_run(
     machinery is opened: an expired run and an unanswered sheet both fail here,
     cheaply, instead of after a checkpoint connection and a graph compile.
     """
+    init_observability("resume-tailor-agents")
     layout, manifest = load_paused_run(paused_run_path)
     if manifest.is_expired:
         raise ValueError(
@@ -135,50 +116,92 @@ def resume_paused_run(
             "one clarification before resuming the paused run."
         )
 
-    start_time = time.monotonic()
-    result: OrchestrationResult | None = None
-    checkpointer = open_checkpoint_database(layout.checkpoint_db)
-    pipeline = _build_pipeline(checkpointer)
-    config: RunnableConfig = {"configurable": {"thread_id": manifest.run_id}}
-    try:
-        logger.info(
-            "pipeline_run_started",
+    return _execute_run(
+        _RunPlan(
             run_id=manifest.run_id,
             resume_path=manifest.resume_path,
             jd_path=manifest.jd_path,
-            resume_mode="paused_run_resume",
-            paused_run_path=paused_run_path,
-            answered_clarifications=len(answered_clarifications),
-        )
-        command = Command(
-            resume={"status": "candidate_answers_submitted"},
-            update={"clarification_answers": answered_clarifications},
-        )
-        output = _invoke_pipeline(pipeline, command, config, progress_callback)
+            checkpointer=open_checkpoint_database(layout.checkpoint_db),
+            pipeline_input=Command(
+                resume={"status": "candidate_answers_submitted"},
+                update={"clarification_answers": answered_clarifications},
+            ),
+            started_log_fields={
+                "resume_mode": "paused_run_resume",
+                "paused_run_path": paused_run_path,
+                "answered_clarifications": len(answered_clarifications),
+            },
+            paused_run_layout=layout,
+        ),
+        progress_callback,
+    )
+
+
+def _execute_run(
+    plan: _RunPlan,
+    progress_callback: ProgressCallback | None,
+) -> OrchestrationResult:
+    """Compile, invoke, and settle one run -- the skeleton both entry points share.
+
+    The checkpointer is opened by the caller (so a failure to open it never reaches
+    the finally block below, which would try to close it) and is always closed here.
+    """
+    start_time = time.monotonic()
+    result: OrchestrationResult | None = None
+    pipeline = build_resume_enhancement_graph(checkpointer=plan.checkpointer)
+    config: RunnableConfig = {"configurable": {"thread_id": plan.run_id}}
+    logger.info(
+        "pipeline_run_started",
+        run_id=plan.run_id,
+        resume_path=plan.resume_path,
+        jd_path=plan.jd_path,
+        **plan.started_log_fields,
+    )
+    try:
+        output = _invoke_pipeline(pipeline, plan.pipeline_input, config, progress_callback)
         result = _finalize_pipeline_output(
             pipeline=pipeline,
             config=config,
             output=output,
-            run_id=manifest.run_id,
-            resume_path=manifest.resume_path,
-            jd_path=manifest.jd_path,
-            paused_run_layout=layout,
+            run_id=plan.run_id,
+            resume_path=plan.resume_path,
+            jd_path=plan.jd_path,
+            paused_run_layout=plan.paused_run_layout,
         )
-        _log_pipeline_completion(manifest.run_id, result, start_time)
+        _log_pipeline_completion(plan.run_id, result, start_time)
         return result
     except Exception:
-        duration_ms = round((time.monotonic() - start_time) * 1000)
         logger.exception(
             "pipeline_run_failed",
-            run_id=manifest.run_id,
-            duration_ms=duration_ms,
+            run_id=plan.run_id,
+            duration_ms=round((time.monotonic() - start_time) * 1000),
         )
         raise
     finally:
-        close_checkpoint_database(checkpointer)
-        _settle_resumed_run_checkpoint(layout, result)
-        if _should_cleanup_pii_mapping_after_resume(result):
-            _cleanup_pii_mapping(manifest.run_id)
+        close_checkpoint_database(plan.checkpointer)
+        _settle_run_state(plan, result)
+
+
+def _settle_run_state(plan: _RunPlan, result: OrchestrationResult | None) -> None:
+    """Retire or preserve this run's checkpoint and PII mapping.
+
+    The two modes deliberately disagree about failure. A crashed FRESH run has no
+    pause anyone could resume, so both are removed. A crashed RESUME leaves its
+    paused run intact, so both must survive -- deleting the mapping there would make
+    every later resume unable to rehydrate PII.
+    """
+    if plan.paused_run_layout is not None:
+        _settle_resumed_run_checkpoint(plan.paused_run_layout, result)
+        needs_pii_cleanup = _should_cleanup_pii_mapping_after_resume(result)
+    elif plan.in_flight_checkpoint_db is not None:
+        _settle_fresh_run_checkpoint(plan.in_flight_checkpoint_db, result)
+        needs_pii_cleanup = _should_cleanup_pii_mapping(result)
+    else:
+        raise RuntimeError(
+            "_RunPlan carries neither an in-flight checkpoint path nor a paused-run layout."
+        )
+    if needs_pii_cleanup:
+        _cleanup_pii_mapping(plan.run_id)
 
 
 def _invoke_pipeline(
@@ -209,11 +232,6 @@ def _report_task_event(callback: ProgressCallback, event: dict[str, Any]) -> Non
         callback("started", str(event["name"]))
         return
     callback("failed" if event.get("error") else "completed", str(event["name"]))
-
-
-def _build_pipeline(checkpointer: SqliteSaver) -> CompiledStateGraph:
-    """Compile a pipeline graph bound to one run-local checkpointer."""
-    return build_resume_enhancement_graph(checkpointer=checkpointer)
 
 
 def _in_flight_checkpoint_db_path(run_id: str) -> Path:
@@ -263,14 +281,14 @@ def _finalize_pipeline_output(
     run_id: str,
     resume_path: str,
     jd_path: str,
-    paused_run_layout: PausedRunLayout | None = None,
+    paused_run_layout: PausedRunLayout | None,
 ) -> OrchestrationResult:
     """Convert an invoke() result into a paused or completed orchestration result.
 
     A run that pauses again after a resume reuses the same paused-run directory,
     so the candidate always has exactly one folder to work in.
     """
-    if _pipeline_interrupted(output):
+    if "__interrupt__" in output:  # LangGraph paused on an interrupt boundary
         snapshot = pipeline.get_state(config)
         snapshot_state = cast(ResumeEnhancementPipelineState, snapshot.values)
         layout = paused_run_layout or PausedRunLayout.at(
@@ -344,7 +362,7 @@ def _build_completed_orchestration_result(
     )
 
 
-def _persist_result(result: OrchestrationResult) -> str:
+def _persist_result(result: OrchestrationResult) -> None:
     """Persist one orchestration result next to the paused run or rendered artifacts.
 
     The clarification sheet is deliberately NOT written here. A paused run already
@@ -362,7 +380,6 @@ def _persist_result(result: OrchestrationResult) -> str:
         path=str(path),
         disposition=result.disposition.value,
     )
-    return str(path)
 
 
 def _result_output_dir(result: OrchestrationResult) -> Path:
@@ -381,20 +398,14 @@ def _result_output_dir(result: OrchestrationResult) -> Path:
 def _paused_run_directory(
     state: ResumeEnhancementPipelineState,
     run_id: str,
-) -> str:
+) -> Path:
     """Return the local folder where one paused clarification run should live."""
-    base_dir = Path(get_config().file_paths.output_dir)
     parent_dir = resume_output_dir(
         require(state["resume"], "resume"),
         require(state["job_description"], "job_description"),
-        base_dir,
+        Path(get_config().file_paths.output_dir),
     )
-    return str(parent_dir / f"paused_run_{run_id}")
-
-
-def _pipeline_interrupted(output: dict) -> bool:
-    """Return whether LangGraph paused the run on an interrupt boundary."""
-    return "__interrupt__" in output
+    return parent_dir / f"paused_run_{run_id}"
 
 
 def _should_cleanup_pii_mapping(result: OrchestrationResult | None) -> bool:

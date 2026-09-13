@@ -50,7 +50,7 @@ def init_observability(project_name: str = "resume-tailor-agents", enabled: bool
     Safe to call more than once: later calls just report the current state.
 
     Who calls this today:
-        ``src/orchestration/runner.py`` (when that module is imported).
+        ``src/orchestration/runner.py``, at the top of each public entry point.
     """
     global _is_initialized
 

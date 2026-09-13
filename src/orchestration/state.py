@@ -78,6 +78,41 @@ class ResumeEnhancementPipelineState(TypedDict):
     rendered_artifacts: RenderedResumeArtifacts | None
 
 
+def new_pipeline_state(
+    run_id: str,
+    resume_path: str,
+    jd_path: str,
+) -> ResumeEnhancementPipelineState:
+    """Build the state a fresh run starts from: the three inputs, everything else empty.
+
+    Lives here, next to the TypedDict, so adding a field is a one-file change --
+    the runner used to spell out all seventeen keys, which meant a new field had to
+    be added in two places or LangGraph would see a state missing a key.
+
+    human_review_required starts False and clarification_answers empty (not None)
+    because a router and a node read them before any node could have set them.
+    """
+    return {
+        "run_id": run_id,
+        "resume_path": resume_path,
+        "jd_path": jd_path,
+        "clarification_answers": [],
+        "resume": None,
+        "job_description": None,
+        "requirement_match_report": None,
+        "alignment_strategy": None,
+        "professional_summary": None,
+        "optimized_experience": None,
+        "experience_clarifications": None,
+        "optimized_skills": None,
+        "optimized_resume": None,
+        "quality_report": None,
+        "rendered_structure_evaluation": None,
+        "human_review_required": False,
+        "rendered_artifacts": None,
+    }
+
+
 def require[T](value: T | None, field: str) -> T:
     """Return a state field an upstream node must already have populated.
 

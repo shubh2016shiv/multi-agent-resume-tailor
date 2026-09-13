@@ -59,10 +59,13 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class RoleRewriteDecision:
-    """The rewrite proposal and review state that ultimately determined one role's output."""
+    """What one role ships: the finished section, and the proposal that produced it.
+
+    The proposal is kept alongside the section because the fact-gap review needs the
+    per-bullet rewrite records, not just the final bullet text.
+    """
 
     selected_rewrite_proposal: ExperienceRewriteProposal
-    selected_quality_review: ReviewResult
     finalized_section: OptimizedExperienceSection
 
 
@@ -163,26 +166,42 @@ def _optimize_experience_entries(
     job_description: JobDescription,
     strategy: AlignmentStrategy,
     clarification_answers: list[ExperienceBulletClarification],
-    run_id: str = "unknown",
+    run_id: str,
 ) -> tuple[OptimizedExperienceSection, list[ExperienceBulletClarification]]:
-    """Optimize every resume experience and merge the role-scoped results.
+    """Rewrite every role in parallel, then merge the role-scoped results.
 
-    Expects resume.work_experience to contain at least one entry.
-    Returns the merged OptimizedExperienceSection for downstream ATS assembly,
-    plus every question the roles raised for the candidate.
+    Expects resume.work_experience to contain at least one entry. Returns the merged
+    OptimizedExperienceSection for downstream ATS assembly, plus every question the
+    roles raised for the candidate. Each role sees only the answers routed to it.
+
+    Note that the parallelism here buys less than it appears to: every rewrite call
+    funnels through the process-wide kickoff lock (see orchestration_architecture.md
+    section 9b), so only the non-Crew review calls truly overlap.
     """
     experiences = resume.work_experience
     if not experiences:
         raise ValueError("resume.work_experience must contain at least one entry.")
 
-    role_outcomes = _run_experience_optimization_workers(
-        resume=resume,
-        job_description=job_description,
-        strategy=strategy,
-        experiences=experiences,
-        clarification_answers=clarification_answers,
-        run_id=run_id,
+    max_workers = min(len(experiences), 4)
+    logger.debug(
+        "experience_optimization_parallelism",
+        experience_count=len(experiences),
+        max_workers=max_workers,
     )
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        role_outcomes = list(
+            executor.map(
+                lambda experience: _run_single_experience_optimization(
+                    resume,
+                    job_description,
+                    strategy,
+                    experience,
+                    answers_for_role(experience, clarification_answers),
+                    run_id,
+                ),
+                experiences,
+            )
+        )
     sections = [section for section, _ in role_outcomes]
     clarifications = [
         clarification
@@ -217,15 +236,6 @@ def _cap_clarifications(
         kept=limit,
     )
     return clarifications[:limit]
-
-
-def _build_resume_with_single_experience(resume: Resume, experience: Experience) -> Resume:
-    """Copy resume context with only one work experience entry.
-
-    Expects a validated Resume and one Experience from resume.work_experience.
-    Returns a Resume copy whose work_experience list contains only that entry.
-    """
-    return resume.model_copy(update={"work_experience": [experience]})
 
 
 def _rebuild_rewritten_role_from_proposal(
@@ -287,18 +297,7 @@ def _collect_rewrite_truthfulness_findings(
         update={"work_experience": [rewritten_role]}
     )
     inflation = detect_claim_inflation(source_role_resume, rewritten_role_resume)
-    return [f"{comment.message}. {comment.advice}" for comment in inflation.comments]
-
-
-def _collect_rewrite_quality_review(
-    source_experience: Experience,
-    rewrite_proposal: ExperienceRewriteProposal,
-) -> ReviewResult:
-    """Review rewritten bullets for supported specificity, ownership, and recruiter tone."""
-    return audit_experience_rewrite_quality(
-        source_experience,
-        rewrite_proposal.rewritten_bullets,
-    )
+    return _render_quality_findings_for_repair(inflation.comments)
 
 
 def _split_repair_required_comments_from_follow_up_comments(
@@ -387,7 +386,7 @@ def _build_experience_repair_context(
 
 def _request_role_rewrite_proposal(
     context: str,
-    run_id: str = "unknown",
+    run_id: str,
 ) -> ExperienceRewriteProposal:
     """Ask the professional experience agent to rewrite one role's bullets.
 
@@ -413,133 +412,171 @@ def _render_quality_findings_for_repair(
     ]
 
 
-def _decide_role_rewrite_outcome(
+def _no_quality_findings() -> ReviewResult:
+    """An empty review, used when the truth floor already decided the outcome.
+
+    A fresh instance each time rather than a shared module constant: ReviewResult
+    is a mutable Pydantic model, and one shared instance could be aliased into two
+    different role decisions.
+    """
+    return ReviewResult(comments=[], summary="", score=None)
+
+
+@dataclass(frozen=True)
+class _ProposalCheck:
+    """One rewrite proposal measured against both lines: truth floor, then substance.
+
+    The two lines have different force, so they stay separate fields rather than
+    collapsing into a single verdict: truthfulness_findings is non-negotiable, while
+    the comment lists are graded (must-fix vs. merely worth surfacing).
+    """
+
+    rewritten_role: Experience
+    truthfulness_findings: list[str]
+    repair_required_comments: list[ReviewComment]
+    follow_up_comments: list[ReviewComment]
+
+    @property
+    def is_shippable(self) -> bool:
+        """Truthful, and carrying no finding that must be fixed before shipping."""
+        return not self.truthfulness_findings and not self.repair_required_comments
+
+    @property
+    def is_flawless(self) -> bool:
+        """Shippable with nothing even worth surfacing to the candidate."""
+        return self.is_shippable and not self.follow_up_comments
+
+    @property
+    def repair_findings(self) -> list[str]:
+        """Everything the single repair attempt should try to fix, at once."""
+        return self.truthfulness_findings + _render_quality_findings_for_repair(
+            self.repair_required_comments + self.follow_up_comments
+        )
+
+    @property
+    def blocking_findings(self) -> list[str]:
+        """Why this proposal cannot ship -- recorded on the source-preserved section."""
+        return self.truthfulness_findings or _render_quality_findings_for_repair(
+            self.repair_required_comments
+        )
+
+
+def _check_proposal(
     rewrite_proposal: ExperienceRewriteProposal,
-    context: str,
     source_role_resume: Resume,
     original_experience: Experience,
-    run_id: str = "unknown",
-) -> RoleRewriteDecision:
-    """Choose the best rewrite to ship, repairing once when the first draft falls short.
+) -> _ProposalCheck:
+    """Measure one proposal: deterministic truth floor first, then the semantic review.
 
-    The two lines have different force. Truthfulness is non-negotiable: only a
-    version that clears the truth floor may ship, and if none survives one repair
-    the source bullets do. Substance is best-effort: thin bullets earn a repair,
-    and whatever is still thin afterward is surfaced to the candidate, never
-    invented away.
+    The review is skipped when the truth floor already failed -- the proposal cannot
+    ship either way, and the review costs an LLM call.
     """
-    ####################################################
-    # STEP 1: CHECK THE FIRST PROPOSAL -- TRUTH FLOOR, THEN SUBSTANCE#
-    ####################################################
-    first_rewritten_role = _rebuild_rewritten_role_from_proposal(
+    rewritten_role = _rebuild_rewritten_role_from_proposal(
         rewrite_proposal,
         original_experience,
     )
     truthfulness_findings = _collect_rewrite_truthfulness_findings(
         source_role_resume,
         rewrite_proposal,
-        first_rewritten_role,
+        rewritten_role,
         original_experience,
     )
-    # The quality review judges against the EVIDENCE role (which may carry the
-    # candidate's clarification answers), not the bare original -- otherwise
-    # answer-sourced specifics would be flagged as unsupported.
-    evidence_experience = source_role_resume.work_experience[0]
-    first_quality_review = (
-        ReviewResult(comments=[], summary="", score=None)
+    # The review judges against the EVIDENCE role (which may carry the candidate's
+    # clarification answers), not the bare original -- otherwise answer-sourced
+    # specifics would be flagged as unsupported.
+    quality_review = (
+        _no_quality_findings()
         if truthfulness_findings
-        else _collect_rewrite_quality_review(evidence_experience, rewrite_proposal)
+        else audit_experience_rewrite_quality(
+            source_role_resume.work_experience[0],
+            rewrite_proposal.rewritten_bullets,
+        )
     )
-    repair_required_comments, candidate_follow_up_comments = (
-        _split_repair_required_comments_from_follow_up_comments(first_quality_review)
+    repair_required_comments, follow_up_comments = (
+        _split_repair_required_comments_from_follow_up_comments(quality_review)
     )
-    if (
-        not truthfulness_findings
-        and not repair_required_comments
-        and not candidate_follow_up_comments
-    ):
+    return _ProposalCheck(
+        rewritten_role=rewritten_role,
+        truthfulness_findings=truthfulness_findings,
+        repair_required_comments=repair_required_comments,
+        follow_up_comments=follow_up_comments,
+    )
+
+
+def _decide_role_rewrite_outcome(
+    rewrite_proposal: ExperienceRewriteProposal,
+    context: str,
+    source_role_resume: Resume,
+    original_experience: Experience,
+    run_id: str,
+) -> RoleRewriteDecision:
+    """Choose the best rewrite to ship, repairing once when the first draft falls short.
+
+    The two lines have different force. Truthfulness is non-negotiable: only a
+    version that clears the truth floor may ship, and if none survives one repair
+    the source bullets do. Substance is best-effort: thin bullets earn a repair, and
+    whatever is still thin afterward is surfaced to the candidate, never invented away.
+
+    Four outcomes, in the order they are tried: the first draft ships as-is; the
+    repair ships; the first draft ships anyway because the repair regressed; the
+    source bullets ship because neither draft was truthful.
+    """
+    first = _check_proposal(rewrite_proposal, source_role_resume, original_experience)
+    if first.is_flawless:
         return RoleRewriteDecision(
             selected_rewrite_proposal=rewrite_proposal,
-            selected_quality_review=first_quality_review,
             finalized_section=_accepted_section(
-                first_rewritten_role,
+                first.rewritten_role,
                 "Rewrote bullets with grounded role evidence; recruiter-readable and truthful.",
             ),
         )
 
-    ####################################################
-    # STEP 2: SPEND THE SINGLE REPAIR ON EVERY FINDING AT ONCE#
-    ####################################################
-    findings = truthfulness_findings + _render_quality_findings_for_repair(
-        repair_required_comments + candidate_follow_up_comments
-    )
     logger.info(
         "experience_rewrite_repair_requested",
         run_id=run_id,
         company=original_experience.company_name,
-        truthfulness_findings=len(truthfulness_findings),
-        quality_findings=len(repair_required_comments) + len(candidate_follow_up_comments),
+        truthfulness_findings=len(first.truthfulness_findings),
+        quality_findings=len(first.repair_required_comments) + len(first.follow_up_comments),
     )
-    repair_context = _build_experience_repair_context(context, rewrite_proposal, findings)
-    repaired_rewrite_proposal = _request_role_rewrite_proposal(repair_context, run_id=run_id)
-    repaired_role = _rebuild_rewritten_role_from_proposal(
-        repaired_rewrite_proposal,
-        original_experience,
+    repair_context = _build_experience_repair_context(
+        context,
+        rewrite_proposal,
+        first.repair_findings,
     )
+    repaired_proposal = _request_role_rewrite_proposal(repair_context, run_id=run_id)
+    repaired = _check_proposal(repaired_proposal, source_role_resume, original_experience)
 
-    ####################################################
-    # STEP 3: SHIP THE BEST TRUTHFUL VERSION, SURFACING THIN BULLETS#
-    ####################################################
-    repaired_truthfulness_findings = _collect_rewrite_truthfulness_findings(
-        source_role_resume,
-        repaired_rewrite_proposal,
-        repaired_role,
-        original_experience,
-    )
-    repaired_quality_review = (
-        ReviewResult(comments=[], summary="", score=None)
-        if repaired_truthfulness_findings
-        else _collect_rewrite_quality_review(evidence_experience, repaired_rewrite_proposal)
-    )
-    repaired_repair_required_comments, repaired_candidate_follow_up_comments = (
-        _split_repair_required_comments_from_follow_up_comments(repaired_quality_review)
-    )
-    if not repaired_truthfulness_findings and not repaired_repair_required_comments:
+    if repaired.is_shippable:
         return RoleRewriteDecision(
-            selected_rewrite_proposal=repaired_rewrite_proposal,
-            selected_quality_review=repaired_quality_review,
+            selected_rewrite_proposal=repaired_proposal,
             finalized_section=_accepted_section(
-                repaired_role,
+                repaired.rewritten_role,
                 "Repaired once with grounded rewrite feedback; truthful."
-                + _build_candidate_follow_up_note(repaired_candidate_follow_up_comments),
+                + _build_candidate_follow_up_note(repaired.follow_up_comments),
             ),
         )
-    if not truthfulness_findings and not repair_required_comments:
+    if first.is_shippable:
         # The first rewrite was already safe to ship; the repair made it worse, so
         # keep the first rewrite and surface any follow-up gaps it still has.
         return RoleRewriteDecision(
             selected_rewrite_proposal=rewrite_proposal,
-            selected_quality_review=first_quality_review,
             finalized_section=_accepted_section(
-                first_rewritten_role,
+                first.rewritten_role,
                 "Kept the first grounded rewrite (repair introduced new issues)."
-                + _build_candidate_follow_up_note(candidate_follow_up_comments),
+                + _build_candidate_follow_up_note(first.follow_up_comments),
             ),
         )
     logger.warning(
         "experience_rewrite_source_fallback",
         run_id=run_id,
         company=original_experience.company_name,
-        findings=repaired_truthfulness_findings
-        or _render_quality_findings_for_repair(repaired_repair_required_comments),
+        findings=repaired.blocking_findings,
     )
     return RoleRewriteDecision(
-        selected_rewrite_proposal=repaired_rewrite_proposal,
-        selected_quality_review=repaired_quality_review,
+        selected_rewrite_proposal=repaired_proposal,
         finalized_section=_source_preserved_section(
             original_experience,
-            repaired_truthfulness_findings
-            or _render_quality_findings_for_repair(repaired_repair_required_comments),
+            repaired.blocking_findings,
         ),
     )
 
@@ -550,7 +587,7 @@ def _run_single_experience_optimization(
     strategy: AlignmentStrategy,
     experience: Experience,
     role_answers: list[ExperienceBulletClarification],
-    run_id: str = "unknown",
+    run_id: str,
 ) -> tuple[OptimizedExperienceSection, list[ExperienceBulletClarification]]:
     """Rewrite one role's bullets with a role-scoped CrewAI call plus a code-owned gate.
 
@@ -572,9 +609,9 @@ def _run_single_experience_optimization(
     # and the LLM reviews instead see them folded into the role description, so
     # answer-sourced facts count as source evidence and are never flagged as
     # invented.
-    writer_role_resume = _build_resume_with_single_experience(resume, experience)
+    writer_role_resume = resume.model_copy(update={"work_experience": [experience]})
     evidence_experience = experience_with_candidate_answers(experience, role_answers)
-    evidence_role_resume = _build_resume_with_single_experience(resume, evidence_experience)
+    evidence_role_resume = resume.model_copy(update={"work_experience": [evidence_experience]})
     context = format_experience_optimizer_context(
         resume=writer_role_resume,
         job_description=job_description,
@@ -627,39 +664,3 @@ def _merge_optimized_experience_sections(
         keywords_integrated=list(dict.fromkeys(keywords_integrated)),
         relevance_scores=relevance_scores,
     )
-
-
-def _run_experience_optimization_workers(
-    resume: Resume,
-    job_description: JobDescription,
-    strategy: AlignmentStrategy,
-    experiences: list[Experience],
-    clarification_answers: list[ExperienceBulletClarification],
-    run_id: str = "unknown",
-) -> list[tuple[OptimizedExperienceSection, list[ExperienceBulletClarification]]]:
-    """Run role-scoped experience optimization calls in parallel.
-
-    Expects a non-empty experiences list from resume.work_experience.
-    Returns one (section, candidate questions) pair per input experience; each
-    role receives only the answered clarifications routed to it.
-    """
-    max_workers = min(len(experiences), 4)
-    logger.debug(
-        "experience_optimization_parallelism",
-        experience_count=len(experiences),
-        max_workers=max_workers,
-    )
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        return list(
-            executor.map(
-                lambda experience: _run_single_experience_optimization(
-                    resume,
-                    job_description,
-                    strategy,
-                    experience,
-                    answers_for_role(experience, clarification_answers),
-                    run_id,
-                ),
-                experiences,
-            )
-        )

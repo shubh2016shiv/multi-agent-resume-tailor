@@ -400,7 +400,8 @@ def _request_role_rewrite_proposal(
     """Ask the professional experience agent to rewrite one role's bullets.
 
     Expects TOON context for a single role.
-    Returns an ExperienceRewriteProposal validated by CrewAI.
+    Returns an ExperienceRewriteProposal validated by run_agent_task against
+    the agent's raw output.
     """
     return run_agent_task(
         agent=create_professional_experience_agent(),

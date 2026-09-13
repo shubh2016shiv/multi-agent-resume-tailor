@@ -38,8 +38,8 @@ BLOCKING_SEVERITIES = {Severity.MAJOR, Severity.BLOCKER}
 def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     """Generate a professional summary tailored to the job description.
 
-    Raises: ValueError if the recommended draft fails the quality gate (STEP 5) --
-            a hard-constraint violation must not reach resume assembly.
+    Raises: PipelineQualityGateError if the recommended draft fails the quality gate
+            (STEP 5) -- a hard-constraint violation must not reach resume assembly.
     """
     start_time = time.monotonic()
     logger.info(
@@ -52,8 +52,12 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
     ####################################################
     assert state["resume"] is not None, "resume must be set before summary writing"
-    assert state["job_description"] is not None, "job_description must be set before summary writing"
-    assert state["alignment_strategy"] is not None, "alignment_strategy must be set before summary writing"
+    assert state["job_description"] is not None, (
+        "job_description must be set before summary writing"
+    )
+    assert state["alignment_strategy"] is not None, (
+        "alignment_strategy must be set before summary writing"
+    )
 
     ####################################################
     # STEP 2: BUILD THE CONTEXT THE WRITER READS#

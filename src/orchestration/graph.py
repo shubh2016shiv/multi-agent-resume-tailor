@@ -2,15 +2,18 @@
 Resume enhancement pipeline as a LangGraph StateGraph.
 
 Reading this file gives the complete pipeline topology at a glance.
-No agent logic lives here -- all agent calls are in nodes.py.
+No agent logic lives here -- all agent calls are in nodes/.
 
-Stage 1 (parallel):   extract_resume + analyze_job
-Stage 2 (sequential): run_gap_analysis          (waits for Stage 1)
-Stage 3 (parallel):   write_professional_summary + optimize_experience + optimize_skills
-Stage 4 (sequential): await candidate facts, then assemble ATS resume
-Stage 5 (sequential): evaluate_resume_quality
-Stage 6 (sequential): rehydrate_pii              (restore PII after QA, on every path)
-Stage 7 (conditional): render_final_resume       (gate passed, or render_draft_on_gate_fail=True)
+Stage 1  (parallel):    extract_resume + analyze_job
+Stage 2  (sequential):  run_gap_analysis           (waits for Stage 1)
+Stage 3  (parallel):    write_professional_summary + optimize_experience + optimize_skills
+Stage 4  (sequential):  await_candidate_clarifications, then assemble_ats_resume
+Stage 4b (conditional): loop optimize_experience once more with the candidate's answers,
+                         instead of proceeding to assembly, right after a resume supplies them
+Stage 5  (sequential):  evaluate_resume_quality
+Stage 5b (conditional): patch_ats_assembly         (only when the rendered ATS check FAILed)
+Stage 6  (sequential):  rehydrate_pii              (restore PII after QA, on every path)
+Stage 7  (conditional): render_final_resume        (gate passed, or render_draft_on_gate_fail=True)
 """
 
 from langgraph.graph import END, START, StateGraph
@@ -89,11 +92,7 @@ def _route_after_candidate_clarifications(state: ResumeEnhancementPipelineState)
     be rewritten once more using those answers before ATS assembly. A normal run,
     or the second pass after answers were applied, continues to ATS assembly.
     """
-    decision = (
-        "rewrite_experience"
-        if state.get("clarification_answers")
-        else "assemble_resume"
-    )
+    decision = "rewrite_experience" if state.get("clarification_answers") else "assemble_resume"
     logger.info(
         "graph_routing_decision",
         from_node="await_candidate_clarifications",
@@ -148,10 +147,10 @@ def build_resume_enhancement_graph(checkpointer=None) -> CompiledStateGraph:
     graph.add_edge("optimize_experience", "await_candidate_clarifications")
     graph.add_edge("optimize_skills", "await_candidate_clarifications")
 
-    # -- Stage 3b: candidate clarification gate -- if the experience stage needs
+    # -- Stage 4b: candidate clarification gate -- if the experience stage needs
     # candidate-owned facts, this node interrupts before ATS assembly. On resume,
     # the graph reruns experience once with the candidate's answers; otherwise it
-    # proceeds to ATS assembly.
+    # proceeds to ATS assembly (still Stage 4).
     graph.add_conditional_edges(
         "await_candidate_clarifications",
         _route_after_candidate_clarifications,
@@ -166,15 +165,14 @@ def build_resume_enhancement_graph(checkpointer=None) -> CompiledStateGraph:
 
     # -- Stage 5b: conditional ATS section recovery -- a FAIL (an essential section
     # rendered empty) routes through the deterministic patch; PASS/INCONCLUSIVE skip it.
+    # Both branches below converge on rehydrate_pii (Stage 6): the returned resume must
+    # carry real PII values whether or not it goes on to render, so that runs before the gate.
     graph.add_conditional_edges(
         "evaluate_resume_quality",
         _route_after_ats_check,
         {"patch": "patch_ats_assembly", "continue": "rehydrate_pii"},
     )
     graph.add_edge("patch_ats_assembly", "rehydrate_pii")
-
-    # -- Stage 6: rehydrate PII on every path -- the returned resume must carry
-    # real values whether or not it goes on to render, so this runs before the gate.
 
     # -- Stage 7: conditional render -- only when the QA gate passed --
     graph.add_conditional_edges(

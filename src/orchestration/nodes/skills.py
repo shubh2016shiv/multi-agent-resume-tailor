@@ -119,8 +119,9 @@ def write_skills_section(context: str, run_id: str = "unknown") -> OptimizedSkil
 
     Serves node STEP 3 & 4. Expects TOON context with resume skills, job
     requirements, and strategy. Returns an OptimizedSkillsSection validated by
-    CrewAI output_pydantic. Called twice when STEP 6 triggers a rewrite -- once
-    with the full context, once with the scoped correction context.
+    run_agent_task against the agent's raw output. Called twice when STEP 6
+    triggers a rewrite -- once with the full context, once with the scoped
+    correction context.
     """
     ####################################################
     # STEP 1: CREATE THE SKILL-OPTIMIZER AGENT#
@@ -248,9 +249,7 @@ def preserve_original_skills(
     # right there -- a stale record for whichever caller reads it next.
     reinstated_names = {skill.skill_name.casefold() for skill in dropped}
     surviving_removed_skills = [
-        name
-        for name in optimized_skills.removed_skills
-        if name.casefold() not in reinstated_names
+        name for name in optimized_skills.removed_skills if name.casefold() not in reinstated_names
     ]
     return optimized_skills.model_copy(
         update={

@@ -7,7 +7,7 @@ Public surface:
 
 Internal modules (not for direct import by callers):
   state.py  -- ResumeEnhancementPipelineState TypedDict
-  nodes.py  -- one function per agent call
+  nodes/    -- one module per pipeline stage, one node function per module
   graph.py  -- DAG topology (nodes wired to edges)
   runner.py -- compiles the graph and invokes it
 """

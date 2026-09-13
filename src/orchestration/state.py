@@ -1,9 +1,11 @@
 """
 ResumeEnhancementPipelineState: the shared state that flows through every node in the graph.
 
-Every field starts as None. A node sets its output field(s) and returns a partial
-dict -- LangGraph merges that dict back into the state. Downstream nodes must only
-read a field after the node that produces it has run.
+Every field the runner does not set starts as None, except human_review_required
+(False) and clarification_answers (empty list) -- both are read by a router or a
+node before any producing node could set them otherwise. A node sets its output
+field(s) and returns a partial dict -- LangGraph merges that dict back into the
+state. Downstream nodes must only read a field after the node that produces it has run.
 
 The graph topology in graph.py enforces the correct read order.
 """

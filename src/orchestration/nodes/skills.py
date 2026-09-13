@@ -44,14 +44,8 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     Returns: partial state with the typed OptimizedSkillsSection.
     """
 
-    ####################################################
-    # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
-    ####################################################
     resume = require(state["resume"], "resume")
 
-    ####################################################
-    # STEP 2: BUILD THE CONTEXT THE OPTIMIZER READS#
-    ####################################################
     context = format_skills_optimizer_context(
         resume=resume,
         job_description=require(state["job_description"], "job_description"),
@@ -59,14 +53,8 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
         format_type="toon",
     )
 
-    ####################################################
-    # STEP 3 & 4: CREATE THE AGENT, RUN THE TASK, GET A TYPED RESULT#
-    ####################################################
     optimized_skills = write_skills_section(context, run_id=state["run_id"])
 
-    ####################################################
-    # STEP 5: RUN THE CODE-OWNED EVIDENCE AUDIT ON THE RESULT#
-    ####################################################
     audit_result = audit_skills_section(resume, optimized_skills)
     needs_rewrite = skills_audit_needs_rewrite(audit_result)
     logger.info(
@@ -75,17 +63,17 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
         needs_rewrite=needs_rewrite,
     )
 
-    ####################################################
-    # STEP 6: ONE SCOPED REWRITE IF THE AUDIT CONFIDENTLY FLAGGED A SKILL#
-    ####################################################
     if needs_rewrite:
         logger.info("skills_rewrite_triggered", findings_count=len(audit_result.comments))
-        rewrite_context = build_skills_rewrite_context(optimized_skills, audit_result)
+        # Scoped on purpose: only the current skills and the exact names to drop. The
+        # evidence judgement is already made, so the rewrite never re-sees the job
+        # requirements or strategy that could tempt it to re-infer a skill.
+        rewrite_context = format_skills_rewrite_context(
+            section=optimized_skills,
+            skills_to_remove=flagged_skill_names(audit_result),
+        )
         optimized_skills = write_skills_section(rewrite_context, run_id=state["run_id"])
 
-    ####################################################
-    # STEP 7: RE-ADD ANY ORIGINAL SKILL THE AGENT DROPPED#
-    ####################################################
     # The candidate's listed skills are facts, and deleting one only loses an ATS keyword
     # match. The LLM is unreliable at preserving a long list verbatim, so completeness is
     # guaranteed here in code, not left to the agent.
@@ -103,14 +91,8 @@ def write_skills_section(context: str, run_id: str = "unknown") -> OptimizedSkil
     triggers a rewrite -- once with the full context, once with the scoped
     correction context.
     """
-    ####################################################
-    # STEP 1: CREATE THE SKILL-OPTIMIZER AGENT#
-    ####################################################
     agent = create_skill_optimizer_agent()
 
-    ####################################################
-    # STEP 2: RUN THE TASK AND RETURN THE TYPED RESULT#
-    ####################################################
     return run_agent_task(
         agent=agent,
         task_name="optimize_skills_section_task",
@@ -128,16 +110,10 @@ def audit_skills_section(
 
     Serves node STEP 5.
     """
-    ####################################################
-    # STEP 1: BUILD AN AUDIT RESUME -- OPTIMIZED SKILLS, ORIGINAL EVIDENCE#
-    ####################################################
     # The original resume's experience, education, and certifications are the
     # evidence corpus; only the skill list under test changes.
     audit_resume = original_resume.model_copy(update={"skills": optimized_skills.optimized_skills})
 
-    ####################################################
-    # STEP 2: RETURN THE PER-SKILL JUDGMENT FINDINGS#
-    ####################################################
     return validate_skills_evidence(audit_resume)
 
 
@@ -176,23 +152,6 @@ def flagged_skill_names(audit_result: ReviewResult) -> list[str]:
     ]
 
 
-def build_skills_rewrite_context(
-    section: OptimizedSkillsSection,
-    audit_result: ReviewResult,
-) -> str:
-    """Build the scoped context for exactly one rewrite attempt.
-
-    Serves node STEP 6. Passes only the current skills and the exact names to
-    drop -- the evidence judgement is already done, so the rewrite never
-    re-sees the job requirements, ats_keywords, or strategy that could tempt
-    it to re-infer skills.
-    """
-    return format_skills_rewrite_context(
-        section=section,
-        skills_to_remove=flagged_skill_names(audit_result),
-    )
-
-
 def preserve_original_skills(
     optimized_skills: OptimizedSkillsSection,
     original_resume: Resume,
@@ -205,9 +164,6 @@ def preserve_original_skills(
     never introduce a fabricated skill. Returns the section unchanged when
     the optimizer kept every original skill.
     """
-    ####################################################
-    # STEP 1: FIND ORIGINAL SKILLS MISSING FROM THE OPTIMIZED LIST#
-    ####################################################
     existing_names = {skill.skill_name.casefold() for skill in optimized_skills.optimized_skills}
     dropped = [
         skill
@@ -215,15 +171,9 @@ def preserve_original_skills(
         if skill.skill_name.casefold() not in existing_names
     ]
 
-    ####################################################
-    # STEP 2: APPEND ANY DROPPED SKILLS BACK ONTO THE SECTION#
-    ####################################################
     if not dropped:
         return optimized_skills
 
-    ####################################################
-    # STEP 3: DROP THE RE-ADDED NAMES FROM removed_skills#
-    ####################################################
     # A re-added skill was never actually removed from the shipped section, so
     # leaving its name in removed_skills would claim a skill is gone when it is
     # right there -- a stale record for whichever caller reads it next.

@@ -29,7 +29,7 @@ from typing import Any
 # consumes those agents' output contracts directly (their structured results,
 # not the raw resume) to assemble the final ATS resume.
 from src.agents.professional_experience.models import OptimizedExperienceSection
-from src.agents.professional_summary.models import ProfessionalSummary
+from src.agents.professional_summary.models import ProfessionalSummary, SummaryDraft
 from src.data_models.job import JobDescription  # the target job this resume is tailored to
 from src.data_models.resume import (  # candidate resume + optimized skills
     OptimizedSkillsSection,
@@ -41,17 +41,31 @@ from src.data_models.resume import (  # candidate resume + optimized skills
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
 
-def choose_summary_text(professional_summary: ProfessionalSummary) -> str:
-    """Return the summary draft the assembler should place in the final resume."""
+def choose_summary_draft(professional_summary: ProfessionalSummary) -> SummaryDraft:
+    """Return the draft that will actually ship: the recommended one, else the first.
+
+    The fallback is the load-bearing part. The writer names its recommendation as a
+    free-text version_name, so a name that matches no draft is possible -- and in that
+    case the first draft is what ships. This is the single definition of that rule:
+    the summary node's quality gate audits the draft this returns, so the gate can
+    never judge a different draft than the assembler places in the resume.
+    """
     for draft in professional_summary.drafts:
         if draft.version_name == professional_summary.recommended_version:
-            return draft.content
+            return draft
     if professional_summary.drafts:
-        return professional_summary.drafts[0].content
+        return professional_summary.drafts[0]
     raise ValueError("ProfessionalSummary must contain at least one draft.")
 
 
-def select_experience_entries(optimized_experience: OptimizedExperienceSection) -> list[dict[str, Any]]:
+def choose_summary_text(professional_summary: ProfessionalSummary) -> str:
+    """Return the text of the draft the assembler should place in the final resume."""
+    return choose_summary_draft(professional_summary).content
+
+
+def select_experience_entries(
+    optimized_experience: OptimizedExperienceSection,
+) -> list[dict[str, Any]]:
     """Keep only the optimized experience entries the assembler should use."""
     return [
         experience.model_dump(mode="json")
@@ -61,10 +75,7 @@ def select_experience_entries(optimized_experience: OptimizedExperienceSection) 
 
 def select_optimized_skills(optimized_skills: OptimizedSkillsSection) -> list[dict[str, Any]]:
     """Keep only the optimized skill entries the assembler should use."""
-    return [
-        skill.model_dump(mode="json")
-        for skill in optimized_skills.optimized_skills
-    ]
+    return [skill.model_dump(mode="json") for skill in optimized_skills.optimized_skills]
 
 
 def select_resume_context(original_resume: Resume) -> dict[str, Any]:
@@ -85,7 +96,9 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
     """Keep only the job fields the assembler should validate against."""
     return {
         "job_title": job_description.job_title,
-        "requirements": [requirement.model_dump(mode="json") for requirement in job_description.requirements],
+        "requirements": [
+            requirement.model_dump(mode="json") for requirement in job_description.requirements
+        ],
         "ats_keywords": list(job_description.ats_keywords),
     }
 

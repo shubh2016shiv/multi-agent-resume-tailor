@@ -9,14 +9,16 @@ step and which module performs it:
     STEP 3  create the summary-writer agent               -> professional_summary/agent.py
     STEP 4  run the writing task, get a typed result      -> crew_task_execution.py
     STEP 5  enforce the quality gate before handing off   -> resume_diagnostics/summary_quality.py
+            (on the draft ats_optimization_formatter will ship)
 
 Reads from state: resume, job_description, alignment_strategy.
 Writes to state: professional_summary.
 """
 
 from src.agents.professional_summary import create_professional_summary_agent
-from src.agents.professional_summary.models import ProfessionalSummary, SummaryDraft
+from src.agents.professional_summary.models import ProfessionalSummary
 from src.core.logger import get_logger
+from src.formatters.ats_optimization_formatter import choose_summary_draft
 from src.formatters.professional_summary_formatter import format_professional_summary_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.exceptions import PipelineQualityGateError
@@ -42,16 +44,10 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
             (STEP 5) -- a hard-constraint violation must not reach resume assembly.
     """
 
-    ####################################################
-    # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
-    ####################################################
     resume = require(state["resume"], "resume")
     job_description = require(state["job_description"], "job_description")
     alignment_strategy = require(state["alignment_strategy"], "alignment_strategy")
 
-    ####################################################
-    # STEP 2: BUILD THE CONTEXT THE WRITER READS#
-    ####################################################
     context = format_professional_summary_context(
         resume=resume,
         job_description=job_description,
@@ -59,14 +55,8 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
         format_type="toon",
     )
 
-    ####################################################
-    # STEP 3: CREATE THE SUMMARY-WRITER AGENT#
-    ####################################################
     agent = create_professional_summary_agent()
 
-    ####################################################
-    # STEP 4: RUN THE WRITING TASK, GET A TYPED RESULT#
-    ####################################################
     professional_summary = run_agent_task(
         agent=agent,
         task_name="write_professional_summary_task",
@@ -75,32 +65,9 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
         run_id=state["run_id"],
     )
 
-    ####################################################
-    # STEP 5: ENFORCE THE QUALITY GATE BEFORE HANDOFF#
-    ####################################################
     enforce_summary_quality_gate(professional_summary)
 
     return {"professional_summary": professional_summary}
-
-
-def select_recommended_draft(summary: ProfessionalSummary) -> SummaryDraft:
-    """Return the draft the agent recommended, falling back to the first draft.
-
-    The fallback matters because the next stage (ats_optimization_formatter.
-    choose_summary_text) uses the same rule: if the recommended name does not match
-    any draft, the first draft is what actually ships, so that is what we audit.
-    """
-    ####################################################
-    # STEP 1: FIND THE DRAFT MATCHING THE RECOMMENDATION#
-    ####################################################
-    for draft in summary.drafts:
-        if draft.version_name == summary.recommended_version:
-            return draft
-
-    ####################################################
-    # STEP 2: NO MATCH -> THE FIRST DRAFT IS WHAT SHIPS#
-    ####################################################
-    return summary.drafts[0]
 
 
 # What the user can do when the summary gate blocks the run. The advice points at
@@ -129,22 +96,13 @@ def enforce_summary_quality_gate(summary: ProfessionalSummary) -> None:
     Raises: PipelineQualityGateError naming every blocking finding, which the CLI
             presents to the user as an actionable message instead of a traceback.
     """
-    ####################################################
-    # STEP 1: AUDIT THE DRAFT THAT WILL ACTUALLY SHIP#
-    ####################################################
-    draft = select_recommended_draft(summary)
+    draft = choose_summary_draft(summary)
     review = audit_summary_text(draft.content)
 
-    ####################################################
-    # STEP 2: KEEP ONLY THE BLOCKING (MAJOR+) FINDINGS#
-    ####################################################
     blocking_findings = [
         comment for comment in review.comments if comment.severity in BLOCKING_SEVERITIES
     ]
 
-    ####################################################
-    # STEP 3: FAIL THE RUN IF ANYTHING BLOCKS#
-    ####################################################
     if blocking_findings:
         raise PipelineQualityGateError(
             stage=f"Professional summary (draft '{draft.version_name}')",

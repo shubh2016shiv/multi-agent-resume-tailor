@@ -277,9 +277,10 @@ Three independent writers fan out from Stage 2 and reconverge before assembly:
 
 - **`write_professional_summary`** (`nodes/summary.py`) runs the writer agent,
   then immediately enforces a quality gate on whichever draft will actually
-  ship — `select_recommended_draft` falls back to the first draft if the
-  agent's own recommended name doesn't match any draft it produced, so the
-  gate always audits the real output, never an aspirational one. A blocking
+  ship — `choose_summary_draft` (in `ats_optimization_formatter.py`, the same
+  function the assembler uses) falls back to the first draft if the agent's own
+  recommended name doesn't match any draft it produced, so the gate always
+  audits the real output, never an aspirational one. A blocking
   finding (MAJOR or BLOCKER severity — banned phrasing, wrong length, wrong
   voice) raises immediately. There is no retry here; see [Section 7](#7-the-no-retry-loops-philosophy).
 - **`optimize_experience`** (`nodes/experience.py`) is documented in full in

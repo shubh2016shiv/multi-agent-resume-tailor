@@ -38,13 +38,14 @@ made before the phase.
 - [x] 1.5 Stop the feedback fallback from hiding programming errors
 - [ ] 1.6 End-to-end verification run (costs LLM calls -- ask before running)
 - [x] 2.1 Correct out-of-date docstrings and comments
-- [ ] 3.0 Tests that pin current behaviour before refactoring
-- [ ] 3.1 `require()` helper replaces the assert blocks
-- [ ] 3.2 `@pipeline_stage` decorator replaces the logging boilerplate
-- [ ] 3.3 Simplify `crew_task_execution.py`
-- [ ] 3.4 Simplify `nodes/experience.py`
-- [ ] 3.5 Simplify `nodes/skills.py` and `nodes/summary.py`
-- [ ] 3.6 Simplify `runner.py` and `state.py`
+- [x] 3.0 Tests that pin current behaviour before refactoring
+- [x] 3.1 `require()` helper replaces the assert blocks
+- [x] 3.2 `@pipeline_stage` decorator replaces the logging boilerplate
+- [x] 3.3 Simplify `crew_task_execution.py`
+- [x] 3.4 Simplify `nodes/experience.py`
+- [x] 3.5 Simplify `nodes/skills.py` and `nodes/summary.py`
+- [x] 3.6 Simplify `runner.py` and `state.py`
+- [ ] 3.7 End-to-end verification run (costs LLM calls -- ask before running)
 - [ ] 4.1 Measure how long agent calls wait on the kickoff lock
 - [ ] 4.2 Decide whether the lock can be narrowed
 

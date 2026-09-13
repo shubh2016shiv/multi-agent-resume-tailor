@@ -22,7 +22,7 @@ from src.core.logger import get_logger
 from src.formatters.professional_summary_formatter import format_professional_summary_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.exceptions import PipelineQualityGateError
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.contracts import Severity
 from src.tools.engines.resume_diagnostics.summary_quality import audit_summary_text
 
@@ -51,21 +51,17 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     ####################################################
     # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
     ####################################################
-    assert state["resume"] is not None, "resume must be set before summary writing"
-    assert state["job_description"] is not None, (
-        "job_description must be set before summary writing"
-    )
-    assert state["alignment_strategy"] is not None, (
-        "alignment_strategy must be set before summary writing"
-    )
+    resume = require(state["resume"], "resume")
+    job_description = require(state["job_description"], "job_description")
+    alignment_strategy = require(state["alignment_strategy"], "alignment_strategy")
 
     ####################################################
     # STEP 2: BUILD THE CONTEXT THE WRITER READS#
     ####################################################
     context = format_professional_summary_context(
-        resume=state["resume"],
-        job_description=state["job_description"],
-        strategy=state["alignment_strategy"],
+        resume=resume,
+        job_description=job_description,
+        strategy=alignment_strategy,
         format_type="toon",
     )
 

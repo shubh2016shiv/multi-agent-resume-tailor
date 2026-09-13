@@ -76,3 +76,26 @@ class ResumeEnhancementPipelineState(TypedDict):
     # --- Stage 6: conditional render (only when the QA gate passes) ---
     # Markdown always; PDF best-effort. None until the render node runs.
     rendered_artifacts: RenderedResumeArtifacts | None
+
+
+def require[T](value: T | None, field: str) -> T:
+    """Return a state field an upstream node must already have populated.
+
+    Nodes read state fields typed `X | None` but may only run once the node that
+    produces them has. This turns that precondition into one expression that both
+    narrows the type for the type checker and fails loudly when the graph is
+    mis-wired:
+
+        resume = require(state["resume"], "resume")
+
+    A None here is a violated pipeline invariant -- a programming error, not a
+    user-facing outcome -- so it raises rather than degrading, and the CLI's
+    typed-exception handling deliberately does not catch it (see exceptions.py).
+    Prefer this over `assert`, which `python -O` strips out entirely.
+    """
+    if value is None:
+        raise RuntimeError(
+            f"Pipeline state '{field}' is None; the node that produces it has not run. "
+            "This is a graph wiring bug, not a bad input."
+        )
+    return value

@@ -21,7 +21,7 @@ from src.core.settings import get_config
 from src.data_models.job import JobDescription
 from src.data_models.rendering import RenderedResumeArtifacts
 from src.data_models.resume import Resume
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.engines.document_rendering import is_render_available, render_resume_document
 from src.tools.engines.document_rendering.docx_renderer import render_resume_docx
 from src.tools.engines.document_rendering.markdown_renderer import build_resume_markdown
@@ -45,10 +45,8 @@ def render_final_resume(state: ResumeEnhancementPipelineState) -> dict:
         stage="render_final_resume",
         run_id=state["run_id"],
     )
-    assert state["optimized_resume"] is not None, "optimized_resume must be set before rendering"
-    assert state["job_description"] is not None, "job_description must be set before rendering"
-    final_resume = state["optimized_resume"].final_resume
-    job = state["job_description"]
+    final_resume = require(state["optimized_resume"], "optimized_resume").final_resume
+    job = require(state["job_description"], "job_description")
     output_dir = resume_output_dir(final_resume, job, Path(get_config().file_paths.output_dir))
     output_dir.mkdir(parents=True, exist_ok=True)
     when = datetime.now()

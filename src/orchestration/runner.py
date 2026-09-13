@@ -34,7 +34,7 @@ from src.orchestration.checkpointing import (
 )
 from src.orchestration.graph import build_resume_enhancement_graph
 from src.orchestration.human_review_policy import derive_run_disposition
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.engines.document_rendering.output_paths import resume_output_dir
 
 logger = get_logger(__name__)
@@ -307,14 +307,11 @@ def _build_paused_orchestration_result(
     paused_run_path: str,
 ) -> OrchestrationResult:
     """Build the public result for a run paused before ATS assembly."""
-    assert state["resume"] is not None, "Paused run is missing the parsed resume"
-    assert state["job_description"] is not None, "Paused run is missing the parsed job description"
-    assert state["alignment_strategy"] is not None, "Paused run is missing the alignment strategy"
     clarifications_requested = state.get("experience_clarifications") or []
     return OrchestrationResult(
-        original_resume=state["resume"],
-        job_description=state["job_description"],
-        strategy=state["alignment_strategy"],
+        original_resume=require(state["resume"], "resume"),
+        job_description=require(state["job_description"], "job_description"),
+        strategy=require(state["alignment_strategy"], "alignment_strategy"),
         optimized_resume=None,
         quality_report=None,
         rendered_artifacts=None,
@@ -328,31 +325,19 @@ def _build_completed_orchestration_result(
     state: ResumeEnhancementPipelineState,
 ) -> OrchestrationResult:
     """Build the public result for a completed end-to-end run."""
-    assert state["resume"] is not None, "Pipeline completed but 'resume' is still None"
-    assert state["job_description"] is not None, (
-        "Pipeline completed but 'job_description' is still None"
-    )
-    assert state["alignment_strategy"] is not None, (
-        "Pipeline completed but 'alignment_strategy' is still None"
-    )
-    assert state["optimized_resume"] is not None, (
-        "Pipeline completed but 'optimized_resume' is still None"
-    )
-    assert state["quality_report"] is not None, (
-        "Pipeline completed but 'quality_report' is still None"
-    )
     clarifications_requested = state.get("experience_clarifications") or []
+    quality_report = require(state["quality_report"], "quality_report")
     return OrchestrationResult(
-        original_resume=state["resume"],
-        job_description=state["job_description"],
-        strategy=state["alignment_strategy"],
-        optimized_resume=state["optimized_resume"],
-        quality_report=state["quality_report"],
+        original_resume=require(state["resume"], "resume"),
+        job_description=require(state["job_description"], "job_description"),
+        strategy=require(state["alignment_strategy"], "alignment_strategy"),
+        optimized_resume=require(state["optimized_resume"], "optimized_resume"),
+        quality_report=quality_report,
         rendered_artifacts=state["rendered_artifacts"],
         clarifications_requested=clarifications_requested,
         disposition=derive_run_disposition(
             human_review_required=state["human_review_required"],
-            quality_gate_passed=state["quality_report"].passes_quality_gate,
+            quality_gate_passed=quality_report.passes_quality_gate,
             has_candidate_questions=bool(clarifications_requested),
         ),
         paused_run_path=None,
@@ -398,10 +383,12 @@ def _paused_run_directory(
     run_id: str,
 ) -> str:
     """Return the local folder where one paused clarification run should live."""
-    assert state["resume"] is not None, "Paused run is missing the parsed resume"
-    assert state["job_description"] is not None, "Paused run is missing the parsed job description"
     base_dir = Path(get_config().file_paths.output_dir)
-    parent_dir = resume_output_dir(state["resume"], state["job_description"], base_dir)
+    parent_dir = resume_output_dir(
+        require(state["resume"], "resume"),
+        require(state["job_description"], "job_description"),
+        base_dir,
+    )
     return str(parent_dir / f"paused_run_{run_id}")
 
 

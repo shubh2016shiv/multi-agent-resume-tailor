@@ -23,7 +23,7 @@ from src.core.logger import get_logger
 from src.core.settings import get_config
 from src.data_models.evaluation import AtsCheckStatus
 from src.orchestration import nodes
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.resume_quality_evaluation import should_render_resume
 
 logger = get_logger(__name__)
@@ -39,9 +39,7 @@ def _route_after_ats_check(state: ResumeEnhancementPipelineState) -> str:
 
     Precondition: evaluate_resume_quality has populated rendered_structure_evaluation.
     """
-    ats_outcome = state["rendered_structure_evaluation"]
-    if ats_outcome is None:
-        raise ValueError("rendered_structure_evaluation is None after quality evaluation.")
+    ats_outcome = require(state["rendered_structure_evaluation"], "rendered_structure_evaluation")
     decision = "patch" if ats_outcome.status is AtsCheckStatus.FAIL else "continue"
     logger.info(
         "graph_routing_decision",
@@ -61,11 +59,7 @@ def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
 
     Precondition: evaluate_resume_quality has populated quality_report.
     """
-    quality_report = state["quality_report"]
-    if quality_report is None:
-        raise ValueError(
-            "quality_report is None after quality evaluation; cannot route render gate."
-        )
+    quality_report = require(state["quality_report"], "quality_report")
     if should_render_resume(quality_report):
         decision = "render"
         reason = "gate_passed"

@@ -8,7 +8,7 @@ from src.core.logger import get_logger
 from src.data_models.resume import Experience
 from src.formatters.ats_optimization_formatter import format_ats_optimization_context
 from src.orchestration.crew_task_execution import run_agent_task
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 
 logger = get_logger(__name__)
 
@@ -27,21 +27,13 @@ def assemble_ats_resume(state: ResumeEnhancementPipelineState) -> dict:
         stage="assemble_ats_resume",
         run_id=state["run_id"],
     )
-    assert state["professional_summary"] is not None, (
-        "professional_summary must be set before assembly"
-    )
-    assert state["optimized_experience"] is not None, (
-        "optimized_experience must be set before assembly"
-    )
-    assert state["optimized_skills"] is not None, "optimized_skills must be set before assembly"
-    assert state["resume"] is not None, "resume must be set before assembly"
-    assert state["job_description"] is not None, "job_description must be set before assembly"
+    optimized_experience = require(state["optimized_experience"], "optimized_experience")
     context = format_ats_optimization_context(
-        professional_summary=state["professional_summary"],
-        optimized_experience=state["optimized_experience"],
-        optimized_skills=state["optimized_skills"],
-        original_resume=state["resume"],
-        job_description=state["job_description"],
+        professional_summary=require(state["professional_summary"], "professional_summary"),
+        optimized_experience=optimized_experience,
+        optimized_skills=require(state["optimized_skills"], "optimized_skills"),
+        original_resume=require(state["resume"], "resume"),
+        job_description=require(state["job_description"], "job_description"),
         format_type="toon",
     )
     agent = create_ats_optimizer_agent()
@@ -54,7 +46,7 @@ def assemble_ats_resume(state: ResumeEnhancementPipelineState) -> dict:
     )
     verified_resume = _preserve_verified_experience(
         optimized_resume,
-        state["optimized_experience"].optimized_experiences,
+        optimized_experience.optimized_experiences,
     )
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(

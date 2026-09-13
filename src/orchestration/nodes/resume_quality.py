@@ -15,7 +15,7 @@ from src.data_models.resume import Resume
 from src.formatters.quality_feedback_formatter import format_quality_feedback_context
 from src.orchestration.crew_task_execution import run_agent_task
 from src.orchestration.human_review_policy import is_ats_unverifiable, is_relevance_unverifiable
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.resume_quality_evaluation import (
     apply_release_hard_blocks,
     apply_resume_quality_gate,
@@ -41,19 +41,12 @@ def evaluate_resume_quality(state: ResumeEnhancementPipelineState) -> dict:
         stage="evaluate_resume_quality",
         run_id=state["run_id"],
     )
-    assert state["optimized_resume"] is not None, (
-        "optimized_resume must be set before quality assurance"
-    )
-    assert state["resume"] is not None, "resume must be set before quality assurance"
-    assert state["job_description"] is not None, (
-        "job_description must be set before quality assurance"
-    )
     quality_feedback = _request_quality_feedback(state)
     quality_report, structure_evaluation = _ground_quality_dimensions(
         quality_feedback=quality_feedback,
-        original_resume=state["resume"],
-        revised_resume=state["optimized_resume"].final_resume,
-        job=state["job_description"],
+        original_resume=require(state["resume"], "resume"),
+        revised_resume=require(state["optimized_resume"], "optimized_resume").final_resume,
+        job=require(state["job_description"], "job_description"),
     )
     # An unverifiable ATS outcome (INCONCLUSIVE: no .tex to inspect) escalates to human
     # review here -- there is nothing to patch. A FAIL is left False: the patch node tries
@@ -85,13 +78,10 @@ def _request_quality_feedback(
     not be caught by the except below and hidden behind the neutral fallback text.
     """
     run_id = state["run_id"]
-    assert state["optimized_resume"] is not None, "optimized_resume is required for feedback"
-    assert state["resume"] is not None, "resume is required for feedback"
-    assert state["job_description"] is not None, "job_description is required for feedback"
     context = format_quality_feedback_context(
-        optimized_resume=state["optimized_resume"],
-        original_resume=state["resume"],
-        job=state["job_description"],
+        optimized_resume=require(state["optimized_resume"], "optimized_resume"),
+        original_resume=require(state["resume"], "resume"),
+        job=require(state["job_description"], "job_description"),
         format_type="toon",
     )
     try:

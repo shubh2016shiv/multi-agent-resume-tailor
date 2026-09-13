@@ -27,7 +27,7 @@ from src.formatters.skills_optimizer_formatter import (
     format_skills_rewrite_context,
 )
 from src.orchestration.crew_task_execution import run_agent_task
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.contracts import Confidence, ReviewComment, ReviewResult, Severity
 from src.tools.engines.truthfulness.skills_evidence import validate_skills_evidence
 
@@ -53,22 +53,15 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     ####################################################
     # STEP 1: CONFIRM UPSTREAM STAGES POPULATED STATE#
     ####################################################
-    assert state["resume"] is not None, "resume must be set before skills optimization"
-    assert state["job_description"] is not None, (
-        "job_description must be set before skills optimization"
-    )
-    assert state["alignment_strategy"] is not None, (
-        "alignment_strategy must be set before skills optimization"
-    )
-    resume = state["resume"]
+    resume = require(state["resume"], "resume")
 
     ####################################################
     # STEP 2: BUILD THE CONTEXT THE OPTIMIZER READS#
     ####################################################
     context = format_skills_optimizer_context(
         resume=resume,
-        job_description=state["job_description"],
-        strategy=state["alignment_strategy"],
+        job_description=require(state["job_description"], "job_description"),
+        strategy=require(state["alignment_strategy"], "alignment_strategy"),
         format_type="toon",
     )
 

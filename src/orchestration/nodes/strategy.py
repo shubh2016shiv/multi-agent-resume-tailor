@@ -7,7 +7,7 @@ from src.core.logger import get_logger
 from src.data_models.strategy import AlignmentStrategy
 from src.formatters.gap_analysis_formatter import format_gap_analysis_context
 from src.orchestration.crew_task_execution import run_agent_task
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.engines.job_matching import match_resume_to_job
 
 logger = get_logger(__name__)
@@ -31,12 +31,12 @@ def run_gap_analysis(state: ResumeEnhancementPipelineState) -> dict:
         stage="run_gap_analysis",
         run_id=state["run_id"],
     )
-    assert state["resume"] is not None, "resume must be set before gap analysis"
-    assert state["job_description"] is not None, "job_description must be set before gap analysis"
-    match_report = match_resume_to_job(state["resume"], state["job_description"])
+    resume = require(state["resume"], "resume")
+    job_description = require(state["job_description"], "job_description")
+    match_report = match_resume_to_job(resume, job_description)
     context = format_gap_analysis_context(
-        resume=state["resume"],
-        job_description=state["job_description"],
+        resume=resume,
+        job_description=job_description,
         match_report=match_report,
         format_type="toon",
     )

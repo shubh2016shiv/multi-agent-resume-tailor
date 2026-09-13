@@ -49,7 +49,7 @@ from src.hitl.professional_experience.models import (
     build_experience_bullet_id,
 )
 from src.orchestration.crew_task_execution import run_agent_task
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.contracts import ReviewComment, ReviewResult, Severity
 from src.tools.engines.resume_diagnostics import audit_experience_rewrite_quality
 from src.tools.engines.truthfulness import detect_claim_inflation
@@ -75,9 +75,9 @@ def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
     Returns: partial state with the merged section and the candidate questions.
     """
     start_time = time.monotonic()
-    resume = state["resume"]
-    job_description = state["job_description"]
-    strategy = state["alignment_strategy"]
+    resume = require(state["resume"], "resume")
+    job_description = require(state["job_description"], "job_description")
+    strategy = require(state["alignment_strategy"], "alignment_strategy")
     clarification_answers = state.get("clarification_answers") or []
     logger.info(
         "pipeline_stage_started",
@@ -85,9 +85,6 @@ def optimize_experience(state: ResumeEnhancementPipelineState) -> dict:
         run_id=state["run_id"],
         answered_clarifications=len(clarification_answers),
     )
-    if resume is None or job_description is None or strategy is None:
-        raise ValueError("resume, job_description, and alignment_strategy must be set.")
-
     optimized_experience, clarifications = _optimize_experience_entries(
         resume, job_description, strategy, clarification_answers, state["run_id"]
     )

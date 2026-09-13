@@ -23,7 +23,7 @@ from src.core.logger import get_logger
 from src.data_models.evaluation import ATSMetrics, RenderedStructureEvaluation, ResumeQualityReport
 from src.data_models.resume import OptimizedSkillsSection, Resume
 from src.orchestration.human_review_policy import is_ats_unrecoverable
-from src.orchestration.state import ResumeEnhancementPipelineState
+from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.resume_quality_evaluation import (
     apply_release_hard_blocks,
     apply_resume_quality_gate,
@@ -55,19 +55,12 @@ def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
         stage="patch_ats_assembly",
         run_id=state["run_id"],
     )
-    assert state["optimized_resume"] is not None, "optimized_resume must be set before ATS patch"
-    assert state["optimized_experience"] is not None, (
-        "optimized_experience must be set before ATS patch"
-    )
-    assert state["optimized_skills"] is not None, "optimized_skills must be set before ATS patch"
-    assert state["resume"] is not None, "resume must be set before ATS patch"
-    assert state["quality_report"] is not None, "quality_report must be set before ATS patch"
-    optimized_resume = state["optimized_resume"]
+    optimized_resume = require(state["optimized_resume"], "optimized_resume")
     patched_final = _restore_missing_essential_sections(
         final_resume=optimized_resume.final_resume,
-        optimized_experience=state["optimized_experience"],
-        optimized_skills=state["optimized_skills"],
-        original_resume=state["resume"],
+        optimized_experience=require(state["optimized_experience"], "optimized_experience"),
+        optimized_skills=require(state["optimized_skills"], "optimized_skills"),
+        original_resume=require(state["resume"], "resume"),
     )
     new_outcome = evaluate_rendered_structure(patched_final)
     logger.info(
@@ -76,7 +69,9 @@ def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
         new_status=new_outcome.status.value,
         recovered=patched_final != optimized_resume.final_resume,
     )
-    quality_report = _regrade_ats_dimension(state["quality_report"], new_outcome)
+    quality_report = _regrade_ats_dimension(
+        require(state["quality_report"], "quality_report"), new_outcome
+    )
     duration_ms = round((time.monotonic() - start_time) * 1000)
     logger.info(
         "pipeline_stage_completed",

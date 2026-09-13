@@ -1,18 +1,29 @@
 """Contracts for the resume quality orchestration node."""
 
+from typing import cast
 from unittest.mock import patch
 
 from src.data_models.evaluation import QualityFeedback
 from src.orchestration.nodes.resume_quality import _request_quality_feedback
+from src.orchestration.state import ResumeEnhancementPipelineState
 
 
-def _state_with_required_feedback_inputs() -> dict:
-    """Return the minimum mapping consumed by the feedback request helper."""
-    return {
-        "optimized_resume": object(),
-        "resume": object(),
-        "job_description": object(),
-    }
+def _state_with_required_feedback_inputs() -> ResumeEnhancementPipelineState:
+    """Return the minimum mapping consumed by the feedback request helper.
+
+    _request_quality_feedback reads only run_id, optimized_resume, resume,
+    and job_description, so the other state fields are left unset -- the
+    cast documents that this is a deliberately partial state, not a bug.
+    """
+    return cast(
+        ResumeEnhancementPipelineState,
+        {
+            "run_id": "test-run",
+            "optimized_resume": object(),
+            "resume": object(),
+            "job_description": object(),
+        },
+    )
 
 
 def test_feedback_request_returns_agent_feedback() -> None:

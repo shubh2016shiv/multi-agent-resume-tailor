@@ -16,12 +16,9 @@ optimize_ats_resume_task:
        the optimized skills list, and the preserved contact + education facts.
     2. Use standard ATS headers and a simple order, summary first: Professional Summary,
        Work Experience, Skills, Education, Certifications, Languages.
-    3. Run your audit tools on the assembled resume text: "Validate ATS Compliance" for
-       header/formatting issues, and "Analyze Keyword Coverage" with ats_keywords to see
-       which must-have keywords are present.
-    4. If a tool flags an issue, fix it ONLY by reordering, standardizing headers, or
-       surfacing keywords the optimized sections already support. Add no new facts.
-    5. If a required keyword has no truthful support, leave it out and record it in
+    3. Compare the assembled content with ats_keywords. Surface a keyword only when the
+       optimized sections already support it; add no new facts.
+    4. If a required keyword has no truthful support, leave it out and record it in
        unresolved_issues; explain the limitation in keyword_integration_notes.
 
     HARD RULES:
@@ -29,8 +26,7 @@ optimize_ats_resume_task:
       job-description text as if it were candidate evidence.
     - Do NOT self-grade ATS compliance or a numeric score: the mechanical checks and the
       final ATS score are computed in code from the rendered document. Your job is honest
-      assembly + reporting, not scoring. Do not claim "all keywords integrated" unless the
-      Analyze Keyword Coverage tool shows complete coverage.
+      assembly + reporting, not scoring.
 
   expected_output: >
     A single AtsOptimizedResume JSON object: "final_resume" (the assembled Resume),

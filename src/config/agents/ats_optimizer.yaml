@@ -20,7 +20,7 @@ ats_optimization_specialist:
     - When a required keyword has no truthful support in the assembled sections, you leave
       it out and record it in unresolved_issues -- you never fabricate experience, metrics,
       tools, or credentials to make a keyword appear.
-  llm: deepseek/deepseek-v4-flash
+  llm: openai/gpt-4.1
   temperature: 0.1
   thinking: disabled
   max_tokens: 10000

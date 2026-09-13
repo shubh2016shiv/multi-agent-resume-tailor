@@ -31,11 +31,12 @@ made before the phase.
 
 - [x] 0.1 Commit the in-progress work
 - [x] 0.2 Fix the out-of-date quality-feedback test
-- [ ] 1.1 Failing tests for the ATS-patch escalation bug
-- [ ] 1.2 One shared release hard-block helper
-- [ ] 1.3 Patch node keeps an earlier human-review flag
-- [ ] 1.4 Put the whole escalation policy in `human_review_policy`
-- [ ] 1.5 Stop the feedback fallback from hiding programming errors
+- [x] 1.1 Failing tests for the ATS-patch escalation bug
+- [x] 1.2 One shared release hard-block helper
+- [x] 1.3 Patch node keeps an earlier human-review flag
+- [x] 1.4 Put the whole escalation policy in `human_review_policy`
+- [x] 1.5 Stop the feedback fallback from hiding programming errors
+- [ ] 1.6 End-to-end verification run (costs LLM calls -- ask before running)
 - [ ] 2.1 Correct out-of-date docstrings and comments
 - [ ] 3.0 Tests that pin current behaviour before refactoring
 - [ ] 3.1 `require()` helper replaces the assert blocks

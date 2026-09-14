@@ -78,7 +78,7 @@ CHECKPOINT_ALLOWED_MSGPACK_MODULES: list[tuple[str, str]] = [
 
 # HITL COMPONENT 4 -- DURABLE STATE (CHECKPOINT). Generic pipeline plumbing
 # (every run checkpoints, HITL or not), but it's the mechanism the pause in
-# src/orchestration/nodes/experience.py relies on. See
+# src/orchestration/nodes/experience/node.py relies on. See
 # src/hitl/professional_experience/README.md#7-component-4--durable-state-checkpoint
 def open_checkpoint_database(db_path: Path) -> SqliteSaver:
     """Open (creating if needed) the SQLite-backed checkpointer for one run.

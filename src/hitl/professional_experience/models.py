@@ -297,7 +297,7 @@ class ExperienceClarificationPausedRunManifest(BaseModel):
 # =============================================================================
 # build_experience_bullet_id()  --  the stable id scheme every bullet_id uses
 # -----------------------------------------------------------------------------
-# CALLED BY : _collect_rewrite_truthfulness_findings()  [orchestration/nodes/experience.py]
+# CALLED BY : collect_truthfulness_findings()  [orchestration/nodes/experience/truthfulness.py]
 #             answers_for_role()                        [answers.py]
 #             (and, indirectly, the rewriter agent, which is told to echo these ids)
 # WHY IT MATTERS : this id is written onto the sheet and must still match days

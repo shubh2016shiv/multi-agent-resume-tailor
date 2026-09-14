@@ -12,7 +12,7 @@ WHERE IT SITS IN THE LIFECYCLE
       loads answered clarifications into state["clarification_answers"]
       |
       v
-    optimize_experience() runs AGAIN                 [orchestration/nodes/experience.py]
+    optimize_experience() runs AGAIN                 [orchestration/nodes/experience/node.py]
       for each role:
         answers_for_role(role, all_answers)          <- THIS MODULE: filter
         experience_with_candidate_answers(role, ...)  <- THIS MODULE: fold in
@@ -37,8 +37,8 @@ from src.hitl.professional_experience.models import (
 # state["clarification_answers"] -- possibly spanning several jobs. Each role's
 # rewrite must see only its own. This function is that filter.
 #
-# CALLED BY : _resume_with_candidate_answers_as_source()  [experience.py]
-#             _run_experience_optimization_workers()       [experience.py]
+# CALLED BY : _resume_with_candidate_answers_as_source()  [experience/node.py]
+#             _optimize_experience_entries()              [experience/node.py]
 # CALLS     : build_experience_bullet_id()  [models.py] -- the stable id scheme
 # RETURNS   : the subset of clarification_answers that (a) has a real answer and
 #             (b) belongs to THIS experience.
@@ -75,8 +75,8 @@ def answers_for_role(
 # so a metric the candidate supplied ("cut p95 latency 40%") is now treated as
 # source evidence instead of being flagged as an unsupported invention.
 #
-# CALLED BY : _resume_with_candidate_answers_as_source()  [experience.py]
-#             _run_single_experience_optimization()        [experience.py]
+# CALLED BY : _resume_with_candidate_answers_as_source()  [experience/node.py]
+#             _run_single_experience_optimization()       [experience/node.py]
 # CALLS     : nothing (pure string assembly + Experience.model_copy)
 # RETURNS   : a NEW Experience with an augmented description. Input unchanged.
 # =============================================================================

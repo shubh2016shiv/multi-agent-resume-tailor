@@ -18,7 +18,7 @@ THE ALGORITHM, IN FOUR STEPS
 
 WHO CALLS INTO HERE
 -------------------
-    _run_single_experience_optimization()   [src/orchestration/nodes/experience.py]
+    _run_single_experience_optimization()   [src/orchestration/nodes/experience/node.py]
         calls build_bullet_clarifications() once per work-experience role, right
         after that role's rewrite has been finalised.
 
@@ -52,7 +52,7 @@ EXPERIENCE_CANDIDATE_FACT_GAP_RUBRIC = load_tool_prompt("hitl/experience_candida
 # build_bullet_clarifications()  --  PUBLIC ENTRY POINT of the trigger component
 # -----------------------------------------------------------------------------
 # CALLED BY : _run_single_experience_optimization()
-#             [src/orchestration/nodes/experience.py], once per role.
+#             [src/orchestration/nodes/experience/node.py], once per role.
 # CALLS     : audit_experience_candidate_fact_gaps()  (STEP 2, the LLM call)
 #             clarifications_from_findings()          (STEP 3, pure-code join)
 # RETURNS   : list[ExperienceBulletClarification]. Empty == "ask nothing here".

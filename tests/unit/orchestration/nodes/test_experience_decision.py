@@ -1,12 +1,12 @@
 """Contracts for the role-scoped experience rewrite decision.
 
-_decide_role_rewrite_outcome has four exits and duplicated check blocks (the
+decide_role_rewrite_outcome has four exits and duplicated check blocks (the
 first proposal and the repaired one are evaluated the same way). These tests
 pin each exit's observable behaviour -- which bullets ship, whether a repair
 was requested, and what the optimization note says -- so the duplication can
 be refactored without changing what the node produces.
 
-Every LLM boundary is patched: the rewrite agent (_request_role_rewrite_proposal),
+Every LLM boundary is patched: the rewrite agent (request_role_rewrite_proposal),
 the semantic rewrite review (audit_experience_rewrite_quality), and the numeric
 truth check (detect_claim_inflation).
 """
@@ -20,7 +20,7 @@ from src.agents.professional_experience.models import (
 )
 from src.data_models.resume import Experience, Resume
 from src.hitl.professional_experience.models import build_experience_bullet_id
-from src.orchestration.nodes.experience import _decide_role_rewrite_outcome
+from src.orchestration.nodes.experience.rewrite import decide_role_rewrite_outcome
 from src.tools.contracts import (
     Confidence,
     Location,
@@ -30,7 +30,8 @@ from src.tools.contracts import (
     Severity,
 )
 
-EXPERIENCE_MODULE = "src.orchestration.nodes.experience"
+REWRITE_MODULE = "src.orchestration.nodes.experience.rewrite"
+TRUTHFULNESS_MODULE = "src.orchestration.nodes.experience.truthfulness"
 
 SOURCE_BULLETS = ["Worked on backend services.", "Helped with deployments."]
 
@@ -129,11 +130,11 @@ def test_clean_first_proposal_ships_without_a_repair() -> None:
     proposal = _proposal(experience, ["Built Python services.", "Ran deployments."])
 
     with (
-        patch(f"{EXPERIENCE_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
-        patch(f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
-        patch(f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal") as request_rewrite,
+        patch(f"{TRUTHFULNESS_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
+        patch(f"{REWRITE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
+        patch(f"{REWRITE_MODULE}.request_role_rewrite_proposal") as request_rewrite,
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             proposal,
             "context",
             _resume(experience),
@@ -157,17 +158,17 @@ def test_flawed_first_proposal_is_repaired_once_and_the_repair_ships() -> None:
     repaired = _proposal(experience, ["Built Python services.", "Ran deployments."])
 
     with (
-        patch(f"{EXPERIENCE_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
+        patch(f"{TRUTHFULNESS_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
         patch(
-            f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality",
+            f"{REWRITE_MODULE}.audit_experience_rewrite_quality",
             side_effect=[_review(_comment(Severity.MAJOR)), _review()],
         ),
         patch(
-            f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal",
+            f"{REWRITE_MODULE}.request_role_rewrite_proposal",
             return_value=repaired,
         ) as request_rewrite,
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             first,
             "context",
             _resume(experience),
@@ -191,17 +192,17 @@ def test_repair_that_ships_surfaces_remaining_thin_bullets_to_the_candidate() ->
     repaired = _proposal(experience, ["Built Python services.", "Ran deployments."])
 
     with (
-        patch(f"{EXPERIENCE_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
+        patch(f"{TRUTHFULNESS_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
         patch(
-            f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality",
+            f"{REWRITE_MODULE}.audit_experience_rewrite_quality",
             side_effect=[
                 _review(_comment(Severity.MAJOR)),
                 _review(_comment(Severity.MINOR, "Still no measurable result")),
             ],
         ),
-        patch(f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal", return_value=repaired),
+        patch(f"{REWRITE_MODULE}.request_role_rewrite_proposal", return_value=repaired),
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             first,
             "context",
             _resume(experience),
@@ -226,17 +227,17 @@ def test_first_rewrite_is_kept_when_the_repair_makes_it_worse() -> None:
     repaired = _proposal(experience, ["Overclaimed thing.", "Another overclaim."])
 
     with (
-        patch(f"{EXPERIENCE_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
+        patch(f"{TRUTHFULNESS_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
         patch(
-            f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality",
+            f"{REWRITE_MODULE}.audit_experience_rewrite_quality",
             side_effect=[
                 _review(_comment(Severity.MINOR, "Could be more concrete")),
                 _review(_comment(Severity.MAJOR, "Ownership inflated")),
             ],
         ),
-        patch(f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal", return_value=repaired),
+        patch(f"{REWRITE_MODULE}.request_role_rewrite_proposal", return_value=repaired),
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             first,
             "context",
             _resume(experience),
@@ -258,13 +259,13 @@ def test_source_bullets_are_preserved_when_no_rewrite_clears_the_truth_floor() -
 
     with (
         patch(
-            f"{EXPERIENCE_MODULE}.detect_claim_inflation",
+            f"{TRUTHFULNESS_MODULE}.detect_claim_inflation",
             return_value=_review(_comment(Severity.MAJOR, "Unsupported figure 40%")),
         ),
-        patch(f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
-        patch(f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal", return_value=repaired),
+        patch(f"{REWRITE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
+        patch(f"{REWRITE_MODULE}.request_role_rewrite_proposal", return_value=repaired),
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             first,
             "context",
             _resume(experience),
@@ -284,11 +285,11 @@ def test_a_dropped_bullet_fails_the_truth_floor() -> None:
     repaired = _proposal(experience, ["Still only one."])
 
     with (
-        patch(f"{EXPERIENCE_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
-        patch(f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
-        patch(f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal", return_value=repaired),
+        patch(f"{TRUTHFULNESS_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
+        patch(f"{REWRITE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
+        patch(f"{REWRITE_MODULE}.request_role_rewrite_proposal", return_value=repaired),
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             first,
             "context",
             _resume(experience),
@@ -320,11 +321,11 @@ def test_reordered_bullet_ids_fail_the_truth_floor() -> None:
     )
 
     with (
-        patch(f"{EXPERIENCE_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
-        patch(f"{EXPERIENCE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
-        patch(f"{EXPERIENCE_MODULE}._request_role_rewrite_proposal", return_value=repaired),
+        patch(f"{TRUTHFULNESS_MODULE}.detect_claim_inflation", return_value=_clean_inflation()),
+        patch(f"{REWRITE_MODULE}.audit_experience_rewrite_quality", return_value=_review()),
+        patch(f"{REWRITE_MODULE}.request_role_rewrite_proposal", return_value=repaired),
     ):
-        decision = _decide_role_rewrite_outcome(
+        decision = decide_role_rewrite_outcome(
             first,
             "context",
             _resume(experience),

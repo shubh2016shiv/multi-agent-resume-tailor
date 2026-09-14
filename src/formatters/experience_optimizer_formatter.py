@@ -1,7 +1,7 @@
 """Build context for the professional experience optimizer.
 
 Caller:
-- `src/orchestration/nodes/experience.py`
+- `src/orchestration/nodes/experience/node.py`
 
 Consumer:
 - the `optimize_experience_section_task`
@@ -82,9 +82,7 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
         for _, requirement in sorted(
             enumerate(job_description.requirements),
             key=lambda requirement_entry: (
-                requirement_importance_rank(
-                    requirement_entry[1].importance.value
-                ),
+                requirement_importance_rank(requirement_entry[1].importance.value),
                 requirement_entry[0],
             ),
         )[:MAX_PRIORITY_REQUIREMENTS_FOR_EXPERIENCE_REWRITE]

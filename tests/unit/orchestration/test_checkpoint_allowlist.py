@@ -17,7 +17,7 @@ avoid touching without an isolated impact analysis.
 
 So instead this test gets the same safety net a different way: it calls
 LangGraph's own schema-walker directly (read-only, at test time) and asserts
-the manual allowlist in ``src/orchestration/checkpointing.py`` covers
+the manual allowlist in ``src/orchestration/checkpoint_allowlist.py`` covers
 everything the walker finds reachable from the real compiled graph. If a new
 Pydantic model/Enum becomes reachable from state and nobody updates the manual
 list, this test fails immediately instead of silently degrading checkpoint
@@ -35,7 +35,7 @@ is a real problem, so this test only fails in that direction.
 
 from langgraph._internal import _serde
 
-from src.orchestration.checkpointing import CHECKPOINT_ALLOWED_MSGPACK_MODULES
+from src.orchestration.checkpoint_allowlist import CHECKPOINT_ALLOWED_MSGPACK_MODULES
 from src.orchestration.graph import build_resume_enhancement_graph
 
 
@@ -65,15 +65,15 @@ def test_manual_allowlist_covers_every_type_reachable_from_pipeline_state() -> N
 
     A failure here means a Pydantic model or Enum became reachable from
     ResumeEnhancementPipelineState (directly or nested) without a matching
-    entry in checkpointing.py -- exactly the drift the module's docstring
-    warns about. Fix by adding the missing (module, class) tuple.
+    entry in checkpoint_allowlist.py -- exactly the drift that file warns about.
+    Fix by adding the missing (module, class) tuple.
     """
     reachable = _derive_reachable_custom_types()
     manual = set(CHECKPOINT_ALLOWED_MSGPACK_MODULES)
 
     missing = reachable - manual
     assert not missing, (
-        "src/orchestration/checkpointing.py is missing entries LangGraph can reach "
+        "src/orchestration/checkpoint_allowlist.py is missing entries LangGraph can reach "
         f"from the pipeline state: {sorted(missing)}. Add these to "
         "CHECKPOINT_ALLOWED_MSGPACK_MODULES or a paused run using them will "
         "fail to resume once LangGraph enforces strict msgpack by default."

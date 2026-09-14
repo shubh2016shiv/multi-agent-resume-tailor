@@ -1,11 +1,8 @@
-"""Contracts for the runner's checkpoint-settling and PII-cleanup decisions.
+"""Contracts for the run-lifecycle and run-result helpers runner.py delegates to.
 
-These four helpers encode the run lifecycle rules that are easy to get subtly
-wrong and expensive when wrong: a deleted checkpoint makes a paused run
-unresumable, and a deleted PII mapping makes every later resume unable to
-rehydrate. They are pinned here before runner.py is simplified, because the
-planned refactor merges the two entry points' shared try/except/finally and
-would otherwise be free to change these rules unnoticed.
+These encode rules that are easy to get subtly wrong and expensive when wrong: a
+deleted checkpoint makes a paused run unresumable, and a deleted PII mapping makes
+every later resume unable to rehydrate.
 """
 
 from pathlib import Path
@@ -15,13 +12,13 @@ from src.data_models.orchestration import OrchestrationResult, RunDisposition
 from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.hitl.professional_experience.persistence import PausedRunLayout
-from src.orchestration.runner import (
-    _result_output_dir,
+from src.orchestration.run_lifecycle import (
     _settle_fresh_run_checkpoint,
     _settle_resumed_run_checkpoint,
     _should_cleanup_pii_mapping,
     _should_cleanup_pii_mapping_after_resume,
 )
+from src.orchestration.run_results import _result_output_dir
 
 
 def _resume_model(full_name: str = "Jane Doe") -> Resume:
@@ -215,7 +212,7 @@ def test_completed_result_is_persisted_beside_the_rendered_artifacts(
 ) -> None:
     """A terminal run's result JSON lands in <output_dir>/<candidate>/<designation>."""
     monkeypatch.setattr(
-        "src.orchestration.runner.get_config",
+        "src.orchestration.run_results.get_config",
         lambda: _FakeConfig(tmp_path),
     )
 

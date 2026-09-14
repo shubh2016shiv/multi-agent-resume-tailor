@@ -11,7 +11,7 @@ One self-contained directory, `paused_run_<run_id>/`, holding four files:
 
 WHO CALLS WHAT (the two directions across the pause)
 ---------------------------------------------------
-    PAUSING  ->  runner._finalize_pipeline_output()  [orchestration/runner.py]
+    PAUSING  ->  finalize_pipeline_output()  [orchestration/run_results.py]
                    calls save_paused_run_state(layout, manifest, clarifications)
                      -> write_clarification_sheet()   writes the sheet
                      -> (manifest written inline)
@@ -318,7 +318,7 @@ def append_answer_records(
 # Does NOT write checkpoints.sqlite3 -- the runner's checkpointer owns that file
 # while the graph runs, and archive_checkpoint_database() moves it in afterward.
 #
-# CALLED BY : runner._finalize_pipeline_output()  [orchestration/runner.py],
+# CALLED BY : finalize_pipeline_output()  [orchestration/run_results.py],
 #             when output contains "__interrupt__".
 # CALLS     : write_clarification_sheet()
 # RETURNS   : the paused-run directory path as a string

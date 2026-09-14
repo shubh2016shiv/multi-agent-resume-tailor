@@ -115,7 +115,7 @@ tailor_resume(resume_path, jd_path)                         runner.py
   │             │                     LangGraph catches it, writes checkpoint,
   │             │                     returns {"__interrupt__": ...}
   │             v
-  ├─ 4. _finalize_pipeline_output(output, ...)              runner.py
+  ├─ 4. finalize_pipeline_output(output, ...)              run_results.py
   │       │
   │       ├─ _pipeline_interrupted(output)  -> True
   │       ├─ pipeline.get_state(config)     -> the frozen state snapshot
@@ -126,7 +126,7 @@ tailor_resume(resume_path, jd_path)                         runner.py
   │       └─ _persist_result(result)         writes run_<timestamp>.json
   │
   ├─ 5. close_checkpoint_database(checkpointer)             checkpointing.py
-  └─ 6. _settle_fresh_run_checkpoint(...)                   runner.py
+  └─ 6. _settle_fresh_run_checkpoint(...)                   run_lifecycle.py
           └─ archive_checkpoint_database(db_path, layout)   persistence.py
                 (moves <run>.sqlite3  ->  paused_run_<id>/checkpoints.sqlite3)
 
@@ -197,7 +197,7 @@ Nothing is running after that. The folder is the entire state of the world.
 
 **Reacting to the pause:**
 
-6. **`_finalize_pipeline_output(output, ...)`** inspects that result:
+6. **`finalize_pipeline_output(output, ...)`** (now in `run_results.py`) inspects that result:
 
    - **`_pipeline_interrupted(output)`** — sees the `"__interrupt__"` key,
      returns `True`. This branch means "we paused; persist everything."
@@ -259,7 +259,7 @@ kind of return safe: write it all down first, *then* stop.
 
 ```python
 run_id = uuid4().hex                                    # identity for this whole run
-checkpoint_db_path = _in_flight_checkpoint_db_path(run_id)   # .../checkpoints/<run_id>.sqlite3
+checkpoint_db_path = in_flight_checkpoint_db_path(run_id)   # .../checkpoints/<run_id>.sqlite3
 checkpointer = open_checkpoint_database(checkpoint_db_path)  # SqliteSaver + msgpack allowlist
 pipeline = _build_pipeline(checkpointer)                # compiles graph.py, bound to this saver
 config = {"configurable": {"thread_id": run_id}}        # thread_id == run_id, ALWAYS
@@ -279,7 +279,7 @@ that might need it.** Four small pieces:
   execution is tagged with it. When Journey 3 comes back days later, this id is
   how it finds the right folder and the right slot inside the database.
 
-- **`checkpoint_db_path = _in_flight_checkpoint_db_path(run_id)`** — decides
+- **`checkpoint_db_path = in_flight_checkpoint_db_path(run_id)`** — decides
   *where* the recorder file lives while the run is active: a shared
   `checkpoints/` directory, filename `<run_id>.sqlite3`. "In-flight" because this
   is only its temporary home; if the run pauses, Journey 1's cleanup step moves
@@ -743,10 +743,10 @@ What happens to that raised exception is Step 8.
 ### Step 8 — LangGraph catches the raise, `_invoke_pipeline` returns
 LangGraph writes the checkpoint (as part of executing `interrupt()`) and returns
 `{"__interrupt__": (...), ...}` to `_invoke_pipeline`, which returns it to
-`tailor_resume`, which passes it to `_finalize_pipeline_output`.
+`tailor_resume`, which passes it to `finalize_pipeline_output`.
 
-### Step 9 — `_finalize_pipeline_output` writes the paused-run directory
-`src/orchestration/runner.py`
+### Step 9 — `finalize_pipeline_output` writes the paused-run directory
+`src/orchestration/run_results.py`
 
 ```python
 if _pipeline_interrupted(output):                     # "__interrupt__" in output -> True
@@ -1028,7 +1028,7 @@ resume_paused_run(paused_run_path, progress_callback)        runner.py
   │             │
   │             └─ assemble_ats_resume -> evaluate_resume_quality -> ... -> render_final_resume
   │
-  ├─ 9. result = _finalize_pipeline_output(output, ..., paused_run_layout=layout)
+  ├─ 9. result = finalize_pipeline_output(output, ..., paused_run_layout=layout)
   │        _pipeline_interrupted(output) is False -> _build_completed_orchestration_result
   │
   └─ 10. finally:
@@ -1115,7 +1115,7 @@ whole pipeline resuming:
 
 **Steps 9–10 — finalize and clean up.**
 
-9. **`_finalize_pipeline_output(output, ...)`** — this time there's no
+9. **`finalize_pipeline_output(output, ...)`** (`run_results.py`) — this time there's no
    `"__interrupt__"` key, so it builds a *completed* `OrchestrationResult` with
    the rendered artifacts and `.paused_run_path` left `None`.
 10. **`finally:`** — always runs. Close the SQLite handle, then
@@ -1193,7 +1193,7 @@ assemble_ats_resume -> evaluate_resume_quality -> (patch?) -> rehydrate_pii -> r
 ```
 
 ### Steps 9–10 — finalize and clean up
-`_finalize_pipeline_output` sees no `"__interrupt__"` this time and builds a
+`finalize_pipeline_output` sees no `"__interrupt__"` this time and builds a
 *completed* result. The `finally:` block deletes `checkpoints.sqlite3` — the run
 is done, there is nothing left to resume. The `paused_run_<id>/` directory
 remains (sheet + audit + manifest) as a record.
@@ -1231,9 +1231,9 @@ remains (sheet + audit + manifest) as a record.
 | `read_answered_clarifications` | `resume_paused_run` [runner.py] | `read_clarification_sheet` | answered-only `list` |
 | `record_clarification_answers` | `_save_clarification_answers` [web_app/server.py] | `read_clarification_sheet`, `append_answer_records`, `write_clarification_sheet` | updated `list` |
 | `append_answer_records` | `record_clarification_answers` | — | `None` (appends `answers_audit.jsonl`) |
-| `save_paused_run_state` | `_finalize_pipeline_output` [runner.py] | `write_clarification_sheet` | dir path `str` |
+| `save_paused_run_state` | `finalize_pipeline_output` [run_results.py] | `write_clarification_sheet` | dir path `str` |
 | `load_paused_run` | `resume_paused_run` [runner.py] | — | `(PausedRunLayout, manifest)` |
-| `archive_checkpoint_database` | `_settle_fresh_run_checkpoint` [runner.py] | — | `None` (moves the db file) |
+| `archive_checkpoint_database` | `_settle_fresh_run_checkpoint` [run_lifecycle.py] | — | `None` (moves the db file) |
 
 ## `src/hitl/professional_experience/models.py`
 
@@ -1244,7 +1244,7 @@ remains (sheet + audit + manifest) as a record.
 | `ExperienceBulletFactGapReview` | `request_structured_output` (the wrapper) | `build_bullet_clarifications` (`.findings`) |
 | `ExperienceBulletClarification` | `clarifications_from_findings` | the sheet, `answers_for_role`, the pause node, pipeline state |
 | `ClarificationAnswerRecord` | `record_clarification_answers` | `answers_audit.jsonl` only (human/compliance) |
-| `ExperienceClarificationPausedRunManifest` | `_finalize_pipeline_output` [runner.py] | `load_paused_run`, `resume_paused_run` (`.is_expired`) |
+| `ExperienceClarificationPausedRunManifest` | `finalize_pipeline_output` [run_results.py] | `load_paused_run`, `resume_paused_run` (`.is_expired`) |
 | `build_experience_bullet_id` (fn) | `_collect_rewrite_truthfulness_findings` [experience.py], `answers_for_role` | — |
 
 ## Outside the package but part of the loop
@@ -1253,7 +1253,7 @@ remains (sheet + audit + manifest) as a record.
 |---|---|---|
 | `tailor_resume` | `orchestration/runner.py` | Journey 1 entry |
 | `resume_paused_run` | `orchestration/runner.py` | Journey 3 entry |
-| `_finalize_pipeline_output` | `orchestration/runner.py` | detects interrupt, writes paused-run dir |
+| `finalize_pipeline_output` | `orchestration/run_results.py` | detects interrupt, writes paused-run dir |
 | `optimize_experience` | `orchestration/nodes/experience.py` | runs the rewrite; produces questions |
 | `_run_single_experience_optimization` | `orchestration/nodes/experience.py` | per-role rewrite + `build_bullet_clarifications` |
 | `_cap_clarifications` | `orchestration/nodes/experience.py` | the volume bound |

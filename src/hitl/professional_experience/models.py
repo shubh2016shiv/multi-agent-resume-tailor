@@ -251,7 +251,7 @@ class ClarificationAnswerRecord(BaseModel):
 # =============================================================================
 # ExperienceClarificationPausedRunManifest  --  identity + lifetime of a pause
 # -----------------------------------------------------------------------------
-# CONSTRUCTED BY : runner._finalize_pipeline_output()  [orchestration/runner.py]
+# CONSTRUCTED BY : finalize_pipeline_output()  [orchestration/run_results.py]
 #                  at the moment the graph interrupts
 # WRITTEN BY     : save_paused_run_state()  -> paused_run_manifest.json
 # READ BACK BY   : load_paused_run()  [persistence.py] on every resume attempt

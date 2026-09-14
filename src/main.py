@@ -1,4 +1,9 @@
-"""Command-line entry point for the resume tailoring pipeline."""
+"""Command-line entry point for the resume tailoring pipeline.
+
+This is the actual process entry point: main() below calls tailor_resume() or
+resume_paused_run(), which is where the LangGraph multi-agent pipeline starts.
+See src/orchestration/__init__.py for the graph itself and how to debug it.
+"""
 
 import argparse
 import io

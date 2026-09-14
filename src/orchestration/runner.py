@@ -1,4 +1,25 @@
-"""Public entry points for the resume enhancement pipeline."""
+"""Public entry points for the resume enhancement pipeline.
+
+    tailor_resume(resume_path, jd_path)   -- a fresh run from two source documents
+    resume_paused_run(paused_run_path)    -- continue a run that paused for answers
+
+Both take the same path through _execute_run:
+
+    open a SQLite checkpointer  ->  compile the graph  ->  invoke it
+        |
+        +-- the graph hit interrupt()  ->  write the paused-run directory
+        |                                  (manifest + clarification sheet),
+        |                                  return NEEDS_CANDIDATE_INPUT
+        |
+        +-- the graph ran to the end   ->  build the result, derive its disposition
+        |
+        then always: close the checkpointer, and settle the run's on-disk state
+                     (archive/delete the checkpoint, delete the PII mapping)
+
+The settle step is where the two modes differ, and _settle_run_state explains how.
+Everything persisted for a run lands under <output_dir>/<candidate>/<designation>/,
+except a paused run, which gets its own paused_run_<run_id> folder inside that.
+"""
 
 import time
 from collections.abc import Callable
@@ -49,12 +70,13 @@ ProgressCallback = Callable[[str, str], None]
 
 @dataclass(frozen=True)
 class _RunPlan:
-    """One execution's inputs, plus everything that differs between the two modes.
+    """Everything _execute_run needs, assembled by whichever entry point was called.
 
-    Exactly one of in_flight_checkpoint_db / paused_run_layout is set:
-    in_flight_checkpoint_db for a fresh run, whose checkpoint is archived into a
-    paused-run directory or deleted when the run ends; paused_run_layout for a
-    resume, whose checkpoint already lives in that directory.
+    Exactly one of the last two fields is set, and that is what marks the mode:
+      * in_flight_checkpoint_db -- a fresh run. Its checkpoint sits in a scratch
+        directory and moves into a paused-run folder, or is deleted, when the run ends.
+      * paused_run_layout -- a resume. Its checkpoint already lives in the paused-run
+        folder, and the same folder is reused if the run pauses again.
     """
 
     run_id: str
@@ -141,10 +163,11 @@ def _execute_run(
     plan: _RunPlan,
     progress_callback: ProgressCallback | None,
 ) -> OrchestrationResult:
-    """Compile, invoke, and settle one run -- the skeleton both entry points share.
+    """Compile, invoke, and settle one run. Both entry points end up here.
 
-    The checkpointer is opened by the caller (so a failure to open it never reaches
-    the finally block below, which would try to close it) and is always closed here.
+    The caller opens the checkpointer, this function always closes it. Opening it
+    here instead would mean a failed open landed in the finally block, which would
+    then try to close a connection that was never established.
     """
     start_time = time.monotonic()
     result: OrchestrationResult | None = None

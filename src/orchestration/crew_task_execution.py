@@ -1,8 +1,18 @@
-"""CrewAI task execution primitives for orchestration nodes.
+"""The seam between LangGraph and CrewAI: run one agent task, return one typed result.
 
-This module is intentionally not named runner: runner.py owns the public
-LangGraph pipeline entry point. This file only adapts one CrewAI Agent and one
-configured task into one typed Pydantic result.
+run_agent_task() is the only place in the pipeline that builds a Crew, so every
+agent call takes the same path:
+
+    load the task's description and expected_output from tasks.yaml
+      -> append the caller's context to that description
+      -> append the output model's JSON contract to it
+      -> set (or clear) the LLM's response_format, see the comment on that below
+      -> kickoff() the Crew, serialized process-wide by _KICKOFF_LOCK
+      -> parse the raw text back into output_model, raising AgentOutputError if it
+         does not contain valid JSON for that model
+
+Named for what it does rather than "runner", which is runner.py: the LangGraph
+entry point that calls the nodes that call this.
 """
 
 import threading
@@ -78,13 +88,15 @@ def run_agent_task(
     task_description = task_config.get("description", "") + "\n\nCONTEXT:\n" + context
     task_expected_output = task_config.get("expected_output", "Structured output.")
 
-    # Asking the provider for structured JSON makes it answer in the FIRST response,
-    # which skips the tool-call loop entirely -- a tool-carrying agent then returns an
-    # empty schema skeleton instead of calling its tools. So tool-carrying agents get
-    # no response_format and are steered by the JSON contract in the prompt instead.
-    # DeepSeek is excluded too: it does not advertise response_format support to this
-    # CrewAI version. Either way the raw output is validated below, which also avoids
-    # CrewAI's output_pydantic converter -- it cannot parse our PEP 604 "X | None".
+    # response_format asks the provider to answer with structured JSON immediately.
+    # That is wrong for an agent holding tools: answering in the first turn skips the
+    # tool-call loop, and the agent returns an empty schema skeleton instead of using
+    # its tools. Those agents get None and are steered by the JSON contract in the
+    # prompt instead. DeepSeek gets None too -- it does not advertise response_format
+    # support to this CrewAI version.
+    #
+    # Both paths are parsed by _validate_agent_output below rather than by CrewAI's
+    # output_pydantic, which cannot handle the PEP 604 "X | None" fields in Resume.
     llm: Any = agent.llm
     task_description = add_json_contract(task_description, output_model, llm.model)
     llm.response_format = (
@@ -97,9 +109,7 @@ def run_agent_task(
         expected_output=task_expected_output,
         agent=agent,
     )
-    # Save the full task_description to a file before the LLM call so we can
-    # inspect exactly what the agent received. No-ops unless DEBUG_CHECKPOINTS=1.
-    # SAVE CHECKPOINT INPUT CONTEXT
+    # Records exactly what the agent was sent. No-ops unless DEBUG_CHECKPOINTS=1.
     checkpoint = save_agent_input_checkpoint(
         run_id=run_id,
         agent_role=agent.role,
@@ -121,9 +131,7 @@ def run_agent_task(
 
     validated = _validate_agent_output(result.raw, output_model, agent.role, task_name)
 
-    # Save the LLM's raw + validated output right after the call resolves.
-    # No-ops unless DEBUG_CHECKPOINTS=1.
-    # SAVE CHECKPOINT OUTPUT CONTEXT
+    # Records what came back, raw and parsed. No-ops unless DEBUG_CHECKPOINTS=1.
     save_agent_output_checkpoint(
         checkpoint=checkpoint,
         raw_output=result.raw,

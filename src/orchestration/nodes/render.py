@@ -1,4 +1,4 @@
-"""Stage 6 final resume render node.
+"""Stage 7 final resume render node.
 
 Plain code, no agent: rendering an already-decided Resume into files is mechanical.
 This node runs when the quality gate passed, or when render_draft_on_gate_fail is True

@@ -71,11 +71,11 @@ def patch_ats_assembly(state: ResumeEnhancementPipelineState) -> dict:
         "optimized_resume": optimized_resume.model_copy(update={"final_resume": patched_final}),
         "quality_report": quality_report,
         "rendered_structure_evaluation": new_outcome,
-        # OR, not overwrite: QA may have already set this True for a reason unrelated to
-        # the ATS check (inconclusive relevance), and a successful restore here must not
-        # silently clear that escalation. A restore that still does not PASS means ATS
-        # recovery is exhausted (the section was empty upstream too) -- also escalates.
-        # The escalation policy lives in human_review_policy.
+        # Escalate if EITHER this restore failed to reach PASS (no automated recovery
+        # left -- the section was empty upstream too) or QA already escalated for a
+        # reason this node does not re-check, namely inconclusive relevance. ORing the
+        # incoming flag is what keeps that second case alive through a successful
+        # restore. Full policy in human_review_policy.
         "human_review_required": state["human_review_required"]
         or is_ats_unrecoverable(new_outcome),
     }

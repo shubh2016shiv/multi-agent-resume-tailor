@@ -158,11 +158,15 @@ def preserve_original_skills(
 ) -> OptimizedSkillsSection:
     """Re-add any original-resume skill the optimizer dropped, appended after its ordering.
 
-    Serves node STEP 7. The candidate's listed skills are truthful facts; the
-    optimizer's job is to reorder and categorize them, not delete them.
-    Re-adds only skills that were already in the original resume, so it can
-    never introduce a fabricated skill. Returns the section unchanged when
-    the optimizer kept every original skill.
+    Serves node STEP 7. The candidate's listed skills are facts, so the optimizer may
+    reorder and categorize them but not delete them. Only skills already present in the
+    original resume are re-added, so this can never introduce a fabricated one, and the
+    section comes back unchanged when nothing was dropped.
+
+    Names are compared casefolded, so a skill the optimizer merely re-cased counts as
+    kept. Dropped skills are appended after the optimizer's ordering, preserving its
+    ranking of the ones it did keep, and their names are pruned from removed_skills --
+    that list must not claim a skill is gone while it sits in the shipped section.
     """
     existing_names = {skill.skill_name.casefold() for skill in optimized_skills.optimized_skills}
     dropped = [

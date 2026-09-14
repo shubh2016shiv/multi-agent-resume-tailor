@@ -412,23 +412,14 @@ def _render_quality_findings_for_repair(
     ]
 
 
-def _no_quality_findings() -> ReviewResult:
-    """An empty review, used when the truth floor already decided the outcome.
-
-    A fresh instance each time rather than a shared module constant: ReviewResult
-    is a mutable Pydantic model, and one shared instance could be aliased into two
-    different role decisions.
-    """
-    return ReviewResult(comments=[], summary="", score=None)
-
-
 @dataclass(frozen=True)
 class _ProposalCheck:
-    """One rewrite proposal measured against both lines: truth floor, then substance.
+    """What one rewrite proposal scored on both layers, and what that allows.
 
-    The two lines have different force, so they stay separate fields rather than
-    collapsing into a single verdict: truthfulness_findings is non-negotiable, while
-    the comment lists are graded (must-fix vs. merely worth surfacing).
+    Findings are kept in three separate lists because they carry different weight:
+    truthfulness_findings blocks shipping outright, repair_required_comments
+    (MAJOR/BLOCKER) must be fixed first, and follow_up_comments (MINOR/SUGGESTION)
+    may ship as long as the candidate is told about them.
     """
 
     rewritten_role: Experience
@@ -438,24 +429,31 @@ class _ProposalCheck:
 
     @property
     def is_shippable(self) -> bool:
-        """Truthful, and carrying no finding that must be fixed before shipping."""
+        """True when this proposal may ship, with or without follow-up notes."""
         return not self.truthfulness_findings and not self.repair_required_comments
 
     @property
     def is_flawless(self) -> bool:
-        """Shippable with nothing even worth surfacing to the candidate."""
+        """True when this proposal may ship and there is nothing to tell the candidate."""
         return self.is_shippable and not self.follow_up_comments
 
     @property
     def repair_findings(self) -> list[str]:
-        """Everything the single repair attempt should try to fix, at once."""
+        """Every finding the one repair attempt should fix, truth first then quality.
+
+        Follow-up comments are included: the repair is the only chance to improve
+        them, even though they would not block shipping on their own.
+        """
         return self.truthfulness_findings + _render_quality_findings_for_repair(
             self.repair_required_comments + self.follow_up_comments
         )
 
     @property
     def blocking_findings(self) -> list[str]:
-        """Why this proposal cannot ship -- recorded on the source-preserved section."""
+        """Why this proposal cannot ship, for the note on the preserved source role.
+
+        Truth findings win when present; they are the more fundamental failure.
+        """
         return self.truthfulness_findings or _render_quality_findings_for_repair(
             self.repair_required_comments
         )
@@ -466,10 +464,13 @@ def _check_proposal(
     source_role_resume: Resume,
     original_experience: Experience,
 ) -> _ProposalCheck:
-    """Measure one proposal: deterministic truth floor first, then the semantic review.
+    """Score one proposal: the deterministic truth floor, then the semantic review.
 
-    The review is skipped when the truth floor already failed -- the proposal cannot
-    ship either way, and the review costs an LLM call.
+    Three steps:
+      1. Rebuild the role from the proposal, taking only its bullet text.
+      2. Run the truth floor (bullet count, bullet ids, invented numbers).
+      3. Run the LLM review for substance -- but only if step 2 passed, since a
+         proposal that fails the floor cannot ship however good its prose is.
     """
     rewritten_role = _rebuild_rewritten_role_from_proposal(
         rewrite_proposal,
@@ -481,11 +482,11 @@ def _check_proposal(
         rewritten_role,
         original_experience,
     )
-    # The review judges against the EVIDENCE role (which may carry the candidate's
-    # clarification answers), not the bare original -- otherwise answer-sourced
-    # specifics would be flagged as unsupported.
+    # work_experience[0] is the evidence role: the source role with the candidate's
+    # clarification answers folded in. Reviewing against the bare original would
+    # flag anything sourced from those answers as unsupported.
     quality_review = (
-        _no_quality_findings()
+        ReviewResult(comments=[], summary="", score=None)
         if truthfulness_findings
         else audit_experience_rewrite_quality(
             source_role_resume.work_experience[0],

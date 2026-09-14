@@ -1,11 +1,7 @@
-"""Uniform stage instrumentation for graph nodes.
+"""The @pipeline_stage decorator: one node's start, end, and duration in the log.
 
-Every node opened and closed with the same timer-and-logger boilerplate:
-start the monotonic clock, log pipeline_stage_started, do the work, compute
-duration_ms, log pipeline_stage_completed. Eleven nodes x ~10 lines, and
-rehydrate_pii repeated the completion half three times for its early returns.
-
-@pipeline_stage("name") owns that pattern so a node's body is only its own work.
+Applied to every node in this package except await_candidate_clarifications, which
+raises GraphInterrupt to pause the run rather than completing normally.
 """
 
 import time
@@ -20,35 +16,30 @@ logger = get_logger(__name__)
 
 
 class NodeFunction(Protocol):
-    """One graph node: state in, partial state out.
+    """One graph node: whole state in, partial state out.
 
-    A Protocol rather than Callable[[...], dict] on purpose -- LangGraph's
-    add_node() requires `state` to be callable BY NAME, and a Callable alias
-    makes its parameters position-only, which add_node rejects.
+    A Protocol, not Callable[[State], dict], because LangGraph's add_node() calls
+    the node with `state` as a keyword; a Callable alias would make it positional-only.
     """
 
     def __call__(self, state: ResumeEnhancementPipelineState) -> dict: ...
 
 
 def pipeline_stage(stage: str) -> Callable[[NodeFunction], NodeFunction]:
-    """Log one node's start, completion, and wall-clock duration.
+    """Log one node's start and end, timing it with a monotonic clock.
 
-    Emits the same two events with the same fields the nodes emitted inline:
-    pipeline_stage_started (stage, run_id) and pipeline_stage_completed
-    (stage, run_id, duration_ms). A node that needs to record more than that
-    logs its own domain event from inside its body.
+    Emits pipeline_stage_started (stage, run_id) before the node and
+    pipeline_stage_completed (stage, run_id, duration_ms) after it. A node with
+    more to record logs its own event; these two stay uniform across all stages.
 
-    A node that raises logs no completion event, which is what the inline
-    version did too (its completion log sat after the call that could raise).
-    The run-level failure is logged once by the runner.
+    A node that raises emits no completion event -- the runner logs the failure
+    once for the whole run.
 
-    Note on callsite metadata: structlog stamps filename/func_name from the
-    logging call, so these two events now point at this module rather than at
-    the node's own file. The `stage` field is the node identity to filter on,
-    and it is unchanged.
-
-    functools.wraps is required, not cosmetic: LangGraph inspects a node's
-    signature to decide what to pass it, so the wrapper must not hide it.
+    Two things to know when reading the output:
+      * structlog takes filename/func_name from the logging call, so both events
+        report this module. Filter on `stage` to identify the node.
+      * functools.wraps must stay: LangGraph inspects the node's signature to
+        decide what to pass it, and the wrapper would otherwise hide it.
     """
 
     def decorate(node: NodeFunction) -> NodeFunction:

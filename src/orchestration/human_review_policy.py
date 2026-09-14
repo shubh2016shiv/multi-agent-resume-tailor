@@ -1,11 +1,9 @@
 """When a pipeline run must escalate to human review.
 
-This is the single, documented home for the human-review escalation policy. Before
-this module the policy lived as inline boolean expressions scattered across nodes
-(quality + ats_patch); a developer asking "when does this system hand off to a human?"
-had to find all of them, and one was missed when ats_patch was added later, letting a
-successful ATS recovery silently clear an escalation raised for an unrelated reason. Now
-the whole policy is stated here, and the nodes call these named predicates.
+Every escalation decision lives here as a named predicate, and the nodes call those
+rather than testing the condition inline. Keep it that way: when this policy was
+spread across nodes, one case was missed and a successful ATS recovery could clear an
+escalation that had been raised for an unrelated reason.
 
 THE POLICY -- a run escalates to human review (terminal: not rendered, flagged on state
 as human_review_required) in exactly three situations:

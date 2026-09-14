@@ -1,13 +1,10 @@
 """
-ResumeEnhancementPipelineState: the shared state that flows through every node in the graph.
+ResumeEnhancementPipelineState: the shared state every node in the graph reads and writes.
 
-Every field the runner does not set starts as None, except human_review_required
-(False) and clarification_answers (empty list) -- both are read by a router or a
-node before any producing node could set them otherwise. A node sets its output
-field(s) and returns a partial dict -- LangGraph merges that dict back into the
-state. Downstream nodes must only read a field after the node that produces it has run.
-
-The graph topology in graph.py enforces the correct read order.
+How state moves: a node receives the whole state, returns a dict holding only the
+fields it produced, and LangGraph merges that dict into the state for the next node.
+A field is None until its producing node has run, so a node may only read fields
+produced upstream of it. The edges in graph.py are what guarantee that order.
 """
 
 from typing import TypedDict
@@ -85,12 +82,12 @@ def new_pipeline_state(
 ) -> ResumeEnhancementPipelineState:
     """Build the state a fresh run starts from: the three inputs, everything else empty.
 
-    Lives here, next to the TypedDict, so adding a field is a one-file change --
-    the runner used to spell out all seventeen keys, which meant a new field had to
-    be added in two places or LangGraph would see a state missing a key.
+    Every key must be present even when its value is None, so a new field added to
+    the TypedDict must be added here too.
 
-    human_review_required starts False and clarification_answers empty (not None)
-    because a router and a node read them before any node could have set them.
+    Two fields start with a value rather than None, because they are read before any
+    node could have produced them: human_review_required (False) is read by the final
+    disposition, and clarification_answers (empty list) is read by the HITL router.
     """
     return {
         "run_id": run_id,
@@ -114,19 +111,14 @@ def new_pipeline_state(
 
 
 def require[T](value: T | None, field: str) -> T:
-    """Return a state field an upstream node must already have populated.
-
-    Nodes read state fields typed `X | None` but may only run once the node that
-    produces them has. This turns that precondition into one expression that both
-    narrows the type for the type checker and fails loudly when the graph is
-    mis-wired:
+    """Return a state field that an upstream node must already have populated.
 
         resume = require(state["resume"], "resume")
 
-    A None here is a violated pipeline invariant -- a programming error, not a
-    user-facing outcome -- so it raises rather than degrading, and the CLI's
-    typed-exception handling deliberately does not catch it (see exceptions.py).
-    Prefer this over `assert`, which `python -O` strips out entirely.
+    Narrows `X | None` to `X` for the type checker, and raises RuntimeError if the
+    field is still None. A None here means the graph is wired wrong, not that the
+    input was bad, so it is a programming error: the CLI does not catch it (see
+    exceptions.py) and it is not an `assert`, which `python -O` would strip.
     """
     if value is None:
         raise RuntimeError(

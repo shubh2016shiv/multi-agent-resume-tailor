@@ -1,17 +1,18 @@
-"""Stage 3 (alternate) of the resume pipeline: optimize the skills section.
+"""Stage 3 (parallel with summary and experience): optimize the skills section.
 
-This node is the entry point and the map for the whole skill-optimizer
-pipeline. Reading optimize_skills below, top to bottom, shows every step and
-which module performs it:
+What optimize_skills does, in order, and which module does the work:
 
-    STEP 1  confirm upstream stages populated the state    (this file)
-    STEP 2  build the optimizer's context                  -> skills_optimizer_formatter.py
-    STEP 3  create the skill-optimizer agent                -> skill_optimizer/agent.py
-    STEP 4  run the writing task, get a typed result        -> crew_task_execution.py
-    STEP 5  run the code-owned evidence audit on the result -> truthfulness/skills_evidence.py
-    STEP 6  if the audit confidently flags an unsupported   -> skills_optimizer_formatter.py
-            skill, rewrite once with a scoped correction       (scoped context) + crew_task_execution.py
-    STEP 7  re-add any original skill the agent dropped     (this file)
+    build the optimizer's context         -> skills_optimizer_formatter.py
+    run the skill-optimizer agent         -> skill_optimizer/agent.py,
+                                             via crew_task_execution.py
+    audit the result for evidence         -> truthfulness/skills_evidence.py
+    rewrite once if the audit is certain  -> skills_optimizer_formatter.py builds a
+                                             scoped context naming the skills to drop
+    re-add skills the agent dropped          (preserve_original_skills, this file)
+
+The last three steps are code, not agent, because the agent gets two things wrong:
+it will claim a skill the resume does not evidence, and it will silently drop skills
+when asked to reorder a long list.
 
 Reads from state: resume, job_description, alignment_strategy.
 Writes to state: optimized_skills.
@@ -43,7 +44,6 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
     Writes: optimized_skills.
     Returns: partial state with the typed OptimizedSkillsSection.
     """
-
     resume = require(state["resume"], "resume")
 
     context = format_skills_optimizer_context(
@@ -65,31 +65,28 @@ def optimize_skills(state: ResumeEnhancementPipelineState) -> dict:
 
     if needs_rewrite:
         logger.info("skills_rewrite_triggered", findings_count=len(audit_result.comments))
-        # Scoped on purpose: only the current skills and the exact names to drop. The
-        # evidence judgement is already made, so the rewrite never re-sees the job
-        # requirements or strategy that could tempt it to re-infer a skill.
+        # The rewrite sees only the current skills and the names to drop -- not the job
+        # requirements or strategy, which would tempt it to re-infer the flagged skill.
+        # The evidence judgement has already been made by the audit above.
         rewrite_context = format_skills_rewrite_context(
             section=optimized_skills,
             skills_to_remove=flagged_skill_names(audit_result),
         )
         optimized_skills = write_skills_section(rewrite_context, run_id=state["run_id"])
 
-    # The candidate's listed skills are facts, and deleting one only loses an ATS keyword
-    # match. The LLM is unreliable at preserving a long list verbatim, so completeness is
-    # guaranteed here in code, not left to the agent.
+    # Completeness is guaranteed in code, never left to the agent.
     optimized_skills = preserve_original_skills(optimized_skills, resume)
 
     return {"optimized_skills": optimized_skills}
 
 
-def write_skills_section(context: str, run_id: str = "unknown") -> OptimizedSkillsSection:
+def write_skills_section(context: str, run_id: str) -> OptimizedSkillsSection:
     """Ask the skill optimizer agent to produce a skills section.
 
-    Serves node STEP 3 & 4. Expects TOON context with resume skills, job
-    requirements, and strategy. Returns an OptimizedSkillsSection validated by
-    run_agent_task against the agent's raw output. Called twice when STEP 6
-    triggers a rewrite -- once with the full context, once with the scoped
-    correction context.
+    Expects TOON context carrying the resume skills, job requirements, and strategy.
+    Returns an OptimizedSkillsSection, validated by run_agent_task from the agent's raw
+    output. Called a second time when the evidence audit triggers a rewrite, with the
+    scoped correction context instead of the full one.
     """
     agent = create_skill_optimizer_agent()
 
@@ -106,10 +103,7 @@ def audit_skills_section(
     original_resume: Resume,
     optimized_skills: OptimizedSkillsSection,
 ) -> ReviewResult:
-    """Run the code-owned evidence audit on the optimized skills.
-
-    Serves node STEP 5.
-    """
+    """Run the code-owned evidence audit on the optimized skills."""
     # The original resume's experience, education, and certifications are the
     # evidence corpus; only the skill list under test changes.
     audit_resume = original_resume.model_copy(update={"skills": optimized_skills.optimized_skills})
@@ -132,18 +126,15 @@ def is_confident_unsupported(comment: ReviewComment) -> bool:
 
 
 def skills_audit_needs_rewrite(audit_result: ReviewResult) -> bool:
-    """Return True when a confidently-unsupported skill warrants one rewrite.
-
-    Serves node STEP 5, gates node STEP 6.
-    """
+    """Return True when a confidently-unsupported skill warrants the one rewrite."""
     return any(is_confident_unsupported(comment) for comment in audit_result.comments)
 
 
 def flagged_skill_names(audit_result: ReviewResult) -> list[str]:
     """Names of the skills the audit confidently flagged for removal.
 
-    Serves node STEP 6. quoted_text carries the skill name; message is a
-    defensive fallback if a producer leaves it blank.
+    quoted_text carries the skill name; message is a fallback for a producer that
+    leaves it blank.
     """
     return [
         comment.quoted_text or comment.message
@@ -158,10 +149,10 @@ def preserve_original_skills(
 ) -> OptimizedSkillsSection:
     """Re-add any original-resume skill the optimizer dropped, appended after its ordering.
 
-    Serves node STEP 7. The candidate's listed skills are facts, so the optimizer may
-    reorder and categorize them but not delete them. Only skills already present in the
-    original resume are re-added, so this can never introduce a fabricated one, and the
-    section comes back unchanged when nothing was dropped.
+    The candidate's listed skills are facts, so the optimizer may reorder and categorize
+    them but not delete them. Only skills already present in the original resume are
+    re-added, so this can never introduce a fabricated one, and the section comes back
+    unchanged when nothing was dropped.
 
     Names are compared casefolded, so a skill the optimizer merely re-cased counts as
     kept. Dropped skills are appended after the optimizer's ordering, preserving its

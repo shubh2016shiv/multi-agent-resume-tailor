@@ -1,15 +1,17 @@
-"""Stage 3 of the resume pipeline: write the professional summary.
+"""Stage 3 (parallel with skills and experience): write the professional summary.
 
-This node is the entry point and the map for the whole professional-summary
-pipeline. Reading write_professional_summary below, top to bottom, shows every
-step and which module performs it:
+What write_professional_summary does, in order, and which module does the work:
 
-    STEP 1  confirm upstream stages populated the state   (this file)
-    STEP 2  build the writer's context                    -> professional_summary_formatter.py
-    STEP 3  create the summary-writer agent               -> professional_summary/agent.py
-    STEP 4  run the writing task, get a typed result      -> crew_task_execution.py
-    STEP 5  enforce the quality gate before handing off   -> resume_diagnostics/summary_quality.py
-            (on the draft ats_optimization_formatter will ship)
+    build the writer's context     -> professional_summary_formatter.py
+    run the summary-writer agent   -> professional_summary/agent.py,
+                                      via crew_task_execution.py
+    enforce the quality gate       -> resume_diagnostics/summary_quality.py
+                                      (enforce_summary_quality_gate, this file)
+
+The agent returns several drafts and names one as recommended. The gate audits the
+draft that will actually ship -- chosen by ats_optimization_formatter.choose_summary_draft,
+the same function the assembler uses -- so the gate and the resume can never disagree
+about which draft was judged.
 
 Reads from state: resume, job_description, alignment_strategy.
 Writes to state: professional_summary.
@@ -41,9 +43,8 @@ def write_professional_summary(state: ResumeEnhancementPipelineState) -> dict:
     """Generate a professional summary tailored to the job description.
 
     Raises: PipelineQualityGateError if the recommended draft fails the quality gate
-            (STEP 5) -- a hard-constraint violation must not reach resume assembly.
+            -- a hard-constraint violation must not reach resume assembly.
     """
-
     resume = require(state["resume"], "resume")
     job_description = require(state["job_description"], "job_description")
     alignment_strategy = require(state["alignment_strategy"], "alignment_strategy")

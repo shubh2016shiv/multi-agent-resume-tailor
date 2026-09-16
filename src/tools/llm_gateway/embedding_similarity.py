@@ -6,8 +6,10 @@ decision of which score counts as a match (the threshold) belongs to the caller.
 """
 
 import math
+from typing import cast
 
 import litellm
+from litellm.types.utils import EmbeddingResponse
 
 # One value today; promote to LLMSettings if a second embedding model is ever needed.
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
@@ -19,7 +21,10 @@ def embed_texts(texts: list[str], model: str = DEFAULT_EMBEDDING_MODEL) -> list[
     Expects a non-empty list of non-empty strings. Returns vectors of equal
     dimension, aligned by index to `texts`. Raises on provider failure.
     """
-    response = litellm.embedding(model=model, input=texts)
+    response = cast(
+        EmbeddingResponse,
+        litellm.embedding(model=model, input=texts, aembedding=False),
+    )
     return [item["embedding"] for item in response["data"]]
 
 
@@ -46,6 +51,5 @@ def max_similarity(query_text: str, candidate_texts: list[str]) -> float:
         return 0.0
     query_vector, *candidate_vectors = embed_texts([query_text, *candidate_texts])
     return max(
-        cosine_similarity(query_vector, candidate_vector)
-        for candidate_vector in candidate_vectors
+        cosine_similarity(query_vector, candidate_vector) for candidate_vector in candidate_vectors
     )

@@ -1,36 +1,22 @@
 skills_section_strategist:
   role: "Skills Section Prioritizer (domain-agnostic)"
   goal: >
-    Order and group the candidate's skills so the most job-relevant ones come first, in any
-    field. Your durable job is PRIORITIZATION, GROUPING, and truthful TERMINOLOGY: list
-    must-have skills first, then should-have, then the candidate's proven strengths; group
-    related skills into sensible categories; and use the job's exact wording only when the
-    candidate's evidence genuinely matches it. You may add a skill ONLY when resume evidence
-    proves it. Never fabricate -- fabrication is caught downstream and forces a costly rewrite.
+    Rank and group existing resume skills against parsed job requirements. Use semantic
+    judgment to recognize genuine matches, but refer only to supplied skill and requirement
+    IDs. Never add, remove, rename, or rewrite a skill.
 
     OUTPUT REQUIREMENTS:
-    - Return ONLY the OptimizedSkillsSection JSON.
-    - Keep optimization_notes under 100 words.
+    - Return ONLY the SkillsRankingResponse JSON.
+    - Include every supplied resume skill ID exactly once.
   backstory: >
-    You know a skills section does two jobs: pass ATS keyword matching and give a human a
-    fast, ordered inventory. You also know the surrounding system guarantees some things in
-    code so you can focus on what only judgement can do:
-    - Completeness is guaranteed downstream: any truthful skill you omit is re-added in code,
-      and evidenced job keywords you miss are recovered automatically. So do not pad or
-      stress about listing every keyword -- spend your effort ordering the IMPORTANT skills
-      well and grouping them clearly.
-    - Truthfulness is audited downstream: a skill not supported by experience, projects,
-      education, or certifications will be flagged and removed. So add an inferred skill only
-      with real evidence, and never treat a job requirement as proof the candidate has it.
-    - For every skill you add or normalize, give a concrete justification and the evidence it
-      rests on; rate confidence honestly.
+    You compare two already-parsed inventories: the candidate's stated skills and the job's
+    requirements. Your contribution is semantic relevance and clear grouping. Python owns
+    completeness, factual preservation, validation, and final section assembly.
   llm: deepseek/deepseek-v4-flash
   temperature: 0.2
-  thinking: enabled
-  reasoning_effort: low
+  thinking: disabled
   verbose: true
-  # Same shared reasoning+answer budget shortfall measured on gap_analysis/
-  # professional_experience -- confirmed by a live failure here too (empty content,
-  # "Invalid response from LLM call"). 2000 left no room once the reasoning trace ran.
-  max_tokens: 8000
+  max_tokens: 3000
+  max_retry_limit: 2
+  max_iter: 3
   max_execution_time: 60

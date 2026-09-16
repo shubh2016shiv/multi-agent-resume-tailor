@@ -9,13 +9,24 @@ they are the ones worth pinning before the node is simplified:
     high-confidence, so a thin evidence corpus cannot strip truthful skills.
 """
 
-from src.data_models.resume import OptimizedSkillsSection, Resume, Skill
+import pytest
+
+from src.data_models.job import JobDescription, JobRequirement, SkillImportance
+from src.data_models.resume import (
+    OptimizedSkillsSection,
+    Resume,
+    Skill,
+    SkillRankingDecision,
+    SkillsRankingResponse,
+)
+from src.orchestration.exceptions import AgentOutputError
 from src.orchestration.nodes.skills import (
     flagged_skill_names,
     is_confident_unsupported,
     preserve_original_skills,
     skills_audit_needs_rewrite,
 )
+from src.orchestration.nodes.skills.optimize_skills_node import _assemble_skills
 from src.tools.contracts import (
     Confidence,
     Location,
@@ -53,6 +64,17 @@ def _resume_with_skills(skills: list[Skill]) -> Resume:
         certifications=[],
         languages=[],
     )
+
+
+def _job_with_requirement() -> JobDescription:
+    """Build the only job field the Skills assembler reads."""
+    requirement = JobRequirement(
+        requirement="Python",
+        canonicalized_requirement="Python",
+        importance=SkillImportance.MUST_HAVE,
+        years_required=None,
+    )
+    return JobDescription.model_construct(requirements=[requirement])
 
 
 def _section(
@@ -166,3 +188,47 @@ def test_a_section_that_kept_every_skill_is_returned_unchanged() -> None:
     optimized = _section(["Python"])
 
     assert preserve_original_skills(optimized, original) is optimized
+
+
+# --- bounded LLM decisions --------------------------------------------------
+
+
+def _decision(
+    skill_id: str,
+    rank: int,
+    category: str,
+    matches: list[str] | None = None,
+) -> SkillRankingDecision:
+    """Build one small semantic ranking decision."""
+    return SkillRankingDecision(
+        resume_skill_id=skill_id,
+        rank=rank,
+        category=category,
+        matched_job_requirement_ids=matches or [],
+    )
+
+
+def test_rankings_reorder_source_skills_without_regenerating_them() -> None:
+    """The LLM controls order/category while Python retains the source Skill objects."""
+    resume = _resume_with_skills([_skill("Python"), _skill("SQL"), _skill("Docker")])
+    response = SkillsRankingResponse(
+        ranked_skills=[
+            _decision("S003", 1, "Cloud & Infrastructure", ["J001"]),
+            _decision("S001", 2, "Programming Languages"),
+        ]
+    )
+
+    section = _assemble_skills(resume, _job_with_requirement(), response)
+
+    assert [skill.skill_name for skill in section.optimized_skills] == ["Docker", "Python", "SQL"]
+    assert section.optimized_skills[0].category == "Cloud & Infrastructure"
+    assert section.optimized_skills[2] is resume.skills[1]
+
+
+def test_rankings_reject_invented_skill_ids() -> None:
+    """A model cannot add a skill by inventing an ID."""
+    resume = _resume_with_skills([_skill("Python")])
+    response = SkillsRankingResponse(ranked_skills=[_decision("S999", 1, "Other")])
+
+    with pytest.raises(AgentOutputError, match="unknown resume skill IDs"):
+        _assemble_skills(resume, _job_with_requirement(), response)

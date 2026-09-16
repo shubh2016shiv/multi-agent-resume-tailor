@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 from src.checkpointing import save_agent_input_checkpoint, save_agent_output_checkpoint
 from src.core.llm_cache import configure_llm_cache
-from src.core.llm_factory import is_deepseek_model, structured_response_format
+from src.core.llm_factory import structured_response_format
 from src.core.logger import get_logger
 from src.core.settings import get_config, get_tasks_config
 from src.orchestration.exceptions import AgentOutputError
@@ -92,17 +92,15 @@ def run_agent_task(
     # That is wrong for an agent holding tools: answering in the first turn skips the
     # tool-call loop, and the agent returns an empty schema skeleton instead of using
     # its tools. Those agents get None and are steered by the JSON contract in the
-    # prompt instead. DeepSeek gets None too -- it does not advertise response_format
-    # support to this CrewAI version.
+    # prompt instead. Toolless agents use the provider-specific format returned by
+    # structured_response_format (DeepSeek JSON mode or a native Pydantic schema).
     #
     # Both paths are parsed by _validate_agent_output below rather than by CrewAI's
     # output_pydantic, which cannot handle the PEP 604 "X | None" fields in Resume.
     llm: Any = agent.llm
     task_description = add_json_contract(task_description, output_model, llm.model)
     llm.response_format = (
-        None
-        if agent.tools or is_deepseek_model(llm.model)
-        else structured_response_format(llm.model, output_model)
+        None if agent.tools else structured_response_format(llm.model, output_model)
     )
     task = Task(
         description=task_description,

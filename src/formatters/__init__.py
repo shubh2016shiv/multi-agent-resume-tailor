@@ -26,13 +26,7 @@ from src.formatters.experience_optimizer_formatter import format_experience_opti
 from src.formatters.gap_analysis_formatter import format_gap_analysis_context
 from src.formatters.professional_summary_formatter import format_professional_summary_context
 from src.formatters.quality_feedback_formatter import format_quality_feedback_context
-
-# Two entrypoints from the skills formatter: the STEP 2 initial optimization and
-# the STEP 6 scoped rewrite/correction pass. Both are public.
-from src.formatters.skills_optimizer_formatter import (
-    format_skills_optimizer_context,
-    format_skills_rewrite_context,
-)
+from src.formatters.skills_optimizer_formatter import format_skills_optimizer_context
 
 __all__ = [
     "format_ats_optimization_context",
@@ -41,5 +35,4 @@ __all__ = [
     "format_professional_summary_context",
     "format_quality_feedback_context",
     "format_skills_optimizer_context",
-    "format_skills_rewrite_context",
 ]

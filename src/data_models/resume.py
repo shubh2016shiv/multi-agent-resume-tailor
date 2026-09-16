@@ -401,6 +401,38 @@ class OptimizedSkillsSection(BaseModel):
         }
 
 
+class SkillRankingDecision(BaseModel):
+    """One semantic ranking decision for an existing resume skill."""
+
+    resume_skill_id: str = Field(
+        ...,
+        description="Request-local ID of an existing resume skill, such as S001.",
+    )
+    rank: int = Field(
+        ...,
+        ge=1,
+        description="One-based relevance rank; lower values appear first.",
+    )
+    category: str = Field(
+        ...,
+        min_length=1,
+        description="Concise category under which the existing skill should be displayed.",
+    )
+    matched_job_requirement_ids: list[str] = Field(
+        default_factory=list,
+        description="Request-local IDs of job requirements semantically matched by this skill.",
+    )
+
+
+class SkillsRankingResponse(BaseModel):
+    """Small LLM contract containing decisions rather than regenerated skills."""
+
+    ranked_skills: list[SkillRankingDecision] = Field(
+        default_factory=list,
+        description="Ranking decisions that reference only IDs supplied in the request.",
+    )
+
+
 # ==============================================================================
 # 6. Resume Model (Aggregator)
 # ==============================================================================

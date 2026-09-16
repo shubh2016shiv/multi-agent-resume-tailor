@@ -1,220 +1,66 @@
-"""Build context for the skills optimizer.
-
-Pipeline position: this is node STEP 2 of the skill-optimizer pipeline
-(see optimize_skills in src/orchestration/nodes/skills.py, STEP 2), and it
-also builds the STEP 6 scoped rewrite context.
-
-Caller:
-- `src/orchestration/nodes/skills.py`
-
-Consumer:
-- the `optimize_skills_section_task`
-
-This formatter keeps:
-- the candidate's current skills
-- compact per-role evidence the skills agent can legitimately reason from
-- the job requirements and ATS keywords those skills should cover
-- the strategy guidance for ordering only
-
-This formatter drops:
-- full work-experience bullets beyond the compact evidence slice
-- education and contact information
-- full job text and unrelated metadata
-- token-tracking and feature-flag formatting tricks
-
-Toy example:
-    If the resume has twenty skills, this formatter keeps that skill list plus
-    the job targets and returns one compact context string.
-"""
+"""Build the minimal semantic-ranking context for the Skills LLM."""
 
 from typing import Any
 
-# JobDescription = the target job; SkillImportance = the must/should/nice tier used
-# to keep only the requirements the skills section should cover.
 from src.data_models.job import JobDescription, SkillImportance
-
-# Resume = candidate's current skills+roles; OptimizedSkillsSection = the agent's
-# reordered skills, re-consumed here for the STEP 6 rewrite/correction pass.
-from src.data_models.resume import OptimizedSkillsSection, Resume
-from src.data_models.strategy import (
-    AlignmentStrategy,  # gap-analysis output; carries ordering guidance
-)
-
-# Shared rendering: OutputFormat is the "toon"/"markdown" choice; render_context_data
-# turns this formatter's filtered payload dict into the final LLM context string.
+from src.data_models.resume import Resume
 from src.formatters.llm_context_rendering import OutputFormat, render_context_data
 
-# Noise-reduction cap on role evidence (see module docstring). Here achievements are
-# supporting proof for a skill claim, not narrative content, so a role only needs a
-# couple of examples to establish "this skill is backed" -- unlike the professional
-# summary formatter's MAX_ACHIEVEMENTS_PER_ROLE (3), which carries achievements as the
-# summary's actual narrative material and needs more of them.
-MAX_ACHIEVEMENTS_PER_ROLE_EVIDENCE = 2
-
-
-def select_resume_context(resume: Resume) -> dict[str, Any]:
-    """Keep skills plus compact role evidence the optimizer can verify against.
-
-    Serves node STEP 2.
-    """
-    return {
-        "skills": [
-            {
-                "skill_name": skill.skill_name,
-                "category": skill.category,
-                "proficiency_level": skill.proficiency_level,
-                "years_of_experience": skill.years_of_experience,
-            }
-            for skill in resume.skills
-        ],
-        "role_evidence": [
-            {
-                "job_title": experience.job_title,
-                "skills_used": list(experience.skills_used),
-                "top_achievements": experience.achievements[:MAX_ACHIEVEMENTS_PER_ROLE_EVIDENCE],
-            }
-            for experience in resume.work_experience
-        ],
-    }
-
-
-def select_job_context(job_description: JobDescription) -> dict[str, Any]:
-    """Keep only the job fields the skills optimizer needs.
-
-    Serves node STEP 2.
-    """
-    return {
-        "job_title": job_description.job_title,
-        "requirements": [
-            {
-                "requirement": requirement.requirement,
-                "importance": requirement.importance.value,
-                "years_required": requirement.years_required,
-            }
-            for requirement in job_description.requirements
-            if requirement.importance in {SkillImportance.MUST_HAVE, SkillImportance.SHOULD_HAVE}
-        ],
-        "ats_keywords": list(job_description.ats_keywords),
-    }
-
-
-def select_strategy_context(strategy: AlignmentStrategy) -> dict[str, Any]:
-    """Keep only the ordering guidance the skills optimizer should read.
-
-    Serves node STEP 2.
-    """
-    return {
-        "skills_guidance": strategy.skills_guidance,
-    }
+RELEVANT_REQUIREMENT_LEVELS = {
+    SkillImportance.MUST_HAVE,
+    SkillImportance.SHOULD_HAVE,
+}
 
 
 def build_skills_optimizer_payload(
     resume: Resume,
     job_description: JobDescription,
-    strategy: AlignmentStrategy,
 ) -> dict[str, Any]:
-    """Build the filtered payload for the skills optimizer.
-
-    Serves node STEP 2, part 1.
-    """
-    ####################################################
-    # STEP 1: KEEP ONLY THE CURRENT SKILLS THE AGENT IS ALLOWED TO REORDER
-    ####################################################
-    resume_context = select_resume_context(resume)
-
-    ####################################################
-    # STEP 2: KEEP ONLY THE JOB SIGNALS THE SKILLS SECTION SHOULD ANSWER
-    ####################################################
-    job_context = select_job_context(job_description)
-
-    ####################################################
-    # STEP 3: KEEP ONLY THE STRATEGY GUIDANCE MEANT FOR SKILL WORK
-    ####################################################
-    strategy_context = select_strategy_context(strategy)
-
+    """Return only existing skills and high-priority parsed job requirements."""
     return {
-        "current_skills": resume_context,
-        "target_job": job_context,
-        "skills_strategy": strategy_context,
+        "resume_skills": _resume_skill_inputs(resume),
+        "job_requirements": _job_requirement_inputs(job_description),
     }
 
 
 def format_skills_optimizer_context(
     resume: Resume,
     job_description: JobDescription,
-    strategy: AlignmentStrategy,
     format_type: OutputFormat = "toon",
 ) -> str:
-    """Return the skills optimizer's context string.
-
-    Serves node STEP 2, entry point.
-    """
-    ####################################################
-    # STEP 1: BUILD THE SMALL DATA PAYLOAD THE SKILLS OPTIMIZER NEEDS
-    ####################################################
-    payload = build_skills_optimizer_payload(resume, job_description, strategy)
-
-    ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
-    ####################################################
+    """Render the bounded Skills request without resume narrative or strategy prose."""
     return render_context_data(
-        payload,
+        build_skills_optimizer_payload(resume, job_description),
         format_type=format_type,
-        description="Skills Optimizer Context",
+        description="Skills Ranking Context",
     )
 
 
-def select_rewrite_skills(section: OptimizedSkillsSection) -> list[dict[str, Any]]:
-    """Keep only the name and category of each skill the rewrite must re-emit.
-
-    Serves node STEP 6. proficiency, justification, evidence, and confidence are
-    internal metadata the assembled resume never renders (it groups skill names
-    under categories), so they are dropped here. A leaner context keeps the
-    model on its one rewrite task -- drop the flagged skills, keep the rest --
-    instead of re-deriving a large blob.
-    """
+def _resume_skill_inputs(resume: Resume) -> list[dict[str, Any]]:
+    """Assign stable request-local IDs to parsed resume skills."""
     return [
-        {"skill_name": skill.skill_name, "category": skill.category}
-        for skill in section.optimized_skills
+        {
+            "id": f"S{index:03d}",
+            "name": skill.skill_name,
+            "canonical_name": skill.canonicalized_skill,
+            "current_category": skill.category,
+        }
+        for index, skill in enumerate(resume.skills, start=1)
     ]
 
 
-def build_skills_rewrite_payload(
-    section: OptimizedSkillsSection,
-    skills_to_remove: list[str],
-) -> dict[str, Any]:
-    """Build the minimal correction payload: the current skills and the names to drop.
+def _job_requirement_inputs(job: JobDescription) -> list[dict[str, Any]]:
+    """Assign IDs to parsed must-have and should-have job requirements."""
+    relevant = (item for item in job.requirements if item.importance in RELEVANT_REQUIREMENT_LEVELS)
+    return [
+        {
+            "id": f"J{index:03d}",
+            "name": item.requirement,
+            "canonical_name": item.canonicalized_requirement,
+            "importance": item.importance.value,
+        }
+        for index, item in enumerate(relevant, start=1)
+    ]
 
-    Serves node STEP 6, part 1.
-    """
-    return {
-        "current_skills": select_rewrite_skills(section),
-        "skills_to_remove": list(skills_to_remove),
-    }
 
-
-def format_skills_rewrite_context(
-    section: OptimizedSkillsSection,
-    skills_to_remove: list[str],
-    format_type: OutputFormat = "toon",
-) -> str:
-    """Return the scoped context for one skills-correction (rewrite) pass.
-
-    Serves node STEP 6, entry point. Deliberately omits the job requirements,
-    ats_keywords, role evidence, and strategy the first pass needed: evidence
-    judgement is already done by the audit, so the rewrite only needs the
-    current skill list and the exact names to remove.
-    """
-    ####################################################
-    # STEP 1: BUILD THE MINIMAL CORRECTION PAYLOAD
-    ####################################################
-    payload = build_skills_rewrite_payload(section, skills_to_remove)
-
-    ####################################################
-    # STEP 2: RENDER THAT PAYLOAD INTO THE REQUESTED OUTPUT FORMAT
-    ####################################################
-    return render_context_data(
-        payload,
-        format_type=format_type,
-        description="Skills Rewrite Context",
-    )
+__all__ = ["build_skills_optimizer_payload", "format_skills_optimizer_context"]

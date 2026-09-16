@@ -151,14 +151,14 @@ def test_a_toolless_agent_gets_the_structured_response_format() -> None:
     assert isinstance(result, _Output)
 
 
-def test_a_deepseek_agent_gets_no_structured_response_format() -> None:
-    """DeepSeek does not advertise response_format support to this CrewAI version."""
+def test_a_toolless_deepseek_agent_gets_its_provider_response_format() -> None:
+    """DeepSeek JSON mode must not be disabled for a tool-free structured task."""
     agent = _agent(tools=[])
     agent.llm.model = "deepseek/deepseek-chat"
 
     result = _run(agent)
 
-    assert agent.llm.response_format is None
+    assert agent.llm.response_format == {"type": "json_schema"}
     assert isinstance(result, _Output)
 
 

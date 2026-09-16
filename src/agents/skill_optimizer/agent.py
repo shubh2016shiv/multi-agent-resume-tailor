@@ -1,21 +1,15 @@
 """
 Skill Optimizer agent factory.
 
-Pipeline position: node STEP 3 (see src/orchestration/nodes/skills.py). The node
-calls create_skill_optimizer_agent() to build the agent, then runs the task
-(write_skills_section, node STEP 3 & 4).
-
-Builds a CrewAI Agent that receives Resume + JobDescription + AlignmentStrategy
-as context and produces an OptimizedSkillsSection. The agent reorders, categorizes,
-and prioritizes skills based on the strategic guidance (skills_guidance,
-keywords_to_integrate).
+Builds the tool-free CrewAI agent that semantically ranks parsed resume skills
+against parsed job requirements. Python reconstructs the final skills section.
 
 The agent uses tools=[] — all quality checks run code-owned on typed output after
 the agent finishes, not through agent tool calls. The check_skills_evidence engine
 (in src/tools/truthfulness/) validates that every listed skill is evidenced in
 the resume. The audit runs in orchestration/nodes, not inside the agent loop.
 
-Output contract: OptimizedSkillsSection (via Task output_pydantic).
+Output contract: SkillsRankingResponse, validated by orchestration.
 """
 
 from crewai import Agent
@@ -58,10 +52,10 @@ def create_skill_optimizer_agent() -> Agent:
         verbose=config.get("verbose", True),
         allow_delegation=False,  # this agent must not hand its selection task off to another agent
         tools=[],  # no tools — evidence checking runs code-owned, after the agent finishes
-        max_retry_limit=defaults.max_retry_limit,  # retries on a failed/malformed LLM call
+        max_retry_limit=config.get("max_retry_limit", defaults.max_retry_limit),
         max_rpm=defaults.max_rpm,  # caps requests-per-minute to this agent's LLM
-        max_iter=defaults.max_iter,  # caps reasoning loops before forcing an answer
-        max_execution_time=defaults.max_execution_time,  # hard wall-clock timeout for one run
+        max_iter=config.get("max_iter", defaults.max_iter),
+        max_execution_time=config.get("max_execution_time", defaults.max_execution_time),
         respect_context_window=defaults.respect_context_window,  # auto-trim context instead of erroring
     )
 
@@ -71,6 +65,6 @@ def create_skill_optimizer_agent() -> Agent:
     logger.info(
         "Skill Optimizer agent created",
         model=config["llm"],
-        tools="none (audit is code-owned)",
+        tools="none (validation and assembly are code-owned)",
     )
     return agent

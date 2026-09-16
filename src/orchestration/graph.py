@@ -12,8 +12,7 @@ Stage 4b (conditional): loop optimize_experience once more with the candidate's 
                          instead of proceeding to assembly, right after a resume supplies them
 Stage 5  (sequential):  evaluate_resume_quality
 Stage 5b (conditional): patch_ats_assembly         (only when the rendered ATS check FAILed)
-Stage 6  (sequential):  rehydrate_pii              (restore PII after QA, on every path)
-Stage 7  (conditional): render_final_resume        (gate passed, or render_draft_on_gate_fail=True)
+Stage 6  (conditional): render_final_resume        (gate passed, or render_draft_on_gate_fail=True)
 """
 
 from langgraph.graph import END, START, StateGraph
@@ -29,18 +28,13 @@ from src.resume_quality_evaluation import should_render_resume
 logger = get_logger(__name__)
 
 
-def _route_after_ats_check(state: ResumeEnhancementPipelineState) -> str:
-    """Route on the rendered-ATS verdict produced by the QA node.
-
-    Returns "patch" when the ATS check FAILed -- a recoverable case where an essential
-    section rendered empty and can be restored from typed upstream state. Returns "continue"
-    otherwise: PASS proceeds to the render gate, and INCONCLUSIVE was already flagged for
-    human review in the QA node (nothing was built to patch), so it falls through to end.
-
-    Precondition: evaluate_resume_quality has populated rendered_structure_evaluation.
-    """
+def _route_after_quality_evaluation(state: ResumeEnhancementPipelineState) -> str:
+    """Patch a failed ATS structure check or apply the final quality gate."""
     ats_outcome = require(state["rendered_structure_evaluation"], "rendered_structure_evaluation")
-    decision = "patch" if ats_outcome.status is AtsCheckStatus.FAIL else "continue"
+    if ats_outcome.status is AtsCheckStatus.FAIL:
+        decision = "patch"
+    else:
+        decision = _route_after_quality(state)
     logger.info(
         "graph_routing_decision",
         from_node="evaluate_resume_quality",
@@ -71,7 +65,7 @@ def _route_after_quality(state: ResumeEnhancementPipelineState) -> str:
         reason = "gate_failed"
     logger.info(
         "graph_routing_decision",
-        from_node="rehydrate_pii",
+        from_node="quality_gate",
         decision=decision,
         reason=reason,
         overall_score=quality_report.overall_quality_score,
@@ -120,7 +114,6 @@ def build_resume_enhancement_graph(checkpointer=None) -> CompiledStateGraph:
     graph.add_node("assemble_ats_resume", nodes.assemble_ats_resume)
     graph.add_node("evaluate_resume_quality", nodes.evaluate_resume_quality)
     graph.add_node("patch_ats_assembly", nodes.patch_ats_assembly)
-    graph.add_node("rehydrate_pii", nodes.rehydrate_pii)
     graph.add_node("render_final_resume", nodes.render_final_resume)
 
     # -- Stage 1: parallel fan-out from START --
@@ -159,18 +152,15 @@ def build_resume_enhancement_graph(checkpointer=None) -> CompiledStateGraph:
 
     # -- Stage 5b: conditional ATS section recovery -- a FAIL (an essential section
     # rendered empty) routes through the deterministic patch; PASS/INCONCLUSIVE skip it.
-    # Both branches below converge on rehydrate_pii (Stage 6): the returned resume must
-    # carry real PII values whether or not it goes on to render, so that runs before the gate.
     graph.add_conditional_edges(
         "evaluate_resume_quality",
-        _route_after_ats_check,
-        {"patch": "patch_ats_assembly", "continue": "rehydrate_pii"},
+        _route_after_quality_evaluation,
+        {"patch": "patch_ats_assembly", "render": "render_final_resume", "end": END},
     )
-    graph.add_edge("patch_ats_assembly", "rehydrate_pii")
 
-    # -- Stage 7: conditional render -- only when the QA gate passed --
+    # -- Stage 6: conditional render after one ATS recovery attempt --
     graph.add_conditional_edges(
-        "rehydrate_pii",
+        "patch_ats_assembly",
         _route_after_quality,
         {"render": "render_final_resume", "end": END},
     )

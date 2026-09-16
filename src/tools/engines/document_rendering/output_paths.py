@@ -2,19 +2,17 @@
 
 One place owns WHERE a tailored resume is written and WHAT it is called, so every
 renderer (markdown, docx, pdf) agrees and the convention lives in a single file
-instead of being hardcoded per renderer. Pure path math -- no filesystem writes, no
-config reads -- so the caller passes the configured base dir and a timestamp, keeping
-this trivially unit-testable.
+instead of being hardcoded per renderer. Pure path math -- no filesystem writes or
+config reads -- so the caller passes the configured base dir and stable run identity.
 
 Layout (organised for browsing locally, named for portability when sent):
-    <base_dir>/<candidate>/<designation>/<candidate>_<designation>_<date>_<time>.<ext>
+    <base_dir>/<candidate>/<designation>/<candidate>_<designation>_<run_id>.<ext>
 The candidate and designation appear in BOTH the folders and the file name on purpose:
 the folders group a candidate's resumes by the role they targeted, while the self-
 describing file name still identifies the resume once detached (e.g. emailed).
 """
 
 import re
-from datetime import datetime
 from pathlib import Path
 
 from src.data_models.job import JobDescription
@@ -35,12 +33,12 @@ def resume_output_dir(resume: Resume, job: JobDescription, base_dir: Path) -> Pa
     return base_dir / _sanitize_component(resume.full_name) / _sanitize_component(job.job_title)
 
 
-def resume_filename(resume: Resume, job: JobDescription, extension: str, when: datetime) -> str:
+def resume_filename(resume: Resume, job: JobDescription, extension: str, run_id: str) -> str:
     """Return the self-describing file name for one rendered artifact.
 
     Expects: extension with or without a leading dot (e.g. 'pdf' or '.pdf').
-    Returns: '<candidate>_<designation>_<YYYYMMDD>_<HHMMSS>.<ext>', all sanitized.
-             The timestamp makes repeated runs land on distinct, sortable names.
+    Returns: '<candidate>_<designation>_<run_id>.<ext>', all sanitized.
+             Retrying one run replaces its own artifacts; a new run uses a new ID.
     """
     ####################################################
     # STEP 1: BUILD SAFE, SELF-DESCRIBING NAME PARTS#
@@ -49,15 +47,15 @@ def resume_filename(resume: Resume, job: JobDescription, extension: str, when: d
     designation = _sanitize_component(job.job_title)
 
     ####################################################
-    # STEP 2: ADD A TIMESTAMP SO REPEATED RUNS DO NOT COLLIDE#
+    # STEP 2: ADD THE STABLE RUN ID SO RETRIES REUSE THE SAME PATH#
     ####################################################
-    stamp = when.strftime("%Y%m%d_%H%M%S")
+    safe_run_id = _sanitize_component(run_id)
 
     ####################################################
     # STEP 3: NORMALIZE THE EXTENSION AND BUILD THE FINAL FILE NAME#
     ####################################################
     ext = extension.lstrip(".")
-    return f"{candidate}_{designation}_{stamp}.{ext}"
+    return f"{candidate}_{designation}_{safe_run_id}.{ext}"
 
 
 def _sanitize_component(text: str) -> str:

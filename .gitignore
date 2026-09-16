@@ -1,55 +1,58 @@
-# Environment
+# Environment secrets. Keep the tracked template available to contributors.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# Python
+# Python bytecode, build products, and virtual environments.
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 .Python
 build/
-
-
-# Virtual environments
+dist/
+.venv/
 venv/
 ENV/
 env/
-.venv
 
-# IDE
-.vscode/
+# Tool and editor caches.
 .idea/
+.vscode/
+.mypy_cache/
+.pyright/
+.ruff_cache/
 
-# Testing
+# Test reports.
 .pytest_cache/
 .coverage
 htmlcov/
 
-# CrewAI
+# Generated application artifacts. These may contain candidate data.
 .crewai/
 crewai_outputs/
 crew_logs/
-
-# Temporary files
-*.tmp
-*.bak
-*.log
+.litellm_cache/
+.resume_tailor_runtime/
 logs/
-
-# Project specific
 output/
 results/
 temp/
 tmp/
-graphify-out/
-HANDOFF.md
+*.log
+*.tmp
+*.bak
 
-# Obsolete files/directories (matches at any depth)
+# Local planning and generated repository maps.
+HANDOFF.md
+graphify-out/
+
+# Archived modules retained locally during migrations.
 **/*_OBSELETE/
 **/*_OBSELETE.py
 **/*_OBSELETE
 **/*_OBSELETE*
 
-# litellm on-disk LLM response cache (feature_flags.enable_cache)
-.litellm_cache/
+# Operating-system files.
+.DS_Store
+Thumbs.db

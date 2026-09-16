@@ -1,10 +1,8 @@
 """
-Resume extraction: turn privacy-redacted resume Markdown into a structured Resume.
+Resume extraction: turn resume Markdown into a structured Resume.
 
-This is an orchestrator pipeline stage, not an agent tool: it makes one bounded,
-schema-constrained LLM call to produce a typed Resume. It is invoked directly by
-the orchestrator (like convert and redact), so the extraction LLM call is paid
-for exactly once, with no agent reasoning layered on top.
+This is an orchestrator pipeline stage, not an agent tool. It makes one bounded,
+schema-constrained LLM call and then assigns stable experience IDs.
 """
 
 import re
@@ -16,16 +14,14 @@ from src.tools.llm_gateway import request_structured_output
 RESUME_EXTRACTION_PROMPT = load_tool_prompt("document_ingestion/resume_extraction.md")
 
 
-def extract_resume(redacted_markdown: str) -> Resume:
-    """Extract a structured Resume from privacy-redacted resume Markdown.
+def extract_resume(markdown: str) -> Resume:
+    """Extract a structured Resume from resume Markdown.
 
     Args:
-        redacted_markdown: Resume text with PII already masked by redact_pii.
-            Precondition: PII must be redacted before this is called.
+        markdown: Resume text to extract.
 
     Returns:
-        A validated Resume. Personal fields hold redaction placeholders
-        (e.g. full_name == "[PERSON_1]") for the orchestrator to rehydrate.
+        A validated Resume.
 
     Raises:
         RuntimeError: If the model cannot produce a schema-valid Resume.
@@ -35,18 +31,8 @@ def extract_resume(redacted_markdown: str) -> Resume:
     #       fallback. Deferred: need to see real failures first.
     # TODO: Flag valid-but-empty extraction (e.g. no work_experience). The schema
     #       accepts it silently. Proposed: a follow-up check. Deferred until seen.
-    ####################################################
-    # STEP 1: ASK THE MODEL TO TURN REDACTED TEXT INTO A TYPED RESUME#
-    ####################################################
-    # The prompt and schema do the heavy lifting here. This stage expects
-    # the incoming text to already have PII masked.
-    resume = request_structured_output(Resume, RESUME_EXTRACTION_PROMPT, redacted_markdown)
+    resume = request_structured_output(Resume, RESUME_EXTRACTION_PROMPT, markdown)
 
-    ####################################################
-    # STEP 2: ADD DETERMINISTIC EXPERIENCE IDS OWNED BY OUR CODE#
-    ####################################################
-    # We do this after extraction so downstream steps can refer to each
-    # experience entry with a stable identifier.
     return assign_experience_ids(resume)
 
 

@@ -4,7 +4,6 @@ from .ingestion_tools import (
     check_resume_markdown_quality,
     convert_resume_document_to_markdown,
     extract_structured_resume_from_markdown,
-    redact_pii_from_resume_markdown,
 )
 from .resume_review_tools import (
     analyze_jd_keyword_coverage,
@@ -22,6 +21,5 @@ __all__ = [
     "check_skills_evidence",
     "convert_resume_document_to_markdown",
     "extract_structured_resume_from_markdown",
-    "redact_pii_from_resume_markdown",
     "validate_ats_compliance",
 ]

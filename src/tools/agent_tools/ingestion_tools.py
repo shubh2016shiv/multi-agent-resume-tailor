@@ -2,14 +2,10 @@
 
 from crewai.tools import tool
 
-from src.core.pii_mapping_store import assert_extraction_input_redacted, save_pii_mapping
-from src.core.run_id_binding import get_current_run_id
-from src.core.settings import get_config
 from src.tools.engines.document_ingestion import (
     audit_extraction_quality,
     convert_document_to_markdown,
     extract_resume,
-    redact_pii,
 )
 
 from .resume_review_tools import render_review_result
@@ -21,24 +17,10 @@ def convert_resume_document_to_markdown(file_path: str) -> str:
     return convert_document_to_markdown(file_path)
 
 
-@tool("Redact PII from Resume Markdown")
-def redact_pii_from_resume_markdown(markdown: str) -> str:
-    """Mask personal data before any LLM sees the resume text."""
-    if not get_config().feature_flags.enable_pii_redaction:
-        return markdown
-
-    redacted_markdown, placeholder_mapping = redact_pii(markdown)
-    save_pii_mapping(get_current_run_id(), placeholder_mapping)
-    return redacted_markdown
-
-
 @tool("Extract Structured Resume from Markdown")
-def extract_structured_resume_from_markdown(redacted_markdown: str) -> str:
-    """Turn privacy-redacted Markdown into structured resume JSON."""
-    if get_config().feature_flags.enable_pii_redaction:
-        assert_extraction_input_redacted(get_current_run_id(), redacted_markdown)
-
-    structured_resume = extract_resume(redacted_markdown)
+def extract_structured_resume_from_markdown(markdown: str) -> str:
+    """Turn resume Markdown into structured resume JSON."""
+    structured_resume = extract_resume(markdown)
     return structured_resume.model_dump_json()
 
 

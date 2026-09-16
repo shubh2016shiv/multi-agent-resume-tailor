@@ -10,8 +10,7 @@ Two entry points keep the toolchain dependency at the edge:
 - build_resume_tex: pure, deterministic, no toolchain -- fully testable offline.
 - render_resume_document: build_resume_tex + sidecar compile -> PDF Path.
 
-Input precondition: the Resume is the FINAL, PII-rehydrated resume. The orchestrator
-rehydrates redaction placeholders before rendering (TOOLING_PLAN section 10).
+Input precondition: the Resume contains the final content approved for delivery.
 """
 
 from pathlib import Path
@@ -37,7 +36,7 @@ def build_resume_tex(resume: Resume, profile: RenderProfile | None = None) -> st
     """Render the Resume into a complete LaTeX document string (no compilation).
 
     Args:
-        resume: The final, PII-rehydrated resume to render.
+        resume: The final resume to render.
         profile: Layout profile; inferred from experience when None.
 
     Returns:
@@ -67,7 +66,7 @@ def render_resume_document(
     """Render the Resume to a PDF at output_path and return it.
 
     Args:
-        resume: The final, PII-rehydrated resume.
+        resume: The final resume.
         output_path: Destination .pdf path.
         profile: Layout profile; inferred when None.
 

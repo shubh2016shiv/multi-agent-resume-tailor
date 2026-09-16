@@ -6,7 +6,6 @@ from .document_conversion import (
     is_format_supported,
 )
 from .extraction_quality_checks import audit_extraction_quality
-from .pii_redaction import redact_pii
 from .resume_extraction import assign_experience_ids, extract_resume
 
 __all__ = [
@@ -16,5 +15,4 @@ __all__ = [
     "extract_resume",
     "get_supported_formats",
     "is_format_supported",
-    "redact_pii",
 ]

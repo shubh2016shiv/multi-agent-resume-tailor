@@ -12,9 +12,8 @@ THIS FILE IS THE GENERAL PATTERN; THE OTHER TWO FILES ARE THIS PROJECT'S BOOKKEE
 
     What is deliberately NOT in this file: turning the graph's raw output into this
     project's own OrchestrationResult type (see run_results.py), and deciding what
-    happens to a run's checkpoint file and PII mapping once it ends (see
-    run_lifecycle.py). Both of those are full of resume-tailoring-specific
-    decisions; nothing in them generalizes to your own project the way this file does.
+    happens to the graph's raw output (see run_results.py). Checkpoint resource
+    handling lives in checkpointing.py.
 
 READ IN THIS ORDER: tailor_resume(), then resume_paused_run(), then _execute_run()
     Both entry points do the same three things -- open a checkpointer, describe what
@@ -63,9 +62,13 @@ from src.hitl.professional_experience.persistence import (
     read_answered_clarifications,
 )
 from src.observability import init_observability
-from src.orchestration.checkpointing import close_checkpoint_database, open_checkpoint_database
+from src.orchestration.checkpointing import (
+    checkpoint_path_for_run,
+    close_checkpoint_database,
+    open_checkpoint_database,
+    settle_checkpoint,
+)
 from src.orchestration.graph import build_resume_enhancement_graph
-from src.orchestration.run_lifecycle import in_flight_checkpoint_db_path, settle_run_state
 from src.orchestration.run_results import finalize_pipeline_output, log_pipeline_completion
 from src.orchestration.state import new_pipeline_state
 
@@ -82,7 +85,7 @@ def tailor_resume(
     """Run a fresh pipeline execution from source documents."""
     init_observability("resume-tailor-agents")
     run_id = uuid4().hex
-    checkpoint_db_path = in_flight_checkpoint_db_path(run_id)
+    checkpoint_db_path = checkpoint_path_for_run(run_id)
     return _execute_run(
         _RunPlan(
             run_id=run_id,
@@ -182,16 +185,16 @@ def _execute_run(
     """
     start_time = time.monotonic()
     result: OrchestrationResult | None = None
-    pipeline = build_resume_enhancement_graph(checkpointer=plan.checkpointer)
-    config: RunnableConfig = {"configurable": {"thread_id": plan.run_id}}
-    logger.info(
-        "pipeline_run_started",
-        run_id=plan.run_id,
-        resume_path=plan.resume_path,
-        jd_path=plan.jd_path,
-        **plan.started_log_fields,
-    )
     try:
+        pipeline = build_resume_enhancement_graph(checkpointer=plan.checkpointer)
+        config: RunnableConfig = {"configurable": {"thread_id": plan.run_id}}
+        logger.info(
+            "pipeline_run_started",
+            run_id=plan.run_id,
+            resume_path=plan.resume_path,
+            jd_path=plan.jd_path,
+            **plan.started_log_fields,
+        )
         output = _invoke_pipeline(pipeline, plan.pipeline_input, config, progress_callback)
         result = finalize_pipeline_output(
             pipeline=pipeline,
@@ -213,11 +216,10 @@ def _execute_run(
         raise
     finally:
         close_checkpoint_database(plan.checkpointer)
-        settle_run_state(
-            plan.run_id,
+        settle_checkpoint(
             result,
-            in_flight_checkpoint_db=plan.in_flight_checkpoint_db,
-            paused_run_layout=plan.paused_run_layout,
+            in_flight_path=plan.in_flight_checkpoint_db,
+            paused_layout=plan.paused_run_layout,
         )
 
 
@@ -253,6 +255,18 @@ def _invoke_pipeline(
 def _report_task_event(callback: ProgressCallback, event: dict[str, Any]) -> None:
     """Translate one LangGraph task event into a stable UI lifecycle event."""
     if "result" not in event and "error" not in event:
-        callback("started", str(event["name"]))
-        return
-    callback("failed" if event.get("error") else "completed", str(event["name"]))
+        status = "started"
+    elif event.get("error"):
+        status = "failed"
+    else:
+        status = "completed"
+    node_name = str(event["name"])
+    try:
+        callback(status, node_name)
+    except Exception as error:  # noqa: BLE001 -- external notifications are best effort
+        logger.warning(
+            "progress_callback_failed",
+            node=node_name,
+            status=status,
+            error=str(error),
+        )

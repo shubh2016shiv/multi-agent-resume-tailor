@@ -1,34 +1,4 @@
-"""The save file that lets a paused run be resumed later.
-
-WHY THIS EXISTS
-    A run can stop in the middle. When the experience stage finds a bullet it cannot
-    improve without a fact only the candidate has, the graph pauses and the process
-    exits. The candidate answers a question sheet hours later, and a NEW process has
-    to pick the run up exactly where it stopped -- with the parsed resume, the job
-    description, the strategy, and every rewritten bullet still in hand.
-
-    Nothing survives a process exit in memory, so before pausing, LangGraph writes the
-    whole pipeline state to a SQLite file. That file is the checkpoint, and this module
-    opens and closes it. Every run gets one, whether or not it ever pauses.
-
-WHO USES IT
-    runner.py opens it before compiling the graph, passes it to the graph, and closes
-    it when the run ends. Where the file then goes -- archived into a paused-run
-    directory, or deleted -- is runner.py's decision, not this module's.
-
-THE PART THAT LOOKS STRANGE: THE ALLOWLIST
-    State is full of Pydantic objects (Resume, JobDescription, ...), and a SQLite file
-    holds bytes. So LangGraph flattens each object to bytes plus the name of the class
-    it came from, and on resume it imports that class by name and rebuilds the object.
-
-    Importing a class named in a file is dangerous: edit the file, name any class you
-    like, and loading it runs that class's code (CVE-2026-28277). So LangGraph will
-    only rebuild classes you listed in advance. checkpoint_allowlist.py is that list.
-
-    Practical consequence: if you add a Pydantic model to the pipeline state, add it to
-    that list too, or a resumed run will fail to load. A test enforces this, so you do
-    not have to remember -- see checkpoint_allowlist.py for how.
-"""
+"""Open, close, preserve, and retire LangGraph checkpoint databases."""
 
 import sqlite3
 from pathlib import Path
@@ -36,13 +6,15 @@ from pathlib import Path
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+from src.core.settings import get_config
+from src.data_models.orchestration import OrchestrationResult
+from src.hitl.professional_experience.persistence import (
+    PausedRunLayout,
+    archive_checkpoint_database,
+)
 from src.orchestration.checkpoint_allowlist import CHECKPOINT_ALLOWED_MSGPACK_MODULES
 
 
-# HITL COMPONENT 4 -- DURABLE STATE (CHECKPOINT). Generic pipeline plumbing
-# (every run checkpoints, HITL or not), but it's the mechanism the pause in
-# src/orchestration/nodes/experience/node.py relies on. See
-# src/hitl/professional_experience/README.md#7-component-4--durable-state-checkpoint
 def open_checkpoint_database(db_path: Path) -> SqliteSaver:
     """Open the checkpoint file for one run, creating it and its directory if needed.
 
@@ -64,3 +36,47 @@ def open_checkpoint_database(db_path: Path) -> SqliteSaver:
 def close_checkpoint_database(checkpointer: SqliteSaver) -> None:
     """Close the connection, releasing the file so it can be moved or deleted."""
     checkpointer.conn.close()
+
+
+def checkpoint_path_for_run(run_id: str) -> Path:
+    """Return the temporary checkpoint path for a new pipeline run."""
+    output_dir = Path(get_config().file_paths.output_dir)
+    return output_dir / "checkpoints" / f"{run_id}.sqlite3"
+
+
+def settle_checkpoint(
+    result: OrchestrationResult | None,
+    *,
+    in_flight_path: Path | None,
+    paused_layout: PausedRunLayout | None,
+) -> None:
+    """Archive a paused checkpoint or delete one that is no longer resumable."""
+    if paused_layout is not None:
+        _settle_resumed_checkpoint(paused_layout, result)
+    elif in_flight_path is not None:
+        _settle_fresh_checkpoint(in_flight_path, result)
+    else:
+        raise RuntimeError("A checkpoint path or paused-run layout is required.")
+
+
+def _settle_fresh_checkpoint(
+    checkpoint_path: Path,
+    result: OrchestrationResult | None,
+) -> None:
+    """Archive a paused run's checkpoint; otherwise delete it."""
+    if result is not None and result.paused_run_path:
+        archive_checkpoint_database(
+            checkpoint_path,
+            PausedRunLayout.at(result.paused_run_path),
+        )
+        return
+    checkpoint_path.unlink(missing_ok=True)
+
+
+def _settle_resumed_checkpoint(
+    layout: PausedRunLayout,
+    result: OrchestrationResult | None,
+) -> None:
+    """Delete a resumed checkpoint only after the run completes."""
+    if result is not None and result.paused_run_path is None:
+        layout.checkpoint_db.unlink(missing_ok=True)

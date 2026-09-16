@@ -12,8 +12,7 @@ THE ONE DECISION THIS FILE MAKES: paused, or completed?
     _build_paused_orchestration_result() builds a result naming what still needs
     the candidate's input. Otherwise the run reached the end of the graph, and
     _build_completed_orchestration_result() builds the full result -- including the
-    run's final disposition, which is a judgment call this file does not make
-    itself; it only calls derive_run_disposition() (see human_review_policy.py).
+    run's final disposition.
 """
 
 import time
@@ -29,7 +28,6 @@ from src.core.settings import get_config
 from src.data_models.orchestration import OrchestrationResult, RunDisposition
 from src.hitl.professional_experience.models import ExperienceClarificationPausedRunManifest
 from src.hitl.professional_experience.persistence import PausedRunLayout, save_paused_run_state
-from src.orchestration.human_review_policy import derive_run_disposition
 from src.orchestration.state import ResumeEnhancementPipelineState, require
 from src.tools.engines.document_rendering.output_paths import resume_output_dir
 
@@ -73,12 +71,12 @@ def finalize_pipeline_output(
             snapshot_state,
             paused_run_path=str(layout.root),
         )
-        _persist_result(result)
+        _persist_result(result, run_id)
         return result
 
     final_state = cast(ResumeEnhancementPipelineState, output)
     result = _build_completed_orchestration_result(final_state)
-    _persist_result(result)
+    _persist_result(result, run_id)
     return result
 
 
@@ -115,7 +113,7 @@ def _build_completed_orchestration_result(
         quality_report=quality_report,
         rendered_artifacts=state["rendered_artifacts"],
         clarifications_requested=clarifications_requested,
-        disposition=derive_run_disposition(
+        disposition=_derive_run_disposition(
             human_review_required=state["human_review_required"],
             quality_gate_passed=quality_report.passes_quality_gate,
             has_candidate_questions=bool(clarifications_requested),
@@ -124,7 +122,22 @@ def _build_completed_orchestration_result(
     )
 
 
-def _persist_result(result: OrchestrationResult) -> None:
+def _derive_run_disposition(
+    human_review_required: bool,
+    quality_gate_passed: bool,
+    has_candidate_questions: bool,
+) -> RunDisposition:
+    """Return the most blocking caller-facing outcome for a completed run."""
+    if human_review_required:
+        return RunDisposition.NEEDS_HUMAN_REVIEW
+    if not quality_gate_passed:
+        return RunDisposition.QUALITY_GATE_FAILED
+    if has_candidate_questions:
+        return RunDisposition.NEEDS_CANDIDATE_INPUT
+    return RunDisposition.RENDERED
+
+
+def _persist_result(result: OrchestrationResult, run_id: str) -> None:
     """Persist one orchestration result next to the paused run or rendered artifacts.
 
     The clarification sheet is deliberately NOT written here. A paused run already
@@ -135,7 +148,7 @@ def _persist_result(result: OrchestrationResult) -> None:
     """
     output_dir = _result_output_dir(result)
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    path = output_dir / f"run_{run_id}.json"
     path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     logger.info(
         "run_result_saved",

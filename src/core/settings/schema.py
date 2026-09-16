@@ -36,15 +36,6 @@ class FeatureFlags(BaseModel):
     )
     enable_web_search: bool = False
     enable_human_in_the_loop: bool = False
-    enable_pii_redaction: bool = Field(
-        default=True,
-        description=(
-            "Master switch for the resume PII pipeline (redact before the LLM, then "
-            "rehydrate after QA). When False, the redact tool passes Markdown through "
-            "unchanged, the extraction guard is skipped, and rehydration is a no-op -- "
-            "the resume reaches the LLM with real PII. Default True keeps PII masked."
-        ),
-    )
     enable_condensed_formatting: bool = Field(
         default=True,
         description=(
@@ -222,16 +213,7 @@ class PromptCatalogConfig(BaseModel):
 class ServicesConfig(BaseModel):
     """External service URLs."""
 
-    redis_url: str | None = None
     database_url: str | None = None
-    pii_mapping_ttl_seconds: int = Field(
-        default=3600,
-        ge=60,
-        description=(
-            "TTL for a run's PII placeholder mapping stored in Redis. A safety net "
-            "that reclaims the key if a run dies before its explicit cleanup runs."
-        ),
-    )
 
 
 class ObservabilityConfig(BaseModel):

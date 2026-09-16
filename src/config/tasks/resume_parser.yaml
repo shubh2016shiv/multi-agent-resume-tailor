@@ -11,9 +11,7 @@ extract_resume_content_task:
        appears with a non-zero count). MAJOR or WARNING severity entries are advisory;
        they mean proceed anyway. Do NOT stop for font artifacts, encoding warnings, or
        any non-zero issue count that the summary still calls "0 blocker(s)".
-    3. If a "Redact PII from Resume Markdown" tool is available to you, run it now (before
-       extraction). If no such tool is present, skip this step.
-    4. "Extract Structured Resume from Markdown".
+    3. "Extract Structured Resume from Markdown".
 
     EXTRACT into the Resume model, using ONLY what the document states:
     - Personal info: full_name, email, phone_number, location, website_or_portfolio.
@@ -58,8 +56,6 @@ extract_resume_content_task:
 #   * Removed the arbitrary minimums "(at least 3 entries)" and "(at least 20 skills)".
 #     For an EXTRACTOR at the root of the pipeline, a quota pressures fabrication; now it
 #     extracts exactly what the document contains.
-#   * Added the feature-flagged redact step conditionally ("if available") -- the agent is
-#     wired with the redact tool only when enable_pii_redaction is on.
 #   * Reframed toward source fidelity (no implicit skills, no invented metrics, no rephrasing)
 #     and made it domain-agnostic.
 # -----------------------------------------------------------------------------

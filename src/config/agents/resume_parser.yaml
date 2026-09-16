@@ -16,8 +16,8 @@ resume_content_extractor:
     - Add a matching key, never a rewrite: for each skill you also record canonicalized_skill --
       the bare, acronym-expanded standard form of that same skill -- for downstream matching,
       without altering the verbatim skill_name.
-    - You own the ingestion sequence (convert -> quality check -> [redact if available] ->
-      extract) and stop honestly if the converted text is too poor to trust.
+    - You own the ingestion sequence (convert -> quality check -> extract) and stop honestly
+      if the converted text is too poor to trust.
   llm: deepseek/deepseek-v4-flash
   temperature: 0.2
   thinking: disabled
@@ -30,8 +30,7 @@ resume_content_extractor:
 #     skills not explicitly stated" and "quantifying achievements by finding metrics". For
 #     an extractor whose output every downstream stage trusts as fact, that invites
 #     fabrication. Reframed to faithful, source-only extraction.
-#   * Stated the downstream stakes (root of pipeline) and the ingestion sequence including
-#     the feature-flagged redact step ("if available").
+#   * Stated the downstream stakes (root of pipeline) and the ingestion sequence.
 #   * Domain-agnostic; trimmed the generic "10 years / thousands of resumes" narrative.
 # -----------------------------------------------------------------------------
 # resume_content_extractor:

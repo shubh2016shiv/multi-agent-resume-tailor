@@ -74,7 +74,9 @@ def render_toon_value(value: Any, indent_level: int = 0) -> str:
             return "{}"
         dictionary_lines: list[str] = []
         for key, nested_value in value.items():
-            dictionary_lines.append(render_toon_key_value_line(str(key), nested_value, indent_level))
+            dictionary_lines.append(
+                render_toon_key_value_line(str(key), nested_value, indent_level)
+            )
         return "\n".join(dictionary_lines)
     if isinstance(value, list):
         if not value:
@@ -115,7 +117,9 @@ def render_toon(data: dict[str, Any]) -> str:
     ####################################################
     # STEP 3: RENDER EACH TOP-LEVEL FIELD IN ORDER
     ####################################################
-    rendered_lines = [render_toon_key_value_line(key, value, indent_level=0) for key, value in data.items()]
+    rendered_lines = [
+        render_toon_key_value_line(key, value, indent_level=0) for key, value in data.items()
+    ]
     return "\n".join(rendered_lines)
 
 

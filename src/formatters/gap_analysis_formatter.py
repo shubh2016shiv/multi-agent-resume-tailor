@@ -82,7 +82,9 @@ def select_job_context(job_description: JobDescription) -> dict[str, Any]:
         "company_name": job_description.company_name,
         "job_level": job_description.job_level.value,
         "summary": job_description.summary,
-        "requirements": [requirement.model_dump(mode="json") for requirement in job_description.requirements],
+        "requirements": [
+            requirement.model_dump(mode="json") for requirement in job_description.requirements
+        ],
         "ats_keywords": list(job_description.ats_keywords),
     }
 

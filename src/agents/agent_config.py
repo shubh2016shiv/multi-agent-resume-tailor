@@ -29,9 +29,7 @@ def load_agent_config(name: str) -> dict:
     # STEP 2: VERIFY ALL REQUIRED FIELDS ARE PRESENT
     ####################################################
     missing_fields = [
-        field_name
-        for field_name in REQUIRED_AGENT_CONFIG_FIELDS
-        if not config.get(field_name)
+        field_name for field_name in REQUIRED_AGENT_CONFIG_FIELDS if not config.get(field_name)
     ]
     if missing_fields:
         raise RuntimeError(

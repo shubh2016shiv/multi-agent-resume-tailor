@@ -253,7 +253,11 @@ class JobDescription(BaseModel):
                 "summary": "[1-3 sentence role overview taken from the posting].",
                 "full_text": "[the complete original posting text, verbatim]",
                 "requirements": [
-                    {"requirement": "[MUST_HAVE_SKILL]", "importance": "must_have", "years_required": 5},
+                    {
+                        "requirement": "[MUST_HAVE_SKILL]",
+                        "importance": "must_have",
+                        "years_required": 5,
+                    },
                     {"requirement": "[BONUS_SKILL]", "importance": "nice_to_have"},
                 ],
                 "ats_keywords": ["[SKILL_A]", "[SKILL_B]", "[QUALIFICATION]"],

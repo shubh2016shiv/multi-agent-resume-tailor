@@ -36,7 +36,7 @@ import os
 import re
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -89,7 +89,7 @@ def _run_dir_and_seq(run_id: str) -> tuple[Path, int]:
     """
     run_dir = _RUN_DIRS.get(run_id)
     if run_dir is None:
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        ts = datetime.now(UTC).strftime("%Y-%m-%d_%H-%M-%S")
         run_dir = _CHECKPOINT_ROOT / f"{ts}_{run_id[:8]}"
         _RUN_DIRS[run_id] = run_dir
         _RUN_SEQ[run_id] = 0
@@ -105,9 +105,11 @@ class CheckpointHandle:
     output_path: Path
 
 
-def _build_input_header(run_id: str, agent_role: str, task_name: str, output_model_name: str) -> str:
+def _build_input_header(
+    run_id: str, agent_role: str, task_name: str, output_model_name: str
+) -> str:
     """Build the metadata header for the INPUT file."""
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
     sep = "=" * 60
     return (
         f"{sep}\n"
@@ -124,7 +126,7 @@ def _build_input_header(run_id: str, agent_role: str, task_name: str, output_mod
 
 def _build_output_header() -> str:
     """Build the metadata header for the OUTPUT file."""
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
     sep = "=" * 60
     return (
         f"{sep}\n"

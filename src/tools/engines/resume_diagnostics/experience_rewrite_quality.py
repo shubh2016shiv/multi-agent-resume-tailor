@@ -38,9 +38,7 @@ def audit_experience_rewrite_quality(
     if not rewritten_bullets:
         return ReviewResult(comments=[], summary="No rewritten bullets to review")
 
-    review_input = _build_experience_rewrite_review_input(
-        source_experience, rewritten_bullets
-    )
+    review_input = _build_experience_rewrite_review_input(source_experience, rewritten_bullets)
     return request_review(
         ENGINE_ID,
         EXPERIENCE_REWRITE_QUALITY_RUBRIC,

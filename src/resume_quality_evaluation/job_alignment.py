@@ -66,7 +66,10 @@ def _evaluate_requirements(
     # is_required_skill_evidenced owns the similarity threshold; a requirement either
     # matches a resume skill or is a real gap (no fractional term-group credit).
     matches = [
-        (requirement, is_required_skill_evidenced(_requirement_term_for(requirement), candidate_skills))
+        (
+            requirement,
+            is_required_skill_evidenced(_requirement_term_for(requirement), candidate_skills),
+        )
         for requirement in requirements
     ]
 
@@ -79,7 +82,9 @@ def _evaluate_requirements(
         _IMPORTANCE_WEIGHTS[requirement.importance] for requirement, matched in matches if matched
     )
     must_have_results = [
-        matched for requirement, matched in matches if requirement.importance is SkillImportance.MUST_HAVE
+        matched
+        for requirement, matched in matches
+        if requirement.importance is SkillImportance.MUST_HAVE
     ]
     must_have_coverage = (
         _calculate_percentage(sum(must_have_results), len(must_have_results))
@@ -90,7 +95,9 @@ def _evaluate_requirements(
         relevance_score=_calculate_percentage(matched_weight, total_weight),
         must_have_skills_coverage=must_have_coverage,
         ats_keyword_coverage=ats_keyword_coverage,
-        missed_requirements=[requirement.requirement for requirement, matched in matches if not matched],
+        missed_requirements=[
+            requirement.requirement for requirement, matched in matches if not matched
+        ],
         is_conclusive=True,
         justification="Importance-weighted similarity match of requirements to resume skills.",
     )

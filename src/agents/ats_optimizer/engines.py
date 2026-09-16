@@ -43,7 +43,9 @@ def check_ats_quality(optimized: AtsOptimizedResume, job: JobDescription) -> dic
     ####################################################
     formatting = audit_ats_formatting(resume_text)  # spacing/bullets/fonts-as-text issues
     headers = audit_section_headers(resume_text)  # are section headers ATS-standard?
-    coverage = analyze_keyword_coverage(resume_text, job.ats_keywords)  # % of required keywords present
+    coverage = analyze_keyword_coverage(
+        resume_text, job.ats_keywords
+    )  # % of required keywords present
 
     ####################################################
     # STEP 3: COLLECT BLOCKERS AND BUILD THE RESULT

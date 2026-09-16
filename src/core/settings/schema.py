@@ -54,12 +54,6 @@ class FeatureFlags(BaseModel):
     )
 
 
-class LLMGoogleConfig(BaseModel):
-    """Configuration specific to Google's LLM models."""
-
-    model: str = "gemini-pro"
-
-
 class LLMResilienceConfig(BaseModel):
     """Retry, circuit breaker, rate-limit, and timeout settings for LLM calls."""
 
@@ -137,7 +131,6 @@ class LLMConfig(BaseModel):
             "structured-output LLM gateway makes a provider call."
         ),
     )
-    google: LLMGoogleConfig = Field(default_factory=LLMGoogleConfig)
     resilience: LLMResilienceConfig = Field(default_factory=LLMResilienceConfig)
     agent_defaults: AgentDefaults = Field(default_factory=AgentDefaults)
 

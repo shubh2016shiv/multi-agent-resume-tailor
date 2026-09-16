@@ -59,8 +59,6 @@ class Settings(BaseSettings):
     # never read from tracked YAML. See CONFIGURATION_PATTERNS.md.
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
     deepseek_api_key: str | None = Field(None, alias="DEEPSEEK_API_KEY")
-    gemini_api_key: str | None = Field(None, alias="GEMINI_API_KEY")
-    serper_api_key: str | None = Field(None, alias="SERPER_API_KEY")
     langsmith_api_key: str | None = Field(None, alias="LANGSMITH_API_KEY")
 
     model_config = SettingsConfigDict(

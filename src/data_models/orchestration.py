@@ -80,8 +80,7 @@ class OrchestrationResult(BaseModel):
         ...,
         description=(
             "What the caller should do next -- derived by the runner from the human-review "
-            "flag, the quality gate, and any candidate questions (see "
-            "derive_run_disposition in src/orchestration/human_review_policy.py)."
+            "flag, the quality gate, and any candidate questions."
         ),
     )
     paused_run_path: str | None = Field(

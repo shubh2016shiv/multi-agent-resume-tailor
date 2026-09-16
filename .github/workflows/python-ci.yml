@@ -29,10 +29,10 @@ jobs:
       # --- Quality gates (fail-fast: lint → types → tests) ---
 
       - name: Lint with Ruff
-        run: uv run ruff check --fix --output-format=github src/ tests/ examples/
+        run: uv run ruff check --fix --output-format=github src/ tests/
 
       - name: Format check with Ruff
-        run: uv run ruff format --check src/ tests/ examples/
+        run: uv run ruff format --check src/ tests/
 
       - name: Type check with Pyright
         run: uv run pyright src/

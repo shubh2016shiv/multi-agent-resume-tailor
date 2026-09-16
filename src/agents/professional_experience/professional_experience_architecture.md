@@ -841,7 +841,7 @@ answer for one role can never reach another role's evidence.
 | `ExperienceBulletRewrite.clarifying_question` | `src/agents/professional_experience/models.py` |
 | `build_bullet_clarifications`, `experience_with_candidate_answers`, `answers_for_role` | `src/hitl/professional_experience/` |
 | `clarification_answers` (in), `experience_clarifications` (out) | `src/orchestration/state.py` |
-| `save_clarification_sheet`, `load_answered_clarifications`, paused-run persistence | `src/hitl/professional_experience/persistence.py` |
+| `write_clarification_sheet`, `record_clarification_answers`, paused-run persistence | `src/hitl/professional_experience/persistence.py` |
 | `tailor_resume(...)`, `resume_paused_run(...)` | `src/orchestration/runner.py` |
 | `--resume-from` CLI flag | `src/main.py` |
 | Live proof (no mocks) | `regression_fix/smoke_test/st11_experience_clarification_loop_live.py` |

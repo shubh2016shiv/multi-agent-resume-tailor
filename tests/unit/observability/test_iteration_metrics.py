@@ -4,9 +4,7 @@ Tests verify that metrics are correctly logged and attached to LangSmith runs,
 with graceful degradation when tracing is disabled or the library is unavailable.
 """
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from src.observability.iteration_metrics import log_iteration_metrics
 
@@ -84,6 +82,7 @@ class TestLogIterationMetrics:
         def get_mock_run():
             class MockRun:
                 metadata = mock_run_tree["metadata"]
+
             return MockRun()
 
         with patch("langsmith.run_helpers.get_current_run_tree", side_effect=get_mock_run):
@@ -183,6 +182,7 @@ class TestLogIterationMetrics:
         def get_mock_run():
             class MockRun:
                 metadata = mock_run_tree["metadata"]
+
             return MockRun()
 
         complex_metrics = {

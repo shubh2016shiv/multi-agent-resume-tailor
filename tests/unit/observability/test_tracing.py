@@ -4,8 +4,6 @@ Tests verify that trace decorators correctly wrap functions when tracing is enab
 and pass through unchanged when tracing is disabled or langsmith is unavailable.
 """
 
-import pytest
-
 from src.observability.tracing import build_traced_function, trace_agent, trace_tool
 
 
@@ -55,8 +53,9 @@ class TestBuildTracedFunction:
         )
         # Make langsmith import raise ImportError
         import sys
+
         original_langsmith = sys.modules.get("langsmith")
-        sys.modules["langsmith"] = None
+        sys.modules["langsmith"] = None  # type: ignore[assignment]
 
         try:
             # Act
@@ -160,7 +159,7 @@ class TestTraceAgent:
         )
 
         # Act
-        result = trace_agent(dummy_function)
+        trace_agent(dummy_function)
 
         # Assert
         assert len(calls) == 1
@@ -210,7 +209,7 @@ class TestTraceTool:
         )
 
         # Act
-        result = trace_tool(dummy_function)
+        trace_tool(dummy_function)
 
         # Assert
         assert len(calls) == 1

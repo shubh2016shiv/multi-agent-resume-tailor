@@ -42,6 +42,7 @@ class TestTokenCounter:
 
     def test_count_message_tokens_returns_zero_when_provider_raises(self, monkeypatch):
         """Contract: provider errors degrade to zero counted tokens."""
+
         def raise_token_error(*, model, messages):
             raise RuntimeError("tokenizer unavailable")
 
@@ -84,6 +85,7 @@ class TestTokenCounter:
 
     def test_estimate_cost_returns_none_when_provider_raises(self, monkeypatch):
         """Contract: provider cost failures degrade to None."""
+
         def raise_cost_error(*, model, prompt_tokens, completion_tokens):
             raise RuntimeError("pricing unavailable")
 

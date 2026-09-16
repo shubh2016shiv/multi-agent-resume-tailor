@@ -15,24 +15,31 @@ from src.data_models.evaluation import (
     TruthfulnessEvaluation,
 )
 from src.data_models.resume import Experience, OptimizedSkillsSection, Resume
-from src.orchestration.nodes.ats_patch import _regrade_ats_dimension, patch_ats_assembly
+from src.orchestration.nodes.resume_quality.patch_missing_ats_sections_node import (
+    patch_ats_assembly,
+)
 from src.orchestration.state import ResumeEnhancementPipelineState
 
 
-def _quality_report(*, relevance_is_conclusive: bool = True) -> ResumeQualityReport:
+def _quality_report(
+    *,
+    relevance_is_conclusive: bool = True,
+    accuracy_score: float = 90.0,
+    relevance_score: float = 80.0,
+) -> ResumeQualityReport:
     """Return a report whose existing dimensions should survive ATS regrading."""
     return ResumeQualityReport(
         overall_quality_score=60.0,
         passes_quality_gate=False,
         assessment_summary="Existing narrative.",
         accuracy=TruthfulnessEvaluation(
-            accuracy_score=90.0,
+            accuracy_score=accuracy_score,
             exaggerated_claims=[],
             unsupported_skills=[],
             justification="Source faithful.",
         ),
         relevance=JobAlignmentEvaluation(
-            relevance_score=80.0,
+            relevance_score=relevance_score,
             must_have_skills_coverage=100.0,
             ats_keyword_coverage=75.0,
             is_conclusive=relevance_is_conclusive,
@@ -58,31 +65,13 @@ def _passing_structure() -> RenderedStructureEvaluation:
     )
 
 
-def test_regrade_ats_dimension_rebuilds_score_and_gate() -> None:
-    """A passing recovery preserves other dimensions and reapplies the gate."""
-    regraded = _regrade_ats_dimension(_quality_report(), _passing_structure())
-
-    assert regraded.accuracy.accuracy_score == 90.0
-    assert regraded.relevance.relevance_score == 80.0
-    assert regraded.ats_optimization.keyword_coverage == 75.0
-    assert regraded.ats_optimization.ats_score == 100.0
-    assert regraded.overall_quality_score == 89.0
-    assert regraded.passes_quality_gate is True
-
-
-def test_regrade_ats_dimension_keeps_gate_blocked_on_inconclusive_relevance() -> None:
-    """A passing ATS re-grade must not clear a relevance-inconclusive hard block.
-
-    Regression test: _regrade_ats_dimension only re-applied the score-threshold
-    gate, so a report that was blocked on inconclusive relevance (never
-    re-graded here -- see the deferred TODO on this function) came back with
-    passes_quality_gate=True purely because the ATS dimension recovered.
-    """
-    report = _quality_report(relevance_is_conclusive=False)
-
-    regraded = _regrade_ats_dimension(report, _passing_structure())
-
-    assert regraded.passes_quality_gate is False
+def _failed_structure() -> RenderedStructureEvaluation:
+    return RenderedStructureEvaluation(
+        status=AtsCheckStatus.FAIL,
+        violations=[],
+        ats_score=40.0,
+        detail="An essential section is still missing.",
+    )
 
 
 def _minimal_resume() -> Resume:
@@ -129,23 +118,46 @@ def _patch_state(*, human_review_required: bool) -> ResumeEnhancementPipelineSta
             ),
             "optimized_skills": OptimizedSkillsSection(optimized_skills=[], removed_skills=[]),
             "resume": _minimal_resume(),
+            "job_description": object(),
             "quality_report": _quality_report(relevance_is_conclusive=not human_review_required),
             "human_review_required": human_review_required,
         },
     )
 
 
+def test_patch_recomputes_every_quality_dimension_from_recovered_resume() -> None:
+    """Recovery must run the complete evaluator against the patched resume."""
+    state = _patch_state(human_review_required=False)
+    new_report = _quality_report(accuracy_score=70.0, relevance_score=95.0)
+    with patch(
+        "src.orchestration.nodes.resume_quality.patch_missing_ats_sections_node."
+        "ground_quality_scores",
+        return_value=(new_report, _passing_structure()),
+    ) as ground_scores:
+        result = patch_ats_assembly(state)
+
+    original, revised, job = cast(tuple[Resume, Resume, object], ground_scores.call_args.args)
+    assert original is state["resume"]
+    assert revised.work_experience
+    assert job is state["job_description"]
+    quality_report = cast(ResumeQualityReport, result["quality_report"])
+    assert quality_report is new_report
+    assert quality_report.accuracy.accuracy_score == 70.0
+    assert quality_report.relevance.relevance_score == 95.0
+
+
 def test_patch_keeps_earlier_human_review_flag_through_a_successful_recovery() -> None:
     """A PASS re-grade must not clear a human_review_required set upstream at QA.
 
-    Regression test: patch_ats_assembly overwrote human_review_required with
-    is_ats_unrecoverable(new_outcome) instead of ORing it with the flag QA had
+    Regression test: patch_ats_assembly overwrote human_review_required using only
+    the new ATS outcome instead of ORing it with the flag QA had
     already set for an unrelated reason (inconclusive relevance), so a
     successful section restore silently un-escalated the run.
     """
     with patch(
-        "src.orchestration.nodes.ats_patch.evaluate_rendered_structure",
-        return_value=_passing_structure(),
+        "src.orchestration.nodes.resume_quality.patch_missing_ats_sections_node."
+        "ground_quality_scores",
+        return_value=(_quality_report(), _passing_structure()),
     ):
         result = patch_ats_assembly(_patch_state(human_review_required=True))
 
@@ -155,9 +167,37 @@ def test_patch_keeps_earlier_human_review_flag_through_a_successful_recovery() -
 def test_patch_does_not_escalate_a_clean_successful_recovery() -> None:
     """Guard: a PASS re-grade with no prior escalation stays un-escalated."""
     with patch(
-        "src.orchestration.nodes.ats_patch.evaluate_rendered_structure",
-        return_value=_passing_structure(),
+        "src.orchestration.nodes.resume_quality.patch_missing_ats_sections_node."
+        "ground_quality_scores",
+        return_value=(_quality_report(), _passing_structure()),
     ):
         result = patch_ats_assembly(_patch_state(human_review_required=False))
 
     assert result["human_review_required"] is False
+
+
+def test_patch_escalates_newly_inconclusive_relevance() -> None:
+    """The post-recovery relevance result must control review escalation."""
+    with patch(
+        "src.orchestration.nodes.resume_quality.patch_missing_ats_sections_node."
+        "ground_quality_scores",
+        return_value=(
+            _quality_report(relevance_is_conclusive=False),
+            _passing_structure(),
+        ),
+    ):
+        result = patch_ats_assembly(_patch_state(human_review_required=False))
+
+    assert result["human_review_required"] is True
+
+
+def test_patch_escalates_when_recovery_still_fails() -> None:
+    """A non-PASS result after the one recovery attempt requires human review."""
+    with patch(
+        "src.orchestration.nodes.resume_quality.patch_missing_ats_sections_node."
+        "ground_quality_scores",
+        return_value=(_quality_report(), _failed_structure()),
+    ):
+        result = patch_ats_assembly(_patch_state(human_review_required=False))
+
+    assert result["human_review_required"] is True

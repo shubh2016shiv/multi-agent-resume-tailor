@@ -51,40 +51,6 @@ Experienced software engineer with 10 years of experience.
 
 
 @pytest.fixture
-def mock_get_config():
-    """Mock get_config() to return a config with feature flags."""
-    with patch("src.tools.agent_tools.ingestion_tools.get_config") as mock:
-        config = MagicMock()
-        config.feature_flags.enable_pii_redaction = True
-        mock.return_value = config
-        yield mock
-
-
-@pytest.fixture
-def mock_get_current_run_id():
-    """Mock get_current_run_id() to return a test run ID."""
-    with patch("src.tools.agent_tools.ingestion_tools.get_current_run_id") as mock:
-        mock.return_value = "test-run-id-12345"
-        yield mock
-
-
-@pytest.fixture
-def mock_save_pii_mapping():
-    """Mock save_pii_mapping() in PII mapping store."""
-    with patch("src.tools.agent_tools.ingestion_tools.save_pii_mapping") as mock:
-        mock.return_value = None
-        yield mock
-
-
-@pytest.fixture
-def mock_assert_extraction_input_redacted():
-    """Mock assert_extraction_input_redacted() for PII assertion."""
-    with patch("src.tools.agent_tools.ingestion_tools.assert_extraction_input_redacted") as mock:
-        mock.return_value = None
-        yield mock
-
-
-@pytest.fixture
 def mock_convert_document_to_markdown():
     """Mock the underlying document conversion engine."""
     with patch("src.tools.agent_tools.ingestion_tools.convert_document_to_markdown") as mock:
@@ -96,17 +62,6 @@ Experienced engineer.
 ## Skills
 - Python
 """
-        yield mock
-
-
-@pytest.fixture
-def mock_redact_pii():
-    """Mock the PII redaction engine."""
-    with patch("src.tools.agent_tools.ingestion_tools.redact_pii") as mock:
-        # Returns (redacted_markdown, placeholder_mapping)
-        redacted = "[REDACTED_NAME] is an experienced engineer."
-        mapping = {"[REDACTED_NAME]": "Jane Doe"}
-        mock.return_value = (redacted, mapping)
         yield mock
 
 
@@ -135,16 +90,6 @@ def mock_audit_extraction_quality():
 
 
 # Review tools fixtures
-
-
-@pytest.fixture
-def mock_get_config_review():
-    """Mock get_config() for review tools (different module path)."""
-    with patch("src.tools.agent_tools.resume_review_tools.get_config") as mock:
-        config = MagicMock()
-        config.feature_flags.enable_pii_redaction = True
-        mock.return_value = config
-        yield mock
 
 
 @pytest.fixture

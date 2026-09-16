@@ -66,76 +66,6 @@ class TestConvertResumeDocumentToMarkdown:
         assert result == ""
 
 
-class TestRedactPiiFromResumeMarkdown:
-    """Tests for redact_pii_from_resume_markdown tool."""
-
-    def test_redact_pii_from_resume_markdown_with_flag_enabled_redacts_and_saves_mapping(
-        self,
-        mock_get_config,
-        mock_get_current_run_id,
-        mock_redact_pii,
-        mock_save_pii_mapping,
-    ):
-        """
-        Contract: When PII redaction is enabled, tool redacts Markdown
-        and saves placeholder mapping to storage.
-        Mocking redact_pii because it uses pattern matching (third-party logic).
-        Mocking get_config/get_current_run_id because they read runtime state.
-        Everything else here uses the real implementation.
-        """
-        # Arrange
-        mock_get_config.return_value.feature_flags.enable_pii_redaction = True
-        markdown = "Jane Doe, jane@example.com, 555-1234"
-        redacted = "[REDACTED_NAME], [REDACTED_EMAIL], [REDACTED_PHONE]"
-        mapping = {
-            "[REDACTED_NAME]": "Jane Doe",
-            "[REDACTED_EMAIL]": "jane@example.com",
-        }
-        mock_redact_pii.return_value = (redacted, mapping)
-
-        # Act
-        result = _call_tool(ingestion_tools.redact_pii_from_resume_markdown, markdown)
-
-        # Assert
-        assert result == redacted
-        mock_save_pii_mapping.assert_called_once_with("test-run-id-12345", mapping)
-
-    def test_redact_pii_from_resume_markdown_with_flag_disabled_returns_unmodified(
-        self, mock_get_config, mock_redact_pii, mock_save_pii_mapping
-    ):
-        """
-        Contract: When PII redaction is disabled by feature flag,
-        tool returns Markdown unchanged without calling redaction engine.
-        """
-        # Arrange
-        mock_get_config.return_value.feature_flags.enable_pii_redaction = False
-        markdown = "Jane Doe, jane@example.com"
-
-        # Act
-        result = _call_tool(ingestion_tools.redact_pii_from_resume_markdown, markdown)
-
-        # Assert
-        assert result == markdown
-        mock_redact_pii.assert_not_called()
-        mock_save_pii_mapping.assert_not_called()
-
-    def test_redact_pii_from_resume_markdown_with_empty_mapping_still_saves(
-        self, mock_get_config, mock_get_current_run_id, mock_redact_pii, mock_save_pii_mapping
-    ):
-        """Tool should handle redaction that produces empty mapping."""
-        # Arrange
-        mock_get_config.return_value.feature_flags.enable_pii_redaction = True
-        markdown = "No PII here"
-        mock_redact_pii.return_value = (markdown, {})
-
-        # Act
-        result = _call_tool(ingestion_tools.redact_pii_from_resume_markdown, markdown)
-
-        # Assert
-        assert result == markdown
-        mock_save_pii_mapping.assert_called_once_with("test-run-id-12345", {})
-
-
 class TestExtractStructuredResumeFromMarkdown:
     """Tests for extract_structured_resume_from_markdown tool."""
 
@@ -156,56 +86,6 @@ class TestExtractStructuredResumeFromMarkdown:
         # Assert
         assert result == sample_resume_json
         mock_extract_resume.assert_called_once_with(markdown)
-
-    def test_extract_structured_resume_from_markdown_with_pii_redaction_enabled_asserts_redaction(
-        self,
-        mock_get_config,
-        mock_get_current_run_id,
-        mock_extract_resume,
-        mock_assert_extraction_input_redacted,
-        sample_resume_json,
-    ):
-        """
-        Contract: When PII redaction is enabled, tool verifies that input
-        Markdown has been redacted before processing.
-        Mocking assert_extraction_input_redacted because it reads state from store.
-        Everything else here uses the real implementation.
-        """
-        # Arrange
-        mock_get_config.return_value.feature_flags.enable_pii_redaction = True
-        redacted_markdown = "[REDACTED_NAME] is an engineer."
-
-        # Act
-        result = _call_tool(
-            ingestion_tools.extract_structured_resume_from_markdown, redacted_markdown
-        )
-
-        # Assert
-        assert result == sample_resume_json
-        mock_assert_extraction_input_redacted.assert_called_once_with(
-            "test-run-id-12345", redacted_markdown
-        )
-
-    def test_extract_structured_resume_from_markdown_with_pii_redaction_disabled_skips_assertion(
-        self,
-        mock_get_config,
-        mock_extract_resume,
-        mock_assert_extraction_input_redacted,
-        sample_resume_json,
-    ):
-        """
-        Contract: When PII redaction is disabled, tool skips redaction assertion.
-        """
-        # Arrange
-        mock_get_config.return_value.feature_flags.enable_pii_redaction = False
-        markdown = "Jane Doe is an engineer."
-
-        # Act
-        result = _call_tool(ingestion_tools.extract_structured_resume_from_markdown, markdown)
-
-        # Assert
-        assert result == sample_resume_json
-        mock_assert_extraction_input_redacted.assert_not_called()
 
 
 class TestCheckResumeMarkdownQuality:

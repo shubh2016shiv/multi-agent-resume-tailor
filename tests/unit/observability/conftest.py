@@ -69,7 +69,12 @@ def mock_logger_metrics():
 def mock_environment(monkeypatch):
     """Fixture to manage environment variables during tests."""
     # Clear LangSmith env vars before test
-    for key in ["LANGSMITH_TRACING", "LANGSMITH_API_KEY", "LANGSMITH_PROJECT", "LANGSMITH_ENDPOINT"]:
+    for key in [
+        "LANGSMITH_TRACING",
+        "LANGSMITH_API_KEY",
+        "LANGSMITH_PROJECT",
+        "LANGSMITH_ENDPOINT",
+    ]:
         monkeypatch.delenv(key, raising=False)
     yield monkeypatch
 
@@ -83,6 +88,7 @@ def reset_observability_state():
     """
     # Reset before
     import src.observability.langsmith_backend as backend
+
     original_state = backend._is_initialized
     backend._is_initialized = False
 
@@ -105,13 +111,16 @@ def mock_litellm_import():
 @pytest.fixture
 def mock_langsmith_traceable():
     """Mock langsmith.traceable decorator."""
+
     def traceable_decorator(run_type: str, name: str):
         def decorator(func):
             # Return a wrapped function that works like the original
             def wrapper(*args, **kwargs):
                 return func(*args, **kwargs)
+
             wrapper.__name__ = func.__name__
             return wrapper
+
         return decorator
 
     mock_langsmith = MagicMock()

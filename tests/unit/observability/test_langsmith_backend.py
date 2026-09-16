@@ -6,8 +6,6 @@ configuration flags, and library dependencies without crashing when they're miss
 
 import os
 
-import pytest
-
 from src.observability.langsmith_backend import init_observability, is_observability_enabled
 
 
@@ -91,6 +89,7 @@ class TestInitObservability:
         """
         # Arrange: make litellm import fail
         import sys
+
         monkeypatch.setitem(sys.modules, "litellm", None)
 
         # Act
@@ -160,7 +159,7 @@ class TestInitObservability:
         # mock_config has project="test-project"
 
         # Act
-        result = init_observability(project_name=None)
+        result = init_observability()
 
         # Assert
         assert result is True

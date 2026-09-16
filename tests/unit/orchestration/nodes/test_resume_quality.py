@@ -1,91 +1,55 @@
 """Contracts for the resume quality orchestration node."""
 
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
 import pytest
 
-from src.data_models.evaluation import QualityFeedback
-from src.orchestration.nodes.resume_quality import _request_quality_feedback
+from src.data_models.evaluation import (
+    AtsCheckStatus,
+    RenderedStructureEvaluation,
+)
+from src.orchestration.nodes.resume_quality.evaluate_resume_quality_node import (
+    evaluate_resume_quality,
+)
 from src.orchestration.state import ResumeEnhancementPipelineState
 
 
-def _state_with_required_feedback_inputs() -> ResumeEnhancementPipelineState:
-    """Return the minimum mapping consumed by the feedback request helper.
-
-    _request_quality_feedback reads only run_id, optimized_resume, resume,
-    and job_description, so the other state fields are left unset -- the
-    cast documents that this is a deliberately partial state, not a bug.
-    """
-    return cast(
-        ResumeEnhancementPipelineState,
-        {
-            "run_id": "test-run",
-            "optimized_resume": object(),
-            "resume": object(),
-            "job_description": object(),
-        },
+@pytest.mark.parametrize(
+    ("ats_status", "relevance_is_conclusive", "expected"),
+    [
+        (AtsCheckStatus.INCONCLUSIVE, True, True),
+        (AtsCheckStatus.PASS, False, True),
+        (AtsCheckStatus.PASS, True, False),
+    ],
+)
+def test_quality_escalates_only_unverifiable_results(
+    ats_status: AtsCheckStatus,
+    relevance_is_conclusive: bool,
+    expected: bool,
+) -> None:
+    """ATS or relevance uncertainty should require human review."""
+    report = SimpleNamespace(relevance=SimpleNamespace(is_conclusive=relevance_is_conclusive))
+    structure = RenderedStructureEvaluation(
+        status=ats_status,
+        violations=[],
+        ats_score=100.0,
+        detail="Test structure result.",
     )
-
-
-def test_feedback_request_returns_agent_feedback() -> None:
-    """Successful advisory execution returns the agent's narrow feedback model."""
-    expected = QualityFeedback(
-        assessment_summary="Strong source-faithful tailoring.",
-        feedback_for_improvement=None,
-    )
-    with (
-        patch(
-            "src.orchestration.nodes.resume_quality.format_quality_feedback_context",
-            return_value="context",
-        ),
-        patch("src.orchestration.nodes.resume_quality.create_quality_feedback_agent"),
-        patch(
-            "src.orchestration.nodes.resume_quality.run_agent_task",
-            return_value=expected,
-        ),
-    ):
-        feedback = _request_quality_feedback(_state_with_required_feedback_inputs())
-
-    assert feedback == expected
-
-
-def test_feedback_failure_returns_neutral_advisory_fallback() -> None:
-    """An advisory-agent failure returns fallback prose instead of blocking evaluation."""
-    with (
-        patch(
-            "src.orchestration.nodes.resume_quality.format_quality_feedback_context",
-            return_value="context",
-        ),
-        patch(
-            "src.orchestration.nodes.resume_quality.create_quality_feedback_agent",
-            side_effect=RuntimeError("agent unavailable"),
-        ),
-    ):
-        feedback = _request_quality_feedback(_state_with_required_feedback_inputs())
-
-    assert feedback.assessment_summary == "Automated narrative feedback was unavailable."
-    assert feedback.feedback_for_improvement is None
-
-
-def test_missing_run_id_raises_instead_of_returning_the_advisory_fallback() -> None:
-    """A missing state key is a programming error, not an advisory-agent failure.
-
-    Regression test: run_id used to be read inside the try block, so a missing
-    key raised KeyError there and the broad `except Exception` caught it,
-    silently returning the neutral fallback text instead of surfacing the bug.
-    """
     state = cast(
         ResumeEnhancementPipelineState,
         {
-            "optimized_resume": object(),
+            "run_id": "test-run",
             "resume": object(),
+            "optimized_resume": SimpleNamespace(final_resume=object()),
             "job_description": object(),
         },
     )
     with patch(
-        "src.orchestration.nodes.resume_quality.format_quality_feedback_context",
-        return_value="context",
+        "src.orchestration.nodes.resume_quality.evaluate_resume_quality_node.ground_quality_scores",
+        return_value=(report, structure),
     ):
-        with pytest.raises(KeyError):
-            _request_quality_feedback(state)
+        result = evaluate_resume_quality(state)
+
+    assert result["human_review_required"] is expected

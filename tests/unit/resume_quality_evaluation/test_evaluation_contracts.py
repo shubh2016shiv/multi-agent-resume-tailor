@@ -13,13 +13,12 @@ from unittest.mock import patch
 from src.data_models.evaluation import (
     AtsCheckStatus,
     JobAlignmentEvaluation,
-    QualityFeedback,
     RenderedStructureEvaluation,
     TruthfulnessEvaluation,
 )
 from src.data_models.job import JobDescription, JobRequirement, SkillImportance
 from src.data_models.resume import Resume, Skill
-from src.orchestration.nodes.resume_quality import _ground_quality_dimensions
+from src.orchestration.nodes.resume_quality.ground_quality_scores import ground_quality_scores
 from src.resume_quality_evaluation import (
     calculate_overall_quality_score,
     evaluate_job_alignment,
@@ -36,8 +35,22 @@ def _resume(summary: str = "Built Python APIs.", skills: tuple[str, ...] = ("Pyt
     return Resume(
         full_name="Jane Doe",
         email="jane@example.com",
+        phone_number=None,
+        location=None,
+        website_or_portfolio=None,
         professional_summary=summary,
-        skills=[Skill(skill_name=skill) for skill in skills],
+        skills=[
+            Skill(
+                skill_name=skill,
+                canonicalized_skill=None,
+                category=None,
+                proficiency_level=None,
+                years_of_experience=None,
+                justification=None,
+                confidence_score=None,
+            )
+            for skill in skills
+        ],
     )
 
 
@@ -46,17 +59,10 @@ def _job(keywords: tuple[str, ...]) -> JobDescription:
     return JobDescription(
         job_title="Backend Engineer",
         company_name="Example Co",
+        location=None,
         summary="Build backend services.",
         full_text="Backend role.",
         ats_keywords=list(keywords),
-    )
-
-
-def _quality_feedback() -> QualityFeedback:
-    """Return advisory prose without numeric scores or a release decision."""
-    return QualityFeedback(
-        assessment_summary="Agent-authored narrative survives.",
-        feedback_for_improvement="Agent-authored feedback survives.",
     )
 
 
@@ -156,9 +162,24 @@ def test_structured_requirements_use_importance_weighting() -> None:
     """Must-have requirements contribute more weight than optional requirements."""
     job = _job(("Python", "AWS"))
     job.requirements = [
-        JobRequirement(requirement="Python", importance=SkillImportance.MUST_HAVE),
-        JobRequirement(requirement="AWS", importance=SkillImportance.SHOULD_HAVE),
-        JobRequirement(requirement="Terraform", importance=SkillImportance.NICE_TO_HAVE),
+        JobRequirement(
+            requirement="Python",
+            canonicalized_requirement=None,
+            importance=SkillImportance.MUST_HAVE,
+            years_required=None,
+        ),
+        JobRequirement(
+            requirement="AWS",
+            canonicalized_requirement=None,
+            importance=SkillImportance.SHOULD_HAVE,
+            years_required=None,
+        ),
+        JobRequirement(
+            requirement="Terraform",
+            canonicalized_requirement=None,
+            importance=SkillImportance.NICE_TO_HAVE,
+            years_required=None,
+        ),
     ]
 
     with patch(_JOB_ALIGNMENT_MATCHER, _matcher_evidencing("Python", "AWS")):
@@ -175,8 +196,18 @@ def test_unmatched_requirement_is_a_gap_and_stays_conclusive() -> None:
     """An unmatched requirement is reported missed; the result stays conclusive (no abstain)."""
     job = _job(())
     job.requirements = [
-        JobRequirement(requirement="Python", importance=SkillImportance.MUST_HAVE),
-        JobRequirement(requirement="Leadership", importance=SkillImportance.NICE_TO_HAVE),
+        JobRequirement(
+            requirement="Python",
+            canonicalized_requirement=None,
+            importance=SkillImportance.MUST_HAVE,
+            years_required=None,
+        ),
+        JobRequirement(
+            requirement="Leadership",
+            canonicalized_requirement=None,
+            importance=SkillImportance.NICE_TO_HAVE,
+            years_required=None,
+        ),
     ]
 
     with patch(_JOB_ALIGNMENT_MATCHER, _matcher_evidencing("Python")):
@@ -235,8 +266,8 @@ def test_weighted_score_uses_current_product_policy() -> None:
     assert calculate_overall_quality_score(100.0, 50.0, 0.0) == 57.5
 
 
-def test_grounding_builds_scores_independently_and_keeps_narrative() -> None:
-    """Grounding builds every numeric dimension independently of LLM prose."""
+def test_grounding_builds_scores_and_feedback_without_llm_prose() -> None:
+    """Grounding produces every report field from deterministic evaluations."""
     accuracy = TruthfulnessEvaluation(
         accuracy_score=90.0,
         exaggerated_claims=[],
@@ -257,25 +288,29 @@ def test_grounding_builds_scores_independently_and_keeps_narrative() -> None:
     )
     with (
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_resume_truthfulness",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores."
+            "evaluate_resume_truthfulness",
             return_value=accuracy,
         ),
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_job_alignment",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores.evaluate_job_alignment",
             return_value=relevance,
         ),
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_rendered_structure",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores."
+            "evaluate_rendered_structure",
             return_value=ats,
         ),
     ):
-        report, _ = _ground_quality_dimensions(_quality_feedback(), _resume(), _resume(), _job(()))
+        report, _ = ground_quality_scores(_resume(), _resume(), _job(()))
 
     assert report.overall_quality_score == 89.0
     assert report.accuracy == accuracy
     assert report.relevance == relevance
-    assert report.assessment_summary == "Agent-authored narrative survives."
-    assert report.feedback_for_improvement == "Agent-authored feedback survives."
+    assert report.assessment_summary == (
+        "Deterministic quality scores: accuracy 90.0, relevance 80.0, ATS 100.0, overall 89.0."
+    )
+    assert report.feedback_for_improvement is None
 
 
 def test_non_pass_rendered_status_hard_blocks_quality_gate() -> None:
@@ -284,29 +319,38 @@ def test_non_pass_rendered_status_hard_blocks_quality_gate() -> None:
         accuracy_score=100.0, exaggerated_claims=[], unsupported_skills=[], justification="ok"
     )
     perfect_relevance = JobAlignmentEvaluation(
-        relevance_score=100.0, must_have_skills_coverage=100.0, missed_requirements=[], justification="ok"
+        relevance_score=100.0,
+        must_have_skills_coverage=100.0,
+        missed_requirements=[],
+        justification="ok",
     )
     inconclusive_ats = RenderedStructureEvaluation(
-        status=AtsCheckStatus.INCONCLUSIVE, violations=[], ats_score=100.0, detail="Could not verify."
+        status=AtsCheckStatus.INCONCLUSIVE,
+        violations=[],
+        ats_score=100.0,
+        detail="Could not verify.",
     )
     with (
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_resume_truthfulness",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores."
+            "evaluate_resume_truthfulness",
             return_value=perfect_accuracy,
         ),
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_job_alignment",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores.evaluate_job_alignment",
             return_value=perfect_relevance,
         ),
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_rendered_structure",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores."
+            "evaluate_rendered_structure",
             return_value=inconclusive_ats,
         ),
     ):
-        report, _ = _ground_quality_dimensions(_quality_feedback(), _resume(), _resume(), _job(()))
+        report, _ = ground_quality_scores(_resume(), _resume(), _job(()))
 
     assert report.overall_quality_score == 100.0
     assert report.passes_quality_gate is False
+    assert report.feedback_for_improvement == "- Could not verify."
 
 
 def test_inconclusive_job_alignment_hard_blocks_quality_gate() -> None:
@@ -315,21 +359,29 @@ def test_inconclusive_job_alignment_hard_blocks_quality_gate() -> None:
         accuracy_score=100.0, exaggerated_claims=[], unsupported_skills=[], justification="ok"
     )
     passing_ats = RenderedStructureEvaluation(
-        status=AtsCheckStatus.PASS, violations=[], ats_score=100.0, detail="Rendered structure passed."
+        status=AtsCheckStatus.PASS,
+        violations=[],
+        ats_score=100.0,
+        detail="Rendered structure passed.",
     )
     with (
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_resume_truthfulness",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores."
+            "evaluate_resume_truthfulness",
             return_value=accuracy,
         ),
         patch(
-            "src.orchestration.nodes.resume_quality.evaluate_rendered_structure",
+            "src.orchestration.nodes.resume_quality.ground_quality_scores."
+            "evaluate_rendered_structure",
             return_value=passing_ats,
         ),
     ):
         # evaluate_job_alignment runs for real on a job with no requirements/keywords ->
         # the empty (inconclusive) path, which makes no embedding call.
-        report, _ = _ground_quality_dimensions(_quality_feedback(), _resume(), _resume(), _job(()))
+        report, _ = ground_quality_scores(_resume(), _resume(), _job(()))
 
     assert report.relevance.is_conclusive is False
     assert report.passes_quality_gate is False
+    assert "Job alignment could not be scored conclusively." in (
+        report.feedback_for_improvement or ""
+    )

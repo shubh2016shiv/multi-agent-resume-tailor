@@ -64,6 +64,7 @@ def sample_resume() -> Resume:
         skills=[
             Skill(
                 skill_name="Python",
+                canonicalized_skill=None,
                 category=None,
                 proficiency_level="Expert",
                 years_of_experience=5,
@@ -72,6 +73,7 @@ def sample_resume() -> Resume:
             ),
             Skill(
                 skill_name="AWS",
+                canonicalized_skill=None,
                 category=None,
                 proficiency_level="Advanced",
                 years_of_experience=4,
@@ -80,6 +82,7 @@ def sample_resume() -> Resume:
             ),
             Skill(
                 skill_name="REST APIs",
+                canonicalized_skill=None,
                 category=None,
                 proficiency_level="Advanced",
                 years_of_experience=5,
@@ -112,10 +115,21 @@ def sample_job_description() -> JobDescription:
         summary="Build reliable backend systems and APIs.",
         full_text="Need Python, AWS, and API design experience.",
         requirements=[
-            JobRequirement(requirement="Python", importance=SkillImportance.MUST_HAVE, years_required=3),
-            JobRequirement(requirement="AWS", importance=SkillImportance.SHOULD_HAVE, years_required=None),
+            JobRequirement(
+                requirement="Python",
+                canonicalized_requirement=None,
+                importance=SkillImportance.MUST_HAVE,
+                years_required=3,
+            ),
+            JobRequirement(
+                requirement="AWS",
+                canonicalized_requirement=None,
+                importance=SkillImportance.SHOULD_HAVE,
+                years_required=None,
+            ),
             JobRequirement(
                 requirement="GraphQL",
+                canonicalized_requirement=None,
                 importance=SkillImportance.NICE_TO_HAVE,
                 years_required=None,
             ),
@@ -199,9 +213,7 @@ def sample_optimized_experience(sample_resume: Resume) -> OptimizedExperienceSec
         optimized_experiences=sample_resume.work_experience,
         optimization_notes="Reordered only.",
         keywords_integrated=[],
-        relevance_scores=[
-            ExperienceRelevance(company_name="Tech Corp", relevance_score=92.0)
-        ],
+        relevance_scores=[ExperienceRelevance(company_name="Tech Corp", relevance_score=92.0)],
     )
 
 

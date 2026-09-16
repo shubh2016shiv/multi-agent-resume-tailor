@@ -192,9 +192,7 @@ class TestMergeReviewResults:
 class TestAuditSummary:
     """Tests for audit_summary tool."""
 
-    def test_audit_summary_reviews_summary_text_and_invokes_engine(
-        self, mock_audit_summary_text
-    ):
+    def test_audit_summary_reviews_summary_text_and_invokes_engine(self, mock_audit_summary_text):
         """
         Contract: Tool accepts summary text and invokes the audit engine,
         returning formatted result for agent consumption.
@@ -205,7 +203,9 @@ class TestAuditSummary:
         mock_audit_summary_text.return_value = ReviewResult(
             comments=[], summary="Summary is well-written"
         )
-        summary_text = "Platform engineer trusted to steady production delivery under cloud change pressure."
+        summary_text = (
+            "Platform engineer trusted to steady production delivery under cloud change pressure."
+        )
 
         # Act
         result = _call_tool(resume_review_tools.audit_summary, summary_text)

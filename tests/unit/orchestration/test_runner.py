@@ -1,24 +1,26 @@
-"""Contracts for the run-lifecycle and run-result helpers runner.py delegates to.
+"""Contracts for the checkpoint and result helpers used by the runner.
 
-These encode rules that are easy to get subtly wrong and expensive when wrong: a
-deleted checkpoint makes a paused run unresumable, and a deleted PII mapping makes
-every later resume unable to rehydrate.
+These encode checkpoint retention and public-result rules that are expensive to get
+wrong because deleting a paused checkpoint makes a run unresumable.
 """
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.data_models.job import JobDescription, JobLevel
 from src.data_models.orchestration import OrchestrationResult, RunDisposition
 from src.data_models.resume import Resume
 from src.data_models.strategy import AlignmentStrategy
 from src.hitl.professional_experience.persistence import PausedRunLayout
-from src.orchestration.run_lifecycle import (
-    _settle_fresh_run_checkpoint,
-    _settle_resumed_run_checkpoint,
-    _should_cleanup_pii_mapping,
-    _should_cleanup_pii_mapping_after_resume,
+from src.orchestration.checkpointing import _settle_fresh_checkpoint, _settle_resumed_checkpoint
+from src.orchestration.run_results import (
+    _derive_run_disposition,
+    _persist_result,
+    _result_output_dir,
 )
-from src.orchestration.run_results import _result_output_dir
+from src.orchestration.runner import _execute_run, _invoke_pipeline, _RunPlan
 
 
 def _resume_model(full_name: str = "Jane Doe") -> Resume:
@@ -88,6 +90,62 @@ def _paused_result(paused_run_path: str) -> OrchestrationResult:
     )
 
 
+# --- runner safety ----------------------------------------------------------
+
+
+def test_compile_failure_closes_and_settles_checkpoint(tmp_path: Path) -> None:
+    """A graph compilation error must not leak the run's SQLite connection."""
+    checkpointer = MagicMock()
+    checkpoint_path = tmp_path / "run.sqlite3"
+    plan = _RunPlan(
+        run_id="run-1",
+        resume_path="resume.pdf",
+        jd_path="job.txt",
+        checkpointer=checkpointer,
+        pipeline_input={},
+        started_log_fields={},
+        in_flight_checkpoint_db=checkpoint_path,
+    )
+    with (
+        patch(
+            "src.orchestration.runner.build_resume_enhancement_graph",
+            side_effect=RuntimeError("compile failed"),
+        ),
+        patch("src.orchestration.runner.close_checkpoint_database") as close_checkpoint,
+        patch("src.orchestration.runner.settle_checkpoint") as settle,
+    ):
+        with pytest.raises(RuntimeError, match="compile failed"):
+            _execute_run(plan, None)
+
+    close_checkpoint.assert_called_once_with(checkpointer)
+    settle.assert_called_once_with(
+        None,
+        in_flight_path=checkpoint_path,
+        paused_layout=None,
+    )
+
+
+def test_progress_callback_failure_does_not_abort_pipeline() -> None:
+    """A broken UI callback must not discard a valid pipeline result."""
+    pipeline = MagicMock()
+    pipeline.stream.return_value = iter(
+        [("tasks", {"name": "extract_resume"}), ("values", {"run_id": "run-1"})]
+    )
+    callback = MagicMock(side_effect=RuntimeError("UI disconnected"))
+
+    with patch("src.orchestration.runner.logger.warning") as warning:
+        output = _invoke_pipeline(
+            pipeline,
+            {},
+            {"configurable": {"thread_id": "run-1"}},
+            callback,
+        )
+
+    assert output == {"run_id": "run-1"}
+    callback.assert_called_once_with("started", "extract_resume")
+    warning.assert_called_once()
+
+
 # --- fresh-run checkpoint settling -------------------------------------------
 
 
@@ -100,7 +158,7 @@ def test_fresh_run_that_paused_archives_its_checkpoint_into_the_paused_run(
     checkpoint_db.write_bytes(b"checkpoint")
     paused_run = tmp_path / "paused_run_abc"
 
-    _settle_fresh_run_checkpoint(checkpoint_db, _paused_result(str(paused_run)))
+    _settle_fresh_checkpoint(checkpoint_db, _paused_result(str(paused_run)))
 
     assert not checkpoint_db.exists()
     assert PausedRunLayout.at(paused_run).checkpoint_db.read_bytes() == b"checkpoint"
@@ -111,7 +169,7 @@ def test_fresh_run_that_completed_deletes_its_checkpoint(tmp_path: Path) -> None
     checkpoint_db = tmp_path / "run.sqlite3"
     checkpoint_db.write_bytes(b"checkpoint")
 
-    _settle_fresh_run_checkpoint(checkpoint_db, _result(disposition=RunDisposition.RENDERED))
+    _settle_fresh_checkpoint(checkpoint_db, _result(disposition=RunDisposition.RENDERED))
 
     assert not checkpoint_db.exists()
 
@@ -121,14 +179,14 @@ def test_fresh_run_that_crashed_deletes_its_checkpoint(tmp_path: Path) -> None:
     checkpoint_db = tmp_path / "run.sqlite3"
     checkpoint_db.write_bytes(b"checkpoint")
 
-    _settle_fresh_run_checkpoint(checkpoint_db, None)
+    _settle_fresh_checkpoint(checkpoint_db, None)
 
     assert not checkpoint_db.exists()
 
 
 def test_settling_a_missing_checkpoint_is_not_an_error(tmp_path: Path) -> None:
     """The finally block runs even when the checkpoint was never created."""
-    _settle_fresh_run_checkpoint(tmp_path / "never_created.sqlite3", None)
+    _settle_fresh_checkpoint(tmp_path / "never_created.sqlite3", None)
 
 
 # --- resumed-run checkpoint settling ----------------------------------------
@@ -140,7 +198,7 @@ def test_resumed_run_that_completed_deletes_the_paused_run_checkpoint(tmp_path: 
     layout.root.mkdir(parents=True)
     layout.checkpoint_db.write_bytes(b"checkpoint")
 
-    _settle_resumed_run_checkpoint(layout, _result(disposition=RunDisposition.RENDERED))
+    _settle_resumed_checkpoint(layout, _result(disposition=RunDisposition.RENDERED))
 
     assert not layout.checkpoint_db.exists()
 
@@ -151,7 +209,7 @@ def test_resumed_run_that_paused_again_keeps_its_checkpoint(tmp_path: Path) -> N
     layout.root.mkdir(parents=True)
     layout.checkpoint_db.write_bytes(b"checkpoint")
 
-    _settle_resumed_run_checkpoint(layout, _paused_result(str(layout.root)))
+    _settle_resumed_checkpoint(layout, _paused_result(str(layout.root)))
 
     assert layout.checkpoint_db.exists()
 
@@ -162,49 +220,35 @@ def test_resumed_run_that_crashed_keeps_its_checkpoint(tmp_path: Path) -> None:
     layout.root.mkdir(parents=True)
     layout.checkpoint_db.write_bytes(b"checkpoint")
 
-    _settle_resumed_run_checkpoint(layout, None)
+    _settle_resumed_checkpoint(layout, None)
 
     assert layout.checkpoint_db.exists()
-
-
-# --- PII mapping cleanup ----------------------------------------------------
-
-
-def test_fresh_run_keeps_the_pii_mapping_only_while_the_run_is_resumable() -> None:
-    """A paused fresh run still needs its mapping; every other outcome cleans up.
-
-    A crashed fresh run (None) cleans up too: there is no paused run left that
-    rehydrate_pii could need the mapping for.
-    """
-    paused = _paused_result("paused_run_abc")
-
-    assert _should_cleanup_pii_mapping(paused) is False
-    assert _should_cleanup_pii_mapping(_result(disposition=RunDisposition.RENDERED)) is True
-    assert _should_cleanup_pii_mapping(None) is True
-
-
-def test_resumed_run_keeps_the_pii_mapping_unless_the_run_is_terminal() -> None:
-    """Unlike a fresh run, a crashed resume KEEPS the mapping.
-
-    The paused run survives a failed resume, so deleting the mapping here would
-    leave every later resume unable to rehydrate PII.
-    """
-    paused = _paused_result("paused_run_abc")
-
-    assert _should_cleanup_pii_mapping_after_resume(None) is False
-    assert _should_cleanup_pii_mapping_after_resume(paused) is False
-    assert (
-        _should_cleanup_pii_mapping_after_resume(_result(disposition=RunDisposition.RENDERED))
-        is True
-    )
 
 
 # --- result output directory ------------------------------------------------
 
 
+def test_run_disposition_uses_blocking_precedence() -> None:
+    """Human review, gate failure, and candidate input should win in that order."""
+    assert _derive_run_disposition(True, True, False) is RunDisposition.NEEDS_HUMAN_REVIEW
+    assert _derive_run_disposition(False, False, True) is RunDisposition.QUALITY_GATE_FAILED
+    assert _derive_run_disposition(False, True, True) is RunDisposition.NEEDS_CANDIDATE_INPUT
+    assert _derive_run_disposition(False, True, False) is RunDisposition.RENDERED
+
+
 def test_paused_result_is_persisted_inside_its_paused_run_directory() -> None:
     """A paused run's result JSON lands in the folder the candidate works in."""
     assert _result_output_dir(_paused_result("some/paused_run_abc")) == Path("some/paused_run_abc")
+
+
+def test_result_persistence_reuses_one_path_per_run(tmp_path: Path) -> None:
+    """A retry overwrites the same result JSON instead of creating a duplicate."""
+    result = _paused_result(str(tmp_path))
+
+    _persist_result(result, "run-1")
+    _persist_result(result, "run-1")
+
+    assert list(tmp_path.glob("run_*.json")) == [tmp_path / "run_run-1.json"]
 
 
 def test_completed_result_is_persisted_beside_the_rendered_artifacts(

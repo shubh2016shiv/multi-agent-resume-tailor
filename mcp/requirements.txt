@@ -1,0 +1,4 @@
+fastmcp>=4.1.6,<5
+pydantic>=2.7
+markitdown[pdf,docx]>=0.1
+python-docx>=1.1

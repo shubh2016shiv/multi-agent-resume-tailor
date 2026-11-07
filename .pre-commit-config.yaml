@@ -13,3 +13,9 @@ repos:
     hooks:
       - id: pyright
         name: pyright (type-check)
+        exclude: ^mcp/
+      # The MCP server has its own dependencies and virtualenv (mcp/.venv).
+      - id: pyright
+        name: pyright (type-check mcp)
+        files: ^mcp/
+        args: [--project, mcp]
